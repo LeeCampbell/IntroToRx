@@ -1,0 +1,86 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A73721ED-A8EE-4122-91AD-32AE3C8DEA34}"
+	ProjectSection(SolutionItems) = preProject
+		GenerateBook.bat = GenerateBook.bat
+		Todo.txt = Todo.txt
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "content", "content", "{A240E642-BFF3-460E-8946-49BBC443F624}"
+	ProjectSection(SolutionItems) = preProject
+		content\00_Foreword.html = content\00_Foreword.html
+		content\01_WhyRx.html = content\01_WhyRx.html
+		content\02_KeyTypes.html = content\02_KeyTypes.html
+		content\03_LifetimeManagement.html = content\03_LifetimeManagement.html
+		content\04_CreatingObservableSequences.html = content\04_CreatingObservableSequences.html
+		content\05_Filtering.html = content\05_Filtering.html
+		content\06_Inspection.html = content\06_Inspection.html
+		content\07_Aggregation.html = content\07_Aggregation.html
+		content\08_Transformation.html = content\08_Transformation.html
+		content\09_SideEffects.html = content\09_SideEffects.html
+		content\10_LeavingTheMonad.html = content\10_LeavingTheMonad.html
+		content\11_AdvancedErrorHandling.html = content\11_AdvancedErrorHandling.html
+		content\12_CombiningSequences.html = content\12_CombiningSequences.html
+		content\13_TimeShiftedSequences.html = content\13_TimeShiftedSequences.html
+		content\14_HotAndColdObservables.html = content\14_HotAndColdObservables.html
+		content\15_SchedulingAndThreading.html = content\15_SchedulingAndThreading.html
+		content\16_TestingRx.html = content\16_TestingRx.html
+		content\17_SequencesOfCoincidence.html = content\17_SequencesOfCoincidence.html
+		content\18_UsageGuidelines.html = content\18_UsageGuidelines.html
+		content\19_DispellingMyths.html = content\19_DispellingMyths.html
+		content\20_Disposables.html = content\20_Disposables.html
+		content\Kindle.css = content\Kindle.css
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KindleGenerator", "KindleGenerator\KindleGenerator\KindleGenerator.csproj", "{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KindleGenerator.Tests", "KindleGenerator\KindleGenerator\KindleGenerator.Tests\KindleGenerator.Tests.csproj", "{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntroToRx", "WebSite\IntroToRx\IntroToRx.csproj", "{CE429636-B291-49B4-9279-314D91D28EBA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|Mixed Platforms = Debug|Mixed Platforms
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|Mixed Platforms = Release|Mixed Platforms
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Debug|x86.ActiveCfg = Debug|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Debug|x86.Build.0 = Debug|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Release|Any CPU.ActiveCfg = Release|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Release|Mixed Platforms.ActiveCfg = Release|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Release|Mixed Platforms.Build.0 = Release|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Release|x86.ActiveCfg = Release|x86
+		{95C71F8A-AD76-4B3D-8E36-1AF692D41B00}.Release|x86.Build.0 = Release|x86
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|x86.ActiveCfg = Release|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|x86.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

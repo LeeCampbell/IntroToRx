@@ -1,0 +1,587 @@
+G.A.
+	Stilted prose.
+	In particular, convoluted turns of phrase are legion. This makes you come off as not entirely confident -- but you should be, this book is good stuff.
+ 
+ 
+	The 'prose' paragraphs are not always good at setting up what’s coming/offering additional insight. In that case they’re just filler.
+ 
+ 
+	Each paragraph should have a purpose, and if something doesn't help getting the point across it needs to go.
+	Maybe you have this in your writing notes, something like 'this paragraph needs to highlight the importance of X' or 'this should prepare for the introduction of concept Y by presenting a problem that it could help solving'. I suggest you re-examine the prose bits in that light: does every paragraph do its job, or is the main idea lost? What can I cut/expand?
+ 
+	At some points you have a bad case of Columbo syndrome ('just one more thing').
+	I think you are aware of how busy some paragraphs are and shorten sentences so that length-wise they remain reasonable, but that makes them look even more like laundry lists of tenuously-related ideas.
+ 
+	The anecdotes/extra tidbits of info are interesting, so I suggest keeping them (a reasonable number of them) but have them occupy 'did you know?' type areas.
+	You can keep those tangential remarks in the main blobs of text, but only if you manage to not break the flow by doing so.
+ 
+===============================================================================
+
+
+TODO:
+MUST
+	Write a summary. Effectively reword the intro.
+	
+	Get Rhys to validate the testing Rx specifically for test vernacular
+	Get Kristian to validate the Event appendix
+	Get James to validate the Seq of Coincidence
+
+	Acknowledge Joe and Gregory in the preface
+	**Validate forward and back references. eg "in a future chapter we will cover xxx", check that we do infact do this.**
+	Generate the home page. i.e. The Navigation should be generated, the GoogleAnalytics should be included etc..
+	make sure method names outside code snippets are consistent? I think that sometimes you include parentheses and sometimes you don’t.
+	Thread Pool or ThreadPool or Thread-Pool --> same for task pool.
+	Update the HR page break style to have a large margin for screen (to give the impression of a gap)
+	Marble diagram --> marble diagram
+
+	Link section
+		Offical documentation : 	http://msdn.microsoft.com/en-us/library/hh242985(v=vs.103)
+		Official home page : 		http://msdn.microsoft.com/en-us/data/gg577609.aspx
+		Official Forums :		http://social.msdn.microsoft.com/Forums/en-US/rx/
+		Official Rx Team Blog : 	http://blogs.msdn.com/b/rxteam/
+		Offical Design guidelines 	http://go.microsoft.com/fwlink/?LinkID=205219
+		Contribution library : 		http://rxx.codeplex.com/
+		C9 Videos :			http://channel9.msdn.com/tags/Rx/
+		Rx Resources and Community 	http://msdn.microsoft.com/en-US/data/gg577612
+		101 Samples (shouldn't need this any more!) http://rxwiki.wikidot.com/101samples
+		LinqPad				http://www.linqpad.net/
+
+		Great background reading:
+			APM
+			MinLINQ
+			ASYNC/AWAIT
+			CLR via C# for GC
+		
+SHOULD
+	side effects or side-effects?
+	Hot & Cold observables --> Hot & Cold sequences.
+	connectable observables --> connectable sequences?  ==> observables for sequences?
+	** excessive use of "Apply"/"Applying"
+	**Review SelectMany with Concurrent Streams eg. from x in Interval(1) from y in Interval(0.3)**
+			if I do add more to Creation of Obserables, then move transition to Obseravbles to it's own chapter.
+	**In chapter 8 we say that Select is just the same as SelectMany with an operator that returns a single value immediately. We should introduce SelectMany + Observable.Start**
+	**Each chapter NEEDS an argument or a proposition that must be argued or proved. Chapter 1 nails it, but then it falls away. **
+		** are references to OnNext/OnError/OnCompleted wrapped in <em> or <code> tags? **
+	** Have a links section/appendix pointing to Forums/C9/Wiki/Rxx etc **
+COULD - v2
+	**Provide an example of infinite sequence and unfold as the Fibonacci sequence**
+	**Ultimately we want to be able to build Create, Aggregate/Scan, Where/Skip/Take and SelectMany. This means readers wil have a full understanding of the functional composition.**
+	**Add an example of building Median & Mode, once we have looked at Select and Aggregate.**
+	**Each chapter or potentially the book's conclusion should have a "Call to Action" a request to the user, a geusture to motivate the user to get their hands on the keyboard.**
+WOULD/WONT - v2.0+
+	Split the Scheduling chapter into 2. It is too hard to edit, and probably too hard to read in one go. (John Grisham page turner theory)
+	Use the term 'push' instead of OnNext or publish. This should be clarified in the intro.
+	I/You/We what are we using?
+	** Coder vs developer vs user vs consumer. What to use? **
+	TestScheduler/VirtSched discuss rewinding time?
+	3 vs three. Use digits for math values/examples (10 seconds) otherwise words (four overloads, called five times)
+	Can't don't --> can not and do not
+	** code samples can't extend past character 100 (works out to be the ideal col-size for the web display)**
+	mark up all references to operators, types and keyword. So we can produce an index.
+
+Examples that could be covered:
+	Running aggregate (Min/Max/Sum/Count/Avg) of grouped data. i.e. Running OHLC of prices grouped by symbol.
+	Reading from file
+	Drag and drop
+	grep & tail?
+	standard old fetch collection and load into ObservableCollection<T> for WPF
+	Game server host select many example? 
+		from host where GetGameHosts()
+		from gameInstance in host.Games.Where(g=>g.Name=="xmen")
+		where gameInstance.Ping < 150ms
+		select new {host, gameInstance};
+
+x	Titles - ensure that all the title's are coherent and consistent.
+		var regex = new Regex(@"<title>(?<title>.*)</title>");
+		var files = Directory.EnumerateFiles(@"C:\Users\Lee\Documents\ArtemisWest\Marketing\Books\Introduction To Rx\content", "*.html");
+	
+		var q = from file in files
+				let content = File.ReadAllText(file)
+				from matchGroup in regex.Match(content).Groups.OfType<Group>().Skip(1)
+				select matchGroup.Value;
+		q.Dump();
+
+00_Forward
+	Add comments that Rx could be used for 
+		I/O
+			File and Networks
+			Messaging systems
+		Business applications
+			Real time Spell check
+			Responsive UIs
+		Search
+			"Google suggest"
+			Multi source search ie Type in "Lee Campbell Rx" and hit Bing, Google, Yahoo, Wikipedia and merge the results.
+		Social media
+			Chat
+			Location based services
+		Finance
+			Streaming Financial data (prices, research, bids, offers etc...)
+			Calculating real time risk
+		Science
+			Speech recognition
+			Map routing
+
+01_keyTypes
+	AsyncSubject is also cached! How did I not know that? You can subscribe after it completes and still get the OnNext+OnCompleted.
+	It is a simple interface with just a <a href="http://msdn.microsoft.com/en-us/library/dd782981(v=VS.100).aspx">Subscribe</a> method. 
+		should ideally link to a subscribe chapter in the book, which can then link to the MS doc if it exists
+	Create a Link or a tooltip explaining what the BCL is
+
+Rx Part 2 Lifetime
+	you should still dispose of you subscription --> you should still dispose of your subscription
+
+Part Ext Methods
+	This IDisposable will have it’s Dispose --> This IDisposable will have its Dispose
+	Functional example of faking ticking prices without side effects ie Interval() and scan together somehow?
+	ToObservable<T>(IE<T>) -> add warning that switching paradigm is not free, and you need to be carefull to avoid deadlocks --put something in 06 on how this could deadlock.
+	
+Rx part 4
+	instead of just specifying an intial and a failover stream --> instead of just specifying an initial and a failover stream
+	into wrapped publications of a Notifcation<T> type  --> into wrapped publications of a Notification<T> type
+	As you can imagine the Materialise method --> As you can imagine the Materialize method
+	you would other wise pass to OnCompleted --> you would otherwise pass to OnCompleted
+
+Rx part 7
+	Mention ISubject with Multicast/Publish/Connect/Replay etc.. Link to it in part 1.
+
+
+Rx_Appendix2 
+	What Rx is not
+
+	How Rx compares to TPL
+		Reacting to Streams of data vs Asyncronous continuations of work
+		Async/Await
+	How Rx compares to C++ AMP / CUDA / OpenCL
+	CCR ? Axum? MapReduce? Disruptor? Actors? Mailbox F#? CHESS?
+
+Rx_Appendix3
+	Contributions to Rx
+
+	Rx experimental (with async/await support)
+	Rxx
+	Search github/codeplex/code.google.com/sourceforge for other examples.
+
+*.css
+  get the toc to indent number ie 1.2.3. That would be nice.
+  have a marble css class (ie so it wont be processed as c#)
+	needs to be mono spaced
+				allow for lines
+				non wrapping
+				ignore spacing (manually put in line breaks)
+  
+toc.html
+  generate this. This should be a simple parse of the Html files in order 00, 01-->99, indenting H2 more than an H1 etc. Obviously all Hx tags will need anchors
+IntroToRx.ncx
+	generate this.
+
+*.opf
+  Find out what publisher is appropriate
+  Find out what subject tags are appropriate http://www.bisg.org/what-we-do-20-73-bisac-subject-headings-2008-edition.php
+  Create GraphicsIntro/cover.gif
+  Create IntroToRx.ncx
+
+All external links need to be put in an appendix. It appears the kindle just does not support these.
+Submit a chapter to MSDN magazine. Or potentially the entire series?
+  
+--------------------------------------------
+--Further examples to be added to the book--
+--------------------------------------------
+Discuss that Observable.Create is an important method and which parts are scheduled where. ie Subscribe on is the delegate and the OnNexts are effecively scheduled to the ObserveOn shceduler
+IDisposable and Disposables
+	FutureDisposable / MutableDisposeable
+	CompositeDisposable
+	Empty
+	Action
+Testing buffer time/count
+How the subjects are hot/cold
+Best practices/guidance
+	dispose
+	OnError
+	Naming
+		snapshot for Async
+			Task?
+		Behavior?
+		hot v cold
+
+	Use marble diagrams (esp first 12 months)
+	
+	Apply scheduling only at the end consumer
+	Avoid breaking the monad (.First() etc)
+	Avoid Side effects (or be explicit via .Do())
+	Favour composition over creating new operators
+	Avoid use of Subjects, favour factories.
+	Use OnError handler
+	Use the IDisposable
+	Be as “Lazy” as possible
+	Consider TakeUntil when looking at selectmany 
+	Consider Switch with Iob<IOb<>>
+	Honour the Completion contracts
+	Beware the completing replay subject. Replay(2) is sometimes what you really want, but you probably also want to Prune as well! (needs to be tested)
+
+------------------------------------------
+--Internet to update					--
+------------------------------------------
+Rx Forum
+	TestScheduler
+		http://social.msdn.microsoft.com/Forums/en/rx/thread/e5173644-69f5-462c-b8c6-aee21277049f
+	http://social.msdn.microsoft.com/Forums/en-US/rx/thread/398452c2-c97d-4d96-b784-2a2e8a026d12
+My Blog
+Stackoverflow?
+
+
+----------------------------------------------------------------------------------------
+--Type Index
+----------------------------------------------------------------------------------------
+-TO BE allocated-
+		System.Reactive.Observer
+		
+--------------------------------------------
+--Method index
+--------------------------------------------
+System.Reactive.Linq.Observable
+KeyTypes
+		Notification.CreateOnCompleted
+		Notification.CreateOnError
+		Notification.CreateOnNext
+		Notification`1.op_Equality
+		Notification`1.op_Inequality
+		Subject.Create
+		Unit.get_Default
+		Unit.op_Equality
+		Unit.op_Inequality
+
+x		System.IObservable`1
+x		System.IObserver`1
+-		System.Reactive.IObserver`2				(not in .NET 4 version?)
+x		System.Reactive.Subjects.AsyncSubject`1
+x		System.Reactive.Subjects.BehaviorSubject`1
+x		System.Reactive.Subjects.ISubject`1
+x		System.Reactive.Subjects.ISubject`2
+x		System.Reactive.Subjects.ReplaySubject`1
+x		System.Reactive.Subjects.Subject
+x		System.Reactive.Subjects.Subject`1
+
+
+Lifetime management
+		Disposable.Create
+		Disposable.get_Empty
+
+		System.Reactive.Disposables.BooleanDisposable
+		System.Reactive.Disposables.CompositeDisposable
+		System.Reactive.Disposables.ContextDisposable
+		System.Reactive.Disposables.Disposable
+		System.Reactive.Disposables.MultipleAssignmentDisposable
+		System.Reactive.Disposables.SerialDisposable
+		System.Reactive.Disposables.SingleAssignmentDisposable
+
+Methods	(131 methods!)
+	Create - Expand - Unfold - Anamorphism
+		Simple
+x			Observable.Empty
+x			Observable.Never
+x			Observable.Return
+x			Observable.Throw
+
+		Complex
+x			Observable.Create
+x			Observable.Generate
+x			Observable.Range
+x			Observable.Interval
+x			Observable.Timer
+x			Observable.Start			
+x			Observable.FromAsyncPattern
+-			Observable.FromEvent		Seems to be legacy and is really just Observable.Create?
+x			Observable.FromEventPattern
+x			Observable.ToObservable
+-			Observabe.Iterate			!!!! Ummm where was this hiding????		We build this in Scheduler chapter.
+x		System.Reactive.Unit
+
+	Filter
+x		Observable.Where
+x		Observable.Distinct
+x		Observable.DistinctUntilChanged
+x		Observable.IgnoreElements
+x		Observable.Skip
+x		Observable.SkipLast
+x		Observable.SkipUntil
+x		Observable.SkipWhile
+x		Observable.Take
+x		Observable.TakeLast
+x		Observable.TakeUntil
+x		Observable.TakeWhile
+
+
+	Inspection
+x		Observable.Any
+x		Observable.All
+x		Observable.Contains
+x		Observable.DefaultIfEmpty
+x		Observable.ElementAt
+x		Observable.ElementAtOrDefault
+x		Observable.SequenceEqual
+-		Observable.IsEmpty				//Deprecated but recreated in an example
+
+	Reduce - Aggregate - Fold - Catamorphism
+		Simple
+x			Observable.Count	
+x			Observable.LongCount
+x			Observable.Min
+x			Observable.Max
+x			Observable.Sum
+x			Observable.Average
+x			Observable.First
+x			Observable.FirstOrDefault
+x			Observable.Last
+x			Observable.LastOrDefault
+x			Observable.Single
+x			Observable.SingleOrDefault
+-			Observable.FirstAsync
+-			Observable.FirstOrDefaultAsync
+-			Observable.LastAsync
+-			Observable.LastOrDefaultAsync
+-			Observable.SingleAsync
+-			Observable.SingleOrDefaultAsync
+		Complex
+x			Observable.Aggregate
+x			Observable.Scan
+		Partition
+x			Observable.MinBy
+x			Observable.MaxBy
+x			Observable.GroupBy
+x				System.Reactive.Linq.IGroupedObservable`2
+		
+
+	Transformational - Bind
+x		Observable.SelectMany
+x		Observable.Select
+x		Observable.Cast
+x		Observable.OfType
+x		Observable.Timestamp
+x		Observable.TimeInterval
+x		Observable.Materialize
+x		Observable.Dematerialize
+x		System.Reactive.TimeInterval`1
+x		System.Reactive.Timestamped`1
+x		System.Reactive.Notification
+x		System.Reactive.Notification`1
+x		System.Reactive.NotificationKind
+
+
+	Side effect
+x		Observable.Do
+x		Observable.AsObservable
+
+	Leaving the Monad
+x		Observable.ForEach
+		Observable.GetEnumerator				
+		Observable.Latest
+		Observable.MostRecent
+		Observable.Next
+x		Observable.ToEnumerable
+x		Observable.ToArray
+x		Observable.ToList
+x		Observable.ToDictionary
+x		Observable.ToLookup
+x		Observable.ToTask				
+x		Observable.ToEvent
+			System.Reactive.IEventSource`1
+x		Observable.ToEventPattern
+			System.Reactive.IEventPatternSource`1
+-		Observable.ToAsync		
+-		Observable.ToListObservable
+
+Flow Control
+x		Observable.Catch
+x		Observable.Finally
+x		Observable.Using
+x		Observable.OnErrorResumeNext
+x		Observable.Retry
+
+Combining streams
+	Sequnetial Sequences
+x		Observable.Concat
+x		Observable.Repeat
+x		Observable.StartWith	--ToBehaviorSubject (not really as no cache)
+	Concurrent Sequences
+x		Observable.Amb
+x		Observable.Merge
+x		Observable.Switch
+
+	Pairing Sequences
+x		Observable.CombineLatest
+x		Observable.Zip
+x		Observable.And
+x			Observable.Then
+x			Observable.When
+
+Part 4 - Concurrency
+
+	Schedulers
+x		Observable.ObserveOn
+x		Observable.SubscribeOn
+x		Scheduler.get_CurrentThread
+x		Scheduler.get_Immediate
+x		Scheduler.get_NewThread
+x		Scheduler.get_Now
+x		Scheduler.get_ThreadPool
+		Scheduler.Normalize
+x		Scheduler.Schedule
+		DispatcherObservable.ObserveOn
+		DispatcherObservable.ObserveOnDispatcher
+		DispatcherObservable.SubscribeOn
+		DispatcherObservable.SubscribeOnDispatcher
+x		DispatcherScheduler.Instance
+x		System.Reactive.Linq.DispatcherObservable
+x		Recursive Schedule
+x		State Scheduler
+x		DateTime/TimeSpan schedule
+x		Combos of above.
+
+
+		**_Cost of slow subscribers. see LeavingTheMonadExamples.Slow_consumer_spike
+
+x		System.Reactive.Concurrency.CurrentThreadScheduler
+x		System.Reactive.Concurrency.DispatcherScheduler
+x		System.Reactive.Concurrency.EventLoopScheduler
+		System.Reactive.Concurrency.HistoricalScheduler
+		System.Reactive.Concurrency.HistoricalSchedulerBase
+x		System.Reactive.Concurrency.ImmediateScheduler
+		System.Reactive.Concurrency.IScheduledItem`1
+x		System.Reactive.Concurrency.IScheduler
+x		System.Reactive.Concurrency.NewThreadScheduler
+x		System.Reactive.Concurrency.Scheduler
+		System.Reactive.Concurrency.SynchronizationContextScheduler
+x		System.Reactive.Concurrency.ThreadPoolScheduler
+		System.Reactive.Concurrency.VirtualTimeScheduler`2
+		System.Reactive.Concurrency.VirtualTimeSchedulerBase`2
+		System.Reactive.Disposables.ScheduledDisposable
+
+
+
+	Time Shifted Sequences
+x		Observable.Buffer
+x		Observable.Delay
+x		Observable.Sample
+x		Observable.Throttle
+		Observable.Timeout
+		Observable.GroupByUntil
+		Observable.Merge reprise(has options to take schedulers too)
+
+Hot and Cold
+x	Observable.Publish
+x	Connect
+x	Observable.RefCount
+x	Sharing streams
+x		Replay
+x		PublishLast	--ToAsyncSubject
+x		Multicast
+x	System.Reactive.Subjects.IConnectableObservable`1
+x	System.Reactive.Disposables.RefCountDisposable
+	Observable.Synchronize
+	Observable.Defer
+
+Testing
+		ReactiveAssert.AreElementsEqual
+		ReactiveAssert.Throws
+		ReactiveTest.OnCompleted
+		ReactiveTest.OnError
+		ReactiveTest.OnNext
+		ReactiveTest.Subscribe
+		
+x		TestScheduler.Start()
+x		TestScheduler.Stop()
+x		TestScheduler.AdvanceTo()
+x		TestScheduler.AdvanceBy()
+x		TestScheduler.Start(Func<IO<T>, long, long, long)
+x		TestScheduler.CreateColdObservable()
+x		TestScheduler.CreateHotObservable()
+x		TestScheduler.CreateHotObservable()
+
+		Microsoft.Reactive.Testing.ITestableObservable`1
+		Microsoft.Reactive.Testing.ITestableObserver`1
+		Microsoft.Reactive.Testing.ReactiveAssert
+		Microsoft.Reactive.Testing.ReactiveTest
+		Microsoft.Reactive.Testing.Recorded`1
+		Microsoft.Reactive.Testing.Subscription
+x		Microsoft.Reactive.Testing.TestScheduler
+
+Join, Window and Coinciding events
+x		Observable.Window
+x		Observable.Join
+x		Observable.GroupJoin
+			Coincidence
+					Events that have duration are windows eg Server is up, person is room, button is pressed (and not yet released)
+					Windows that overlap are windows can be said to coincide. This gives us the term Windows of Conincidence
+					Create windows with self, Skip(1), Never, Timer
+		
+		System.Reactive.Joins.Pattern
+		System.Reactive.Joins.Pattern`2
+		System.Reactive.Joins.Pattern`3
+		System.Reactive.Joins.Pattern`4
+		System.Reactive.Joins.Plan`1
+		
+
+Appendix A - Dispelling myths about .NET
+
+	Dispelling myths about Events
+		Events are just syntactic implementation of the observer pattern
+		Events are multicast
+		Events are single threaded.
+		Event handlers that throw act just like any other code that throws.
+			ie other handlers wont be called
+			   Raising the event can be wrapped in a try catch
+		Note on WPF/SL Property Changed handlers.
+
+	Dispelling myths about concurrency
+		Concurrency does not imply multi threaded
+			Message pumps like WinForms, WPF and SL
+		But Multithreaded does imply concurrency
+		ThreadPool is not a solve all solution
+		Creating threads is expensive - compared to what?
+		WPF dispatcher calls like Dispatcher.Invoke/BeginInvoke(Background..) are performed on the background thread.
+		Dispatcher calls ar free try calling 10k notifys
+
+-TO BE allocated-
+
+		EventPattern`1.op_Equality
+		EventPattern`1.op_Inequality
+		EventPattern`2.op_Equality
+		EventPattern`2.op_Inequality
+
+		
+		Observer.AsObserver
+		Observer.Create
+		Observer.NotifyOn
+		Observer.Synchronize
+		Observer.ToNotifier
+		Observer.ToObserver
+		Recorded`1.op_Equality
+		Recorded`1.op_Inequality
+		
+		
+		Subject.Synchronize
+		Subscription.op_Equality
+		Subscription.op_Inequality
+		TimeInterval`1.op_Equality
+		TimeInterval`1.op_Inequality
+		Timestamped`1.op_Equality
+		Timestamped`1.op_Inequality
+		
+ 
+-----------------------------------------------------------------
+Once all is said and done:
+	Do an article on how to do APM properly wiht filestream. 
+		All examples either use a full size buffer (which makes it sync under the hood)
+		or the examples only read a fixed amount of bytes. Boh of which are fuckin poitnless examples.
+	Update Rx Wiki
+
+-----------------------------------------------------------------
+Version 2 TODO
+	To Enumerator opertors
+		ToEnumertor
+		Latest
+		Next
+		MostRecent
+	AsyncObservable
+	await

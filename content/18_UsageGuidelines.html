@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1" />
+    <title>Intro to Rx - Appendix A Usage guidelines</title>
+    <link rel="stylesheet" href="Kindle.css" type="text/css" />
+</head>
+<body>
+    <a name="Appendix"></a>
+    <h1 class="SectionHeader">Appendix</h1>
+    <a name="UsageGuidelines"></a>
+    <h1>Usage guidelines</h1>
+    <p>
+        This is a list of quick guidelines intended to help you when writing Rx queries.
+    </p>
+    <ul>
+        <li>Members that return a sequence should never return null. This applies to <em>IEnumerable&lt;T&gt;</em>
+            and <em>IObservable&lt;T&gt;</em> sequences. Return an empty sequence instead.</li>
+        <li>Dispose of subscriptions.</li>
+        <li>Subscriptions should match their scope.</li>
+        <li>Always provide an <code>OnError</code> handler.</li>
+        <li>Avoid breaking the monad with blocking operators such as <code>First</code>, <code>
+            FirstOrDefault</code>, <code>Last</code>, <code>LastOrDefault</code>, <code>Single</code>,
+            <code>SingleOrDefault</code> and <code>ForEach</code>.</li>
+        <li>Avoid switching between monads, i.e. going from <em>IObservable&lt;T&gt;</em> to
+            <em>IEnumerable&lt;T&gt;</em> and back to <em>IObservable&lt;T&gt;</em>.</li>
+        <li>Favor lazy evaluation over eager evaluation.</li>
+        <li>Break large queries up into parts. Key indicators of a large query:
+            <ol>
+                <li>nesting</li>
+                <li>over 10 lines of query comprehension syntax</li>
+                <li>using the into statement</li>
+            </ol>
+        </li>
+        <li>Name your queries well, i.e. avoid using the names like <code>query</code>, <code>
+            q</code>, <code>xs</code>, <code>ys</code>, <code>subject</code> etc.</li>
+        <li>Avoid creating side effects. If you must create side effects, be explicit by using
+            the <em>Do</em> operator.</li>
+        <li>Avoid the use of the subject types. Rx is effectively a functional programming paradigm.
+            Using subjects means we are now managing state, which is potentially mutating. Dealing
+            with both mutating state and asynchronous programming at the same time is very hard to get right.
+            Furthermore, many of the operators (extension methods) have been carefully written
+            to ensure that correct and consistent lifetime of subscriptions and sequences is maintained;
+            when you introduce subjects, you can break this. Future releases may also see significant
+            performance degradation if you explicitly use subjects.</li>
+        <li>Avoid creating your own implementations of the <em>IObservable&lt;T&gt;</em> interface.
+            Favor using the <em>Observable.Create</em> factory method overloads instead.</li>
+        <li>Avoid creating your own implementations of the <em>IObserver&lt;T&gt;</em> interface.
+            Favor using the <em>Subscribe</em> extension method overloads instead.</li>
+        <li>The subscriber should define the concurrency model. The <em>SubscribeOn</em> and
+            <em>ObserveOn</em> operators should only ever precede a <em>Subscribe</em> method.</li>
+    </ul>
+    <hr />
+</body>
+</html>

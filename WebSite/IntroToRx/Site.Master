@@ -1,0 +1,92 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="Site.master.cs" Inherits="IntroToRx.SiteMaster" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head runat="server">
+    <title></title>
+    <link href="~/Styles/Site.css" rel="stylesheet" type="text/css" />
+    <asp:ContentPlaceHolder ID="HeadContent" runat="server">
+    </asp:ContentPlaceHolder>
+</head>
+<body>
+    <img src="~/Styles/title.png" style="position: fixed; left: 0px; top: 0px; overflow: hidden;  clip:rect(0px,60px,200px,0px); float:left; height: 300px"  runat="server"/>
+    <form runat="server">
+    <div class="page">
+        <div class="header">
+            <%--<div class="title">
+                <h1>
+                    Intro to Rx
+                </h1>
+            </div>--%>
+            <img id="Img1" src="~/Styles/title.png" style="margin: 0px 0px 0px -70px; height: 150px; float:left"  runat="server"/>
+            <%--<div class="loginDisplay">
+                <asp:LoginView ID="HeadLoginView" runat="server" EnableViewState="false">
+                    <AnonymousTemplate>
+                        [ <a href="~/Account/Login.aspx" ID="HeadLoginStatus" runat="server">Log In</a> ]
+                    </AnonymousTemplate>
+                    <LoggedInTemplate>
+                        Welcome <span class="bold"><asp:LoginName ID="HeadLoginName" runat="server" /></span>!
+                        [ <asp:LoginStatus ID="HeadLoginStatus" runat="server" LogoutAction="Redirect" LogoutText="Log Out" LogoutPageUrl="~/"/> ]
+                    </LoggedInTemplate>
+                </asp:LoginView>
+            </div>--%>
+
+            <div class="clear hideSkiplink">
+                <asp:Menu ID="NavigationMenu" runat="server" CssClass="menu" EnableViewState="false" IncludeStyleBlock="false" Orientation="Horizontal">
+                    <Items>
+                        <asp:MenuItem NavigateUrl="~/Default.aspx" Text="Part 1" />
+                        <asp:MenuItem NavigateUrl="~/Part1.aspx" Text="Functional Tools"/>
+                        <asp:MenuItem NavigateUrl="~/Part2.aspx" Text="Taming the Sequence"/>
+                        <asp:MenuItem NavigateUrl="~/Part3.aspx" Text="Taming the Sequence"/>
+                        <asp:MenuItem NavigateUrl="~/Part4.aspx" Text="Concurrency"/>
+                        <asp:MenuItem NavigateUrl="~/Part5.aspx" Text="Testing"/>
+                        <asp:MenuItem NavigateUrl="~/Appendix.aspx" Text="Best practices"/>
+                    </Items>
+                </asp:Menu>
+            </div>
+        </div>
+        
+        <div class="leftCol">
+            <ul class="partMenu">
+                <li><div class="partMenuHeader">Part 1 - The Basics</div>
+                    <ul>
+                        <li>Key Types</li>
+                        <li>Lifetime management</li>
+                    </ul>
+                </li>
+            </ul>
+            <ul class="partMenu">
+                <li><div class="partMenuHeader">Part 2 - Functional Tools</div>
+                    <ul>
+                        <li>Creating an Observable Sequence
+                            <ul>
+                                <li>Factory Methods</li>
+                                <li>Functional unfolds</li>
+                                <li>Transition to IObservable</li>
+                            </ul>
+                        </li>
+                        <li>Reducing an Observable Sequence
+                            <ul>
+                                <li>Filtering</li>
+                                <li>Aggregation</li>
+                                <li>Transformation</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="main">
+            <asp:ContentPlaceHolder ID="MainContent" runat="server"/>
+        </div>
+        
+        <div class="clear">
+        </div>
+    </div>
+    <div class="footer">
+        
+    </div>
+    </form>
+</body>
+</html>
