@@ -1,36 +1,20 @@
-G.A.
-	Stilted prose.
-	In particular, convoluted turns of phrase are legion. This makes you come off as not entirely confident -- but you should be, this book is good stuff.
- 
- 
-	The 'prose' paragraphs are not always good at setting up what’s coming/offering additional insight. In that case they’re just filler.
- 
- 
-	Each paragraph should have a purpose, and if something doesn't help getting the point across it needs to go.
-	Maybe you have this in your writing notes, something like 'this paragraph needs to highlight the importance of X' or 'this should prepare for the introduction of concept Y by presenting a problem that it could help solving'. I suggest you re-examine the prose bits in that light: does every paragraph do its job, or is the main idea lost? What can I cut/expand?
- 
-	At some points you have a bad case of Columbo syndrome ('just one more thing').
-	I think you are aware of how busy some paragraphs are and shorten sentences so that length-wise they remain reasonable, but that makes them look even more like laundry lists of tenuously-related ideas.
- 
-	The anecdotes/extra tidbits of info are interesting, so I suggest keeping them (a reasonable number of them) but have them occupy 'did you know?' type areas.
-	You can keep those tangential remarks in the main blobs of text, but only if you manage to not break the flow by doing so.
+Create new blank website (not ASP.NET we just dont need it)
+Integrate the home page into the site generation
+Create UAT sub domain
+Create new build script 
+	that takes in version for content sub dir target
+	FTP result to site
+Add Amazon links to Csharp in a nutshell, Purely Functional data structures, Paul Betts Book, Linq in a Nutshell?
+Add links to LinqPad
+Add LinqPad samples
+
  
 ===============================================================================
 
 
 TODO:
 MUST
-	Write a summary. Effectively reword the intro.
-	
-	Get Rhys to validate the testing Rx specifically for test vernacular
-	Get Kristian to validate the Event appendix
-	Get James to validate the Seq of Coincidence
-
-	Acknowledge Joe and Gregory in the preface
-	**Validate forward and back references. eg "in a future chapter we will cover xxx", check that we do infact do this.**
-	Generate the home page. i.e. The Navigation should be generated, the GoogleAnalytics should be included etc..
 	make sure method names outside code snippets are consistent? I think that sometimes you include parentheses and sometimes you don’t.
-	Thread Pool or ThreadPool or Thread-Pool --> same for task pool.
 	Update the HR page break style to have a large margin for screen (to give the impression of a gap)
 	Marble diagram --> marble diagram
 
@@ -571,17 +555,25 @@ Appendix A - Dispelling myths about .NET
  
 -----------------------------------------------------------------
 Once all is said and done:
-	Do an article on how to do APM properly wiht filestream. 
-		All examples either use a full size buffer (which makes it sync under the hood)
-		or the examples only read a fixed amount of bytes. Boh of which are fuckin poitnless examples.
 	Update Rx Wiki
 
 -----------------------------------------------------------------
 Version 2 TODO
-	To Enumerator opertors
+	To Enumerator operators
 		ToEnumertor
 		Latest
 		Next
 		MostRecent
 	AsyncObservable
 	await
+
+Cookbook/LinqPad Samples
+	Conflation
+		Finance/Games/UI updates
+	Streaming data from a stream to an IOb
+	Avoiding the use of subjects
+	Rx in WPF
+		INPC to IOb
+		DO prop change to IOb
+		Collection changes
+	SchedulerProvider revisited.
