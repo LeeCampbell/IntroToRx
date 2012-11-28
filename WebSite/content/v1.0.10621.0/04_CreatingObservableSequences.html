@@ -1,0 +1,1540 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"[]>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Intro to Rx - Creating a sequence</title>
+    <link href="../../Styles/Site.css" rel="stylesheet" type="text/css" />
+    <!--Google analytics-->
+    <script type="text/javascript">
+
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-32704657-1']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+
+    </script>
+  </head>
+  <body>
+    <div class="page">
+      <div class="header">
+        <div style="margin: 70px 20px 5px; float: right;text-align: right">
+          <a href="http://twitter.com/#!/search/%23RxNET">#RxNET</a>
+          <br />
+          <span style="color: #707070; font-weight: 700; font-size: 11px;">Version v1.0.1062.0</span>
+        </div>
+        <img id="Logo" src="../../Styles/titleText.png" style="height: 80px; margin: 20px; float: left" />
+        <table class="toc" border="0" cellspacing="0" cellpadding="0">
+          <tr>
+            <th class="toc">
+              <a class="toc" href="00_Foreword.html">Preface</a>
+            </th>
+            <th class="toc">
+              <a class="toc" href="01_WhyRx.html">PART 1</a>
+            </th>
+            <th class="tocactive">PART 2</th>
+            <th class="toc">
+              <a class="toc" href="09_SideEffects.html">PART 3</a>
+            </th>
+            <th class="toc">
+              <a class="toc" href="15_SchedulingAndThreading.html">PART 4</a>
+            </th>
+            <th class="toc">
+              <a class="toc" href="18_UsageGuidelines.html">Appendix</a>
+            </th>
+          </tr>
+          <tr>
+            <td></td>
+            <td class="toc">
+              <a class="toc" href="01_WhyRx.html">Getting started</a>
+            </td>
+            <td class="tocactive">Sequence basics</td>
+            <td class="toc">
+              <a class="toc" href="09_SideEffects.html">Taming the sequence</a>
+            </td>
+            <td class="toc">
+              <a class="toc" href="15_SchedulingAndThreading.html">Concurrency</a>
+            </td>
+            <td></td>
+          </tr>
+        </table>
+      </div>
+      <div class="leftCol">
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="00_Foreword.html">Preface</a>
+            </div>
+            <ul>
+              <li>
+                <a href="00_Foreword.html#Acknowledgements">Acknowledgements</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="01_WhyRx.html">PART 1 - Getting started</a>
+            </div>
+            <ul>
+              <li>
+                <a href="01_WhyRx.html#WhyRx">Why Rx?</a>
+              </li>
+              <li>
+                <a href="02_KeyTypes.html#KeyTypes">Key types</a>
+              </li>
+              <li>
+                <a href="03_LifetimeManagement.html#LifetimeManagement">Lifetime management</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="04_CreatingObservableSequences.html">PART 2 - Sequence basics</a>
+            </div>
+            <ul>
+              <li>
+                <a href="04_CreatingObservableSequences.html#CreationOfObservables">Creating a sequence</a>
+                <ul>
+                  <li>
+                    <a href="04_CreatingObservableSequences.html#SimpleFactoryMethods">Simple factory methods</a>
+                    <ul>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableReturn">Observable.Return</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableEmpty">Observable.Empty</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableNever">Observable.Never</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableThrow">Observable.Throw</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableCreate">Observable.Create</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <a href="04_CreatingObservableSequences.html#Unfold">Functional unfolds</a>
+                    <ul>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#Corecursion">Corecursion</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableRange">Observable.Range</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableGenerate">Observable.Generate</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableInterval">Observable.Interval</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableTimer">Observable.Timer</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <a href="04_CreatingObservableSequences.html#TransitioningIntoIObservable">Transitioning into IObservable&lt;T&gt;</a>
+                    <ul>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#ObservableStart">From delegates</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#FromEvent">From events</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#FromTask">From Task</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#FromIEnumerable">From IEnumerable&lt;T&gt;</a>
+                      </li>
+                      <li>
+                        <a href="04_CreatingObservableSequences.html#FromAPM">From APM</a>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="05_Filtering.html#Reduction">Reducing a sequence</a>
+                <ul>
+                  <li>
+                    <a href="05_Filtering.html#Where">Where</a>
+                  </li>
+                  <li>
+                    <a href="05_Filtering.html#Distinct">Distinct and DistinctUntilChanged</a>
+                  </li>
+                  <li>
+                    <a href="05_Filtering.html#IgnoreElements">IgnoreElements</a>
+                  </li>
+                  <li>
+                    <a href="05_Filtering.html#SkipAndTake">Skip and Take</a>
+                    <ul>
+                      <li>
+                        <a href="05_Filtering.html#SkipWhileTakeWhile">SkipWhile and TakeWhile</a>
+                      </li>
+                      <li>
+                        <a href="05_Filtering.html#SkipLastTakeLast">SkipLast and TakeLast</a>
+                      </li>
+                      <li>
+                        <a href="05_Filtering.html#SkipUntilTakeUntil">SkipUntil and TakeUntil</a>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="06_Inspection.html#Inspection">Inspection</a>
+                <ul>
+                  <li>
+                    <a href="06_Inspection.html#Any">Any</a>
+                  </li>
+                  <li>
+                    <a href="06_Inspection.html#All">All</a>
+                  </li>
+                  <li>
+                    <a href="06_Inspection.html#Contains">Contains</a>
+                  </li>
+                  <li>
+                    <a href="06_Inspection.html#DefaultIfEmpty">DefaultIfEmpty</a>
+                  </li>
+                  <li>
+                    <a href="06_Inspection.html#ElementAt">ElementAt</a>
+                  </li>
+                  <li>
+                    <a href="06_Inspection.html#SequenceEqual">SequenceEqual</a>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="07_Aggregation.html#Aggregation">Aggregation</a>
+                <ul>
+                  <li>
+                    <a href="07_Aggregation.html#Count">Count</a>
+                  </li>
+                  <li>
+                    <a href="07_Aggregation.html#MaxAndMin">Min, Max, Sum and Average</a>
+                  </li>
+                  <li>
+                    <a href="07_Aggregation.html#Fold">Functional folds</a>
+                    <ul>
+                      <li>
+                        <a href="07_Aggregation.html#First">First</a>
+                      </li>
+                      <li>
+                        <a href="07_Aggregation.html#Last">Last</a>
+                      </li>
+                      <li>
+                        <a href="07_Aggregation.html#Single">Single</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <a href="07_Aggregation.html#BuildYourOwn">Build your own aggregations</a>
+                    <ul>
+                      <li>
+                        <a href="07_Aggregation.html#Aggregate">Aggregate</a>
+                      </li>
+                      <li>
+                        <a href="07_Aggregation.html#Scan">Scan</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <a href="07_Aggregation.html#Partitioning">Partitioning</a>
+                    <ul>
+                      <li>
+                        <a href="07_Aggregation.html#MinByMaxBy">MinBy and MaxBy</a>
+                      </li>
+                      <li>
+                        <a href="07_Aggregation.html#GroupBy">GroupBy</a>
+                      </li>
+                      <li>
+                        <a href="07_Aggregation.html#NestedObservables">Nested observables</a>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="08_Transformation.html#TransformationOfSequences">Transformation of sequences</a>
+                <ul>
+                  <li>
+                    <a href="08_Transformation.html#Select">Select</a>
+                  </li>
+                  <li>
+                    <a href="08_Transformation.html#CastAndOfType">Cast and OfType</a>
+                  </li>
+                  <li>
+                    <a href="08_Transformation.html#TimeStampAndTimeInterval">Timestamp and TimeInterval</a>
+                  </li>
+                  <li>
+                    <a href="08_Transformation.html#MaterializeAndDematerialize">Materialize and Dematerialize</a>
+                  </li>
+                  <li>
+                    <a href="08_Transformation.html#SelectMany">SelectMany</a>
+                    <ul>
+                      <li>
+                        <a href="08_Transformation.html#IEnumerableVsIObservableSelectMany">IEnumerable&lt;T&gt; vs. IObservable&lt;T&gt; SelectMany</a>
+                      </li>
+                      <li>
+                        <a href="08_Transformation.html#VisualizingSequences">Visualizing sequences</a>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="09_SideEffects.html">PART 3 - Taming the sequence</a>
+            </div>
+            <ul>
+              <li>
+                <a href="09_SideEffects.html#SideEffects">Side effects</a>
+              </li>
+              <li>
+                <a href="10_LeavingTheMonad.html#LeavingTheMonad">Leaving the monad</a>
+              </li>
+              <li>
+                <a href="11_AdvancedErrorHandling.html#AdvancedErrorHandling">Advanced error handling</a>
+              </li>
+              <li>
+                <a href="12_CombiningSequences.html#CombiningMultipleSequences">Combining sequences</a>
+              </li>
+              <li>
+                <a href="13_TimeShiftedSequences.html#TimeShiftedSequences">Time-shifted sequences</a>
+              </li>
+              <li>
+                <a href="14_HotAndColdObservables.html#HotAndCold">Hot and Cold observables</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="15_SchedulingAndThreading.html">PART 4 - Concurrency</a>
+            </div>
+            <ul>
+              <li>
+                <a href="15_SchedulingAndThreading.html#SchedulingAndThreading">Scheduling and threading</a>
+              </li>
+              <li>
+                <a href="16_TestingRx.html#TestingRx">Testing Rx</a>
+              </li>
+              <li>
+                <a href="17_SequencesOfCoincidence.html#SequencesOfCoincidence">Sequences of coincidence</a>
+              </li>
+              <li>
+                <a href="17_SequencesOfCoincidence.html#Summary">Summary</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="18_UsageGuidelines.html">Appendix</a>
+            </div>
+            <ul>
+              <li>
+                <a href="18_UsageGuidelines.html#UsageGuidelines">Usage guidelines</a>
+              </li>
+              <li>
+                <a href="19_DispellingMyths.html#DispellingEventMyths">Dispelling event myths</a>
+              </li>
+              <li>
+                <a href="20_Disposables.html#Disposables">Disposables</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div class="main">
+        <div style="float: right; margin: 10px 0px 10px 10px; width: 140px; font-size: 11px;text-align: center">
+          <img src="../../Styles/IntroToRx_Cover.png" style="margin: 10px" />
+                                            Lee Campbell<br /><a href="IntroToRx.mobi" title="Introduction to Rx as .mobi file (for Kindle)">Introduction to Rx<br />Kindle edition</a> (2012)
+                                        </div>
+        <a name="PART2"></a>
+        <h1 class="SectionHeader">PART 2 - Sequence basics</h1>
+        <p>
+        So you want to get involved and write some Rx code, but how do you get started?
+        We have looked at the key types, but know that we should not be creating our own
+        implementations of <em>IObserver&lt;T&gt;</em> or <em>IObservable&lt;T&gt;</em>
+        and should favor factory methods over using subjects. Even if we have an observable
+        sequence, how do we pick out the data we want from it? We need to understand the
+        basics of creating an observable sequence, getting values into it and picking out
+        the values we want from them.
+    </p>
+        <p>
+        In Part 2 we discover the basics for constructing and querying observable sequences.
+        We assert that LINQ is fundamental to using and understanding Rx. On deeper inspection,
+        we find that <i>functional programming</i> concepts are core to having a deep understanding
+        of LINQ and therefore enabling you to master Rx. To support this understanding,
+        we classify the query operators into three main groups. Each of these groups proves
+        to have a root operator that the other operators can be constructed from. Not only
+        will this deconstruction exercise provide a deeper insight to Rx, functional programming
+        and query composition; it should arm you with the ability to create custom operators
+        where the general Rx operators do not meet your needs.
+    </p>
+        <a name="CreationOfObservables"></a>
+        <h1>Creating a sequence</h1>
+        <p>
+        In the previous chapters we used our first Rx extension method, the <em>Subscribe</em>
+        method and its overloads. We also have seen our first factory method in <code>Subject.Create()</code>.
+        We will start looking at the vast array of other methods that enrich <em>IObservable&lt;T&gt;</em>
+        to make Rx what it is. It may be surprising to see that there are relatively few
+        public instance methods in the Rx library. There are however a large number of public
+        static methods, and more specifically, a large number of extension methods. Due
+        to the large number of methods and their overloads, we will break them down into
+        categories.
+    </p>
+        <p class="comment">
+        Some readers may feel that they can skip over parts of the next few chapters. I
+        would only suggest doing so if you are very confident with LINQ and functional composition.
+        The intention of this book is to provide a step-by-step introduction to Rx, with
+        the goal of you, the reader, being able to apply Rx to your software. The appropriate
+        application of Rx will come through a sound understanding of the fundamentals of
+        Rx. The most common mistakes people will make with Rx are due to a misunderstanding
+        of the principles upon which Rx was built. With this in mind, I encourage you to
+        read on.
+    </p>
+        <p>
+        It seems sensible to follow on from our examination of our key types where we simply
+        constructed new instances of subjects. Our first category of methods will be <i>creational</i>
+        methods: simple ways we can create instances of <em>IObservable&lt;T&gt;</em> sequences.
+        These methods generally take a seed to produce a sequence: either a single value
+        of a type, or just the type itself. In functional programming this can be described
+        as <i>anamorphism</i> or referred to as an '<i>unfold</i>'.
+    </p>
+        <a name="SimpleFactoryMethods"></a>
+        <h2>Simple factory methods</h2>
+        <a name="ObservableReturn"></a>
+        <h3>Observable.Return</h3>
+        <p>
+        In our first and most basic example we introduce <em>Observable.Return&lt;T&gt;(T value)</em>.
+        This method takes a value of T and returns an IObservable&lt;T&gt; with the single
+        value and then completes. It has <i>unfolded</i> a value of <em>T</em> into an observable
+        sequence.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> singleValue = <span class="knownType">Observable</span>.Return&lt;<span class="kwrd">string</span>&gt;(<span class="str">"Value"</span>);</div>
+<div class="line"><span class="rem">//which could have also been simulated with a replay subject</span></div>
+<div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">ReplaySubject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+<div class="line">subject.OnNext(<span class="str">"Value"</span>);</div>
+<div class="line">subject.OnCompleted();</div>
+</div>
+        <p>
+        Note that in the example above that we could use the factory method or get the same
+        effect by using the replay subject. The obvious difference is that the factory method
+        is only one line and it allows for declarative over imperative programming style.
+        In the example above we specified the type parameter as <em>string</em>, this is
+        not necessary as it can be inferred from the argument provided.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line">singleValue = <span class="knownType">Observable</span>.Return&lt;<span class="kwrd">string</span>&gt;(<span class="str">"Value"</span>);</div>
+<div class="line"><span class="rem">//Can be reduced to the following</span></div>
+<div class="line">singleValue = <span class="knownType">Observable</span>.Return(<span class="str">"Value"</span>);</div>
+</div>
+        <a name="ObservableEmpty"></a>
+        <h3>Observable.Empty</h3>
+        <p>
+        The next two examples only need the type parameter to unfold into an observable
+        sequence. The first is <em>Observable.Empty&lt;T&gt;()</em>. This returns an empty
+        <em>IObservable&lt;T&gt;</em> i.e. it just publishes an <em>OnCompleted</em> notification.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> empty = <span class="knownType">Observable</span>.Empty&lt;<span class="kwrd">string</span>&gt;();</div>
+<div class="line"><span class="rem">//Behaviorally equivalent to</span></div>
+<div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">ReplaySubject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+<div class="line">subject.OnCompleted();</div>
+</div>
+        <a name="ObservableNever"></a>
+        <h3>Observable.Never</h3>
+        <p>
+        The <em>Observable.Never&lt;T&gt;()</em> method will return infinite sequence without
+        any notifications.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> never = <span class="knownType">Observable</span>.Never&lt;<span class="kwrd">string</span>&gt;();</div>
+<div class="line"><span class="rem">//similar to a subject without notifications</span></div>
+<div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">Subject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+</div>
+        <a name="ObservableThrow"></a>
+        <h3>Observable.Throw</h3>
+        <p>
+          <em>Observable.Throw&lt;T&gt;(Exception)</em> method needs the type parameter information,
+        it also need the <em>Exception</em> that it will <em>OnError</em> with. This method
+        creates a sequence with just a single <em>OnError</em> notification containing the
+        exception passed to the factory.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> throws = <span class="knownType">Observable</span>.Throw&lt;<span class="kwrd">string</span>&gt;(<span class="kwrd">new</span> <span class="knownType">Exception</span>()); </div>
+<div class="line"><span class="rem">//Behaviorally equivalent to</span></div>
+<div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">ReplaySubject</span>&lt;<span class="kwrd">string</span>&gt;(); </div>
+<div class="line">subject.OnError(<span class="kwrd">new</span> <span class="knownType">Exception</span>());</div>
+</div>
+        <a name="ObservableCreate"></a>
+        <h3>Observable.Create</h3>
+        <p>
+        The <em>Create</em> factory method is a little different to the above creation methods.
+        The method signature itself may be a bit overwhelming at first, but becomes quite
+        natural once you have used it.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Creates an observable sequence from a specified Subscribe method implementation.</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;TSource&gt; Create&lt;TSource&gt;(</div>
+<div class="scope">
+    <div class="line"><span class="knownType">Func</span>&lt;<span class="knownType">IObserver</span>&lt;TSource&gt;, <span class="knownType">IDisposable</span>&gt; subscribe)</div>
+</div>
+<div class="line">{...}</div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;TSource&gt; Create&lt;TSource&gt;(</div>
+<div class="scope">
+    <div class="line"><span class="knownType">Func</span>&lt;<span class="knownType">IObserver</span>&lt;TSource&gt;, <span class="knownType">Action</span>&gt; subscribe)</div>
+</div>
+<div class="line">{...}</div>
+</div>
+        <p>
+        Essentially this method allows you to specify a delegate that will be executed anytime
+        a subscription is made. The <em>IObserver&lt;T&gt;</em> that made the subscription
+        will be passed to your delegate so that you can call the <em>OnNext</em>/<em>OnError</em>/<em>OnCompleted</em>
+        methods as you need. This is one of the few scenarios where you will need to concern
+        yourself with the <em>IObserver&lt;T&gt;</em> interface. Your delegate is a <em>Func</em>
+        that returns an <em>IDisposable</em>. This <em>IDisposable</em> will have its <em>Dispose()</em>
+        method called when the subscriber disposes from their subscription.
+    </p>
+        <p>
+        The <em>Create</em> factory method is the preferred way to implement custom observable
+        sequences. The usage of subjects should largely remain in the realms of samples
+        and testing. Subjects are a great way to get started with Rx. They reduce the learning
+        curve for new developers, however they pose several concerns that the <em>Create</em>
+        method eliminates. Rx is effectively a functional programming paradigm. Using subjects
+        means we are now managing state, which is potentially mutating. Mutating state and
+        asynchronous programming are very hard to get right. Furthermore many of the operators
+        (extension methods) have been carefully written to ensure correct and consistent
+        lifetime of subscriptions and sequences are maintained. When you introduce subjects
+        you can break this. Future releases may also see significant performance degradation
+        if you explicitly use subjects.
+    </p>
+        <p>
+        The <em>Create</em> method is also preferred over creating custom types that implement
+        the <em>IObservable</em> interface. There really is no need to implement the observer/observable
+        interfaces yourself. Rx tackles the intricacies that you may not think of such as
+        thread safety of notifications and subscriptions.
+    </p>
+        <p>
+        A significant benefit that the <em>Create</em> method has over subjects is that
+        the sequence will be lazily evaluated. Lazy evaluation is a very important part
+        of Rx. It opens doors to other powerful features such as scheduling and combination
+        of sequences that we will see later. The delegate will only be invoked when a subscription
+        is made.
+    </p>
+        <p>
+        In this example we show how we might first return a sequence via standard blocking
+        eagerly evaluated call, and then we show the correct way to return an observable
+        sequence without blocking by lazy evaluation.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">private</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">string</span>&gt; BlockingMethod()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">ReplaySubject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+    <div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+    <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+    <div class="line">subject.OnCompleted();</div>
+    <div class="line"><span class="knownType">Thread</span>.Sleep(1000);</div>
+    <div class="line"><span class="kwrd">return</span> subject;</div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">private</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">string</span>&gt; NonBlocking()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Create&lt;<span class="kwrd">string</span>&gt;(</div>
+    <div class="scope">
+        <div class="line">(<span class="knownType">IObserver</span>&lt;<span class="kwrd">string</span>&gt; observer) =&gt;</div>
+        <div class="line">{</div>
+        <div class="scope">
+            <div class="line">observer.OnNext(<span class="str">"a"</span>);</div>
+            <div class="line">observer.OnNext(<span class="str">"b"</span>);</div>
+            <div class="line">observer.OnCompleted();</div>
+            <div class="line"><span class="knownType">Thread</span>.Sleep(1000);</div>
+            <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Create(() =&gt; <span class="knownType">Console</span>.WriteLine(<span class="str">"Observer has unsubscribed"</span>));</div>
+            <div class="line"><span class="rem">//or can return an Action like </span></div>
+            <div class="line"><span class="rem">//return () =&gt; Console.WriteLine("Observer has unsubscribed"); </span></div>
+        </div>
+        <div class="line">});</div>
+    </div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        While the examples are somewhat contrived, the intention is to show that when a
+        consumer calls the eagerly evaluated, blocking method, they will be blocked for
+        at least 1 second before they even receive the <em>IObservable&lt;string&gt;</em>,
+        regardless of if they do actually subscribe to it or not. The non blocking method
+        is lazily evaluated so the consumer immediately receives the <em>IObservable&lt;string&gt;</em>
+        and will only incur the cost of the thread sleep if they subscribe.
+    </p>
+        <p>
+        As an exercise, try to build the <em>Empty</em>, <em>Return</em>, <em>Never</em>
+        &amp; <em>Throw</em> extension methods yourself using the <em>Create</em> method.
+        If you have Visual Studio or <a href="http://www.linqpad.net/">LINQPad</a> available to you right now, code it up as quickly
+        as you can. If you don't (perhaps you are on the train on the way to work), try
+        to conceptualize how you would solve this problem. When you are done move forward
+        to see some examples of how it could be done...
+    </p>
+        <hr style="page-break-after: always" />
+        <p>
+        Examples of <em>Empty</em>, <em>Return</em>, <em>Never</em> and <em>Throw</em> recreated
+        with <em>Observable.Create</em>:
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;T&gt; Empty&lt;T&gt;()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Create&lt;T&gt;(o =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line">o.OnCompleted();</div>
+        <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Empty;</div>
+    </div>
+    <div class="line">});</div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;T&gt; Return&lt;T&gt;(T value)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Create&lt;T&gt;(o =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line">o.OnNext(value);</div>
+        <div class="line">o.OnCompleted();</div>
+        <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Empty;</div>
+    </div>
+    <div class="line">});</div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;T&gt; Never&lt;T&gt;()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Create&lt;T&gt;(o =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Empty;</div>
+    </div>
+    <div class="line">});</div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;T&gt; Throws&lt;T&gt;(<span class="knownType">Exception</span> exception)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Create&lt;T&gt;(o =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line">o.OnError(exception);</div>
+        <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Empty;</div>
+    </div>
+    <div class="line">});</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        You can see that <em>Observable.Create</em> provides the power to build our own
+        factory methods if we wish. You may have noticed that in each of the examples we
+        only are able to return our subscription token (the implementation of <em>IDisposable</em>)
+        once we have produced all of our <em>OnNext</em> notifications. This is because
+        inside of the delegate we provide, we are completely sequential. It also makes the
+        token rather pointless. Now we look at how we can use the return value in a more
+        useful way. First is an example where inside our delegate we create a Timer that
+        will call the observer's <em>OnNext</em> each time the timer ticks.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Example code only</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> NonBlocking_event_driven()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> ob = <span class="knownType">Observable</span>.Create&lt;<span class="kwrd">string</span>&gt;(</div>
+    <div class="scope">
+        <div class="line">observer =&gt;</div>
+        <div class="line">{</div>
+        <div class="scope">
+            <div class="line"><span class="kwrd">var</span> timer = <span class="kwrd">new</span> System.Timers.<span class="knownType">Timer</span>();</div>
+            <div class="line">timer.Interval = 1000;</div>
+            <div class="line">timer.Elapsed += (s, e) =&gt; observer.OnNext(<span class="str">"tick"</span>);</div>
+            <div class="line">timer.Elapsed += OnTimerElapsed;</div>
+            <div class="line">timer.Start();</div>
+            <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Empty;</div>
+        </div>
+        <div class="line">});</div>
+    </div>
+    <div class="line"><span class="kwrd">var</span> subscription = ob.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+    <div class="line"><span class="knownType">Console</span>.ReadLine();</div>
+    <div class="line">subscription.Dispose();</div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">private</span> <span class="kwrd">void</span> OnTimerElapsed(<span class="kwrd">object</span> sender, ElapsedEventArgs e)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="knownType">Console</span>.WriteLine(e.SignalTime);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Output:
+    </p>
+        <div class="output">
+          <div class="line">tick</div>
+          <div class="line">01/01/2012 12:00:00</div>
+          <div class="line">tick</div>
+          <div class="line">01/01/2012 12:00:01</div>
+          <div class="line">tick</div>
+          <div class="line">01/01/2012 12:00:02</div>
+          <div class="line"></div>
+          <div class="line">01/01/2012 12:00:03</div>
+          <div class="line">01/01/2012 12:00:04</div>
+          <div class="line">01/01/2012 12:00:05</div>
+        </div>
+        <p>
+        The example above is broken. When we dispose of our subscription, we will stop seeing
+        "tick" being written to the screen; however we have not released our second event
+        handler "<code>OnTimerElasped</code>" and have not disposed of the instance of the
+        timer, so it will still be writing the <code>ElapsedEventArgs.SignalTime</code>
+        to the console after our disposal. The extremely simple fix is to return <code>timer</code>
+        as the <em>IDisposable</em> token.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Example code only</span></div>
+<div class="line"><span class="kwrd">var</span> ob = <span class="knownType">Observable</span>.Create&lt;<span class="kwrd">string</span>&gt;(</div>
+<div class="scope">
+    <div class="line">observer =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="kwrd">var</span> timer = <span class="kwrd">new</span> System.Timers.<span class="knownType">Timer</span>();</div>
+        <div class="line">timer.Interval = 1000;</div>
+        <div class="line">timer.Elapsed += (s, e) =&gt; observer.OnNext(<span class="str">"tick"</span>);</div>
+        <div class="line">timer.Elapsed += OnTimerElapsed;</div>
+        <div class="line">timer.Start();</div>
+        <div class="line"><span class="kwrd">return</span> timer;</div>
+    </div>
+    <div class="line">});</div>
+</div>
+</div>
+        <p>
+        Now when a consumer disposes of their subscription, the underlying <em>Timer</em>
+        will be disposed of too.
+    </p>
+        <p>
+          <em>Observable.Create</em> also has an overload that requires your <em>Func</em>
+        to return an <em>Action</em> instead of an <em>IDisposable</em>. In a similar example
+        to above, this one shows how you could use an action to un-register the event handler,
+        preventing a memory leak by retaining the reference to the timer.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Example code only</span></div>
+<div class="line"><span class="kwrd">var</span> ob = <span class="knownType">Observable</span>.Create&lt;<span class="kwrd">string</span>&gt;(</div>
+<div class="scope">
+    <div class="line">observer =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="kwrd">var</span> timer = <span class="kwrd">new</span> System.Timers.<span class="knownType">Timer</span>();</div>
+        <div class="line">timer.Enabled = <span class="kwrd">true</span>;</div>
+        <div class="line">timer.Interval = 100;</div>
+        <div class="line">timer.Elapsed += OnTimerElapsed;</div>
+        <div class="line">timer.Start();</div>
+        <div class="line"><span class="kwrd">return</span> ()=&gt;{</div>
+        <div class="scope">
+            <div class="line">timer.Elapsed -= OnTimerElapsed;</div>
+            <div class="line">timer.Dispose();</div>
+        </div>
+        <div class="line">};</div>
+    </div>
+    <div class="line">});</div>
+</div>
+</div>
+        <p>
+        These last few examples showed you how to use the <em>Observable.Create</em> method.
+        These were just examples; there are actually better ways to produce values from
+        a timer that we will look at soon. The intention is to show that <em>Observable.Create</em>
+        provides you a lazily evaluated way to create observable sequences. We will dig
+        much deeper into lazy evaluation and application of the <em>Create</em> factory
+        method throughout the book especially when we cover concurrency and scheduling.
+    </p>
+        <a name="Unfold"></a>
+        <h2>Functional unfolds</h2>
+        <p>
+        As a functional programmer you would come to expect the ability to unfold a potentially
+        infinite sequence. An issue we may face with <em>Observable.Create</em> is that
+        is that it can be a clumsy way to produce an infinite sequence. Our timer example
+        above is an example of an infinite sequence, and while this is a simple implementation
+        it is an annoying amount of code for something that effectively is delegating all
+        the work to the <em>System.Timers.Timer</em> class. The <em>Observable.Create</em>
+        method also has poor support for unfolding sequences using corecursion.
+    </p>
+        <a name="Corecursion"></a>
+        <h3>Corecursion</h3>
+        <p>
+        Corecursion is a function to apply to the current state to produce the next state.
+        Using corecursion by taking a value, applying a function to it that extends that
+        value and repeating we can create a sequence. A simple example might be to take
+        the value 1 as the seed and a function that increments the given value by one. This
+        could be used to create sequence of [1,2,3,4,5...].
+    </p>
+        <p>
+        Using corecursion to create an <em>IEnumerable&lt;int&gt;</em> sequence is made
+        simple with the <code>yield return</code> syntax.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">private</span> <span class="kwrd">static</span> <span class="knownType">IEnumerable</span>&lt;T&gt; Unfold&lt;T&gt;(T seed, <span class="knownType">Func</span>&lt;T, T&gt; accumulator)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> nextValue = seed;</div>
+    <div class="line"><span class="kwrd">while</span> (<span class="kwrd">true</span>)</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line">yield <span class="kwrd">return</span> nextValue;</div>
+        <div class="line">nextValue = accumulator(nextValue);</div>
+    </div>
+    <div class="line">}</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        The code above could be used to produce the sequence of natural numbers like this.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> naturalNumbers = Unfold(1, i =&gt; i + 1);</div>
+<div class="line"><span class="knownType">Console</span>.WriteLine(<span class="str">"1st 10 Natural numbers"</span>);</div>
+<div class="line"><span class="kwrd">foreach</span> (<span class="kwrd">var</span> naturalNumber <span class="kwrd">in</span> naturalNumbers.Take(10))</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="knownType">Console</span>.WriteLine(naturalNumber);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Output:</p>
+        <div class="output">
+          <div class="line">1st 10 Natural numbers</div>
+          <div class="line">1</div>
+          <div class="line">2</div>
+          <div class="line">3</div>
+          <div class="line">4</div>
+          <div class="line">5</div>
+          <div class="line">6</div>
+          <div class="line">7</div>
+          <div class="line">8</div>
+          <div class="line">9</div>
+          <div class="line">10</div>
+        </div>
+        <p>
+        Note the <code>Take(10)</code> is used to terminate the infinite sequence.
+    </p>
+        <p>
+        Infinite and arbitrary length sequences can be very useful. First we will look at
+        some that come with Rx and then consider how we can generalize the creation of infinite
+        observable sequences.
+    </p>
+        <a name="ObservableRange"></a>
+        <h3>Observable.Range</h3>
+        <p>
+          <em>Observable.Range(int, int)</em> simply returns a range of integers. The first
+        integer is the initial value and the second is the number of values to yield. This
+        example will write the values '10' through to '24' and then complete.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> range = <span class="knownType">Observable</span>.Range(10, 15);</div>
+<div class="line">range.Subscribe(<span class="knownType">Console</span>.WriteLine, ()=&gt;<span class="knownType">Console</span>.WriteLine(<span class="str">"Completed"</span>));</div>
+</div>
+        <a name="ObservableGenerate"></a>
+        <h3>Observable.Generate</h3>
+        <p>
+        It is difficult to emulate the <em>Range</em> factory method using <em>Observable.Create</em>.
+        It would be cumbersome to try and respect the principles that the code should be
+        lazily evaluated and the consumer should be able to dispose of the subscription
+        resources when they so choose. This is where we can use corecursion to provide a
+        richer unfold. In Rx the unfold method is called <em>Observable.Generate</em>.
+    </p>
+        <p>
+        The simple version of <em>Observable.Generate</em> takes the following parameters:
+    </p>
+        <ul>
+          <li>an initial state</li>
+          <li>a predicate that defines when the sequence should terminate</li>
+          <li>a function to apply to the current state to produce the next state</li>
+          <li>a function to transform the state to the desired output</li>
+        </ul>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;TResult&gt; Generate&lt;TState, TResult&gt;(</div>
+<div class="scope">
+    <div class="line">TState initialState, </div>
+    <div class="line"><span class="knownType">Func</span>&lt;TState, <span class="kwrd">bool</span>&gt; condition, </div>
+    <div class="line"><span class="knownType">Func</span>&lt;TState, TState&gt; iterate, </div>
+    <div class="line"><span class="knownType">Func</span>&lt;TState, TResult&gt; resultSelector)</div>
+</div>
+</div>
+        <p>
+        As an exercise, write your own <em>Range</em> factory method using <em>Observable.Generate</em>.
+    </p>
+        <p>
+        Consider the <em>Range</em> signature <code>Range(int start, int count)</code>,
+        which provides the seed and a value for the conditional predicate. You know how
+        each new value is derived from the previous one; this becomes your iterate function.
+        Finally, you probably don't need to transform the state so this makes the result
+        selector function very simple.
+    </p>
+        <p>
+        Continue when you have built your own version...
+    </p>
+        <hr style="page-break-after: always" />
+        <p>
+        Example of how you could use <em>Observable.Generate</em> to construct a similar
+        <em>Range</em> factory method.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Example code only</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">int</span>&gt; Range(<span class="kwrd">int</span> start, <span class="kwrd">int</span> count)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> max = start + count;</div>
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Generate(</div>
+    <div class="scope">
+        <div class="line">start, </div>
+        <div class="line">value =&gt; value &lt; max, </div>
+        <div class="line">value =&gt; value + 1, </div>
+        <div class="line">value =&gt; value);</div>
+    </div>
+</div>
+<div class="line">}</div>
+</div>
+        <a name="ObservableInterval"></a>
+        <h3>Observable.Interval</h3>
+        <p>
+        Earlier in the chapter we used a <em>System.Timers.Timer</em> in our observable
+        to generate a continuous sequence of notifications. As mentioned in the example
+        at the time, this is not the preferred way of working with timers in Rx. As Rx provides
+        operators that give us this functionality it could be argued that to not use them
+        is to re-invent the wheel. More importantly the Rx operators are the preferred way
+        of working with timers due to their ability to substitute in schedulers which is
+        desirable for easy substitution of the underlying timer. There are at least three
+        various timers you could choose from for the example above:
+    </p>
+        <ul>
+          <li>
+            <em>System.Timers.Timer</em>
+          </li>
+          <li>
+            <em>System.Threading.Timer</em>
+          </li>
+          <li>
+            <em>System.Windows.Threading.DispatcherTimer</em>
+          </li>
+        </ul>
+        <p>
+        By abstracting the timer away via a scheduler we are able to reuse the same code
+        for multiple platforms. More importantly than being able to write platform independent
+        code is the ability to substitute in a test-double scheduler/timer to enable testing.
+        Schedulers are a complex subject that is out of scope for this chapter, but they
+        are covered in detail in the later chapter on <a href="15_SchedulingAndThreading.html">
+            Scheduling and threading</a>.
+    </p>
+        <p>
+        There are three better ways of working with constant time events, each being a further
+        generalization of the former. The first is <strong>Observable.Interval(TimeSpan)</strong>
+        which will publish incremental values starting from zero, based on a frequency of
+        your choosing. This example publishes values every 250 milliseconds.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> interval = <span class="knownType">Observable</span>.Interval(<span class="knownType">TimeSpan</span>.FromMilliseconds(250));</div>
+<div class="line">interval.Subscribe(</div>
+<div class="scope">
+    <div class="line"><span class="knownType">Console</span>.WriteLine, </div>
+    <div class="line">() =&gt; <span class="knownType">Console</span>.WriteLine(<span class="str">"completed"</span>));</div>
+</div>
+</div>
+        <p>
+        Output:
+    </p>
+        <div class="output">
+          <div class="line">0</div>
+          <div class="line">1</div>
+          <div class="line">2</div>
+          <div class="line">3</div>
+          <div class="line">4</div>
+          <div class="line">5</div>
+        </div>
+        <p>
+        Once subscribed, you must dispose of your subscription to stop the sequence. It
+        is an example of an infinite sequence.
+    </p>
+        <a name="ObservableTimer"></a>
+        <h3>Observable.Timer</h3>
+        <p>
+        The second factory method for producing constant time based sequences is <strong>Observable.Timer</strong>.
+        It has several overloads; the first of which we will look at being very simple.
+        The most basic overload of <em>Observable.Timer</em> takes just a <em>TimeSpan</em>
+        as <em>Observable.Interval</em> does. The <em>Observable.Timer</em> will however
+        only publish one value (0) after the period of time has elapsed, and then it will
+        complete.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> timer = <span class="knownType">Observable</span>.<span class="knownType">Timer</span>(<span class="knownType">TimeSpan</span>.FromSeconds(1));</div>
+<div class="line">timer.Subscribe(</div>
+<div class="scope">
+    <div class="line"><span class="knownType">Console</span>.WriteLine, </div>
+    <div class="line">() =&gt; <span class="knownType">Console</span>.WriteLine(<span class="str">"completed"</span>));</div>
+</div>
+</div>
+        <p>
+        Output:
+    </p>
+        <div class="output">
+          <div class="line">0</div>
+          <div class="line">completed</div>
+        </div>
+        <p>
+        Alternatively, you can provide a <em>DateTimeOffset</em> for the <code>dueTime</code>
+        parameter. This will produce the value 0 and complete at the due time.
+    </p>
+        <p>
+        A further set of overloads adds a <em>TimeSpan</em> that indicates the period to
+        produce subsequent values. This now allows us to produce infinite sequences and
+        also construct <em>Observable.Interval</em> from <em>Observable.Timer</em>.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">long</span>&gt; Interval(<span class="knownType">TimeSpan</span> period)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.<span class="knownType">Timer</span>(period, period);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Note that this now returns an <em>IObservable</em> of <code>long</code> not <code>int</code>.
+        While <em>Observable.Interval</em> would always wait the given period before producing
+        the first value, this <em>Observable.Timer</em> overload gives the ability to start
+        the sequence when you choose. With <em>Observable.Timer</em> you can write the following
+        to have an interval sequence that started immediately.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="knownType">Observable</span>.<span class="knownType">Timer</span>(<span class="knownType">TimeSpan</span>.Zero, period);</div>
+</div>
+        <p>
+        This takes us to our third way and most general way for producing timer related
+        sequences, back to <em>Observable.Generate</em>. This time however, we are looking
+        at a more complex overload that allows you to provide a function that specifies
+        the due time for the next value.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;TResult&gt; Generate&lt;TState, TResult&gt;(</div>
+<div class="scope">
+    <div class="line">TState initialState, </div>
+    <div class="line"><span class="knownType">Func</span>&lt;TState, <span class="kwrd">bool</span>&gt; condition, </div>
+    <div class="line"><span class="knownType">Func</span>&lt;TState, TState&gt; iterate, </div>
+    <div class="line"><span class="knownType">Func</span>&lt;TState, TResult&gt; resultSelector, </div>
+    <div class="line"><span class="knownType">Func</span>&lt;TState, <span class="knownType">TimeSpan</span>&gt; timeSelector)</div>
+</div>
+</div>
+        <p>
+        Using this overload, and specifically the extra <code>timeSelector</code> argument,
+        we can produce our own implementation of <em>Observable.Timer</em> and in turn,
+        <em>Observable.Interval</em>.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">long</span>&gt; <span class="knownType">Timer</span>(<span class="knownType">TimeSpan</span> dueTime)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Generate(</div>
+    <div class="scope">
+        <div class="line">0l,</div>
+        <div class="line">i =&gt; i &lt; 1,</div>
+        <div class="line">i =&gt; i + 1,</div>
+        <div class="line">i =&gt; i,</div>
+        <div class="line">i =&gt; dueTime);</div>
+    </div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">long</span>&gt; <span class="knownType">Timer</span>(<span class="knownType">TimeSpan</span> dueTime, <span class="knownType">TimeSpan</span> period)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Generate(</div>
+    <div class="scope">
+        <div class="line">0l,</div>
+        <div class="line">i =&gt; <span class="kwrd">true</span>,</div>
+        <div class="line">i =&gt; i + 1,</div>
+        <div class="line">i =&gt; i,</div>
+        <div class="line">i =&gt; i == 0 ? dueTime : period);</div>
+    </div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">long</span>&gt; Interval(<span class="knownType">TimeSpan</span> period)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Generate(</div>
+    <div class="scope">
+        <div class="line">0l,</div>
+        <div class="line">i =&gt; <span class="kwrd">true</span>,</div>
+        <div class="line">i =&gt; i + 1,</div>
+        <div class="line">i =&gt; i,</div>
+        <div class="line">i =&gt; period);</div>
+    </div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        This shows how you can use <em>Observable.Generate</em> to produce infinite sequences.
+        I will leave it up to you the reader, as an exercise using <em>Observable.Generate</em>,
+        to produce values at variable rates. I find using these methods invaluable not only
+        in day to day work but especially for producing dummy data.
+    </p>
+        <a name="TransitioningIntoIObservable"></a>
+        <h2>Transitioning into IObservable&lt;T&gt;</h2>
+        <p>
+        Generation of an observable sequence covers the complicated aspects of functional
+        programming i.e. corecursion and unfold. You can also start a sequence by simply
+        making a transition from an existing synchronous or asynchronous paradigm into the
+        Rx paradigm.
+    </p>
+        <a name="ObservableStart"></a>
+        <h3>From delegates</h3>
+        <p>
+        The <em>Observable.Start</em> method allows you to turn a long running <em>Func&lt;T&gt;</em>
+        or <em>Action</em> into a single value observable sequence. By default, the processing
+        will be done asynchronously on a ThreadPool thread. If the overload you use is a
+        <em>Func&lt;T&gt;</em> then the return type will be <em>IObservable&lt;T&gt;</em>.
+        When the function returns its value, that value will be published and then the sequence
+        completed. If you use the overload that takes an <em>Action</em>, then the returned
+        sequence will be of type <em>IObservable&lt;Unit&gt;</em>. The <em>Unit</em> type
+        is a functional programming construct and is analogous to <code>void</code>. In
+        this case <em>Unit</em> is used to publish an acknowledgement that the <em>Action</em>
+        is complete, however this is rather inconsequential as the sequence is immediately
+        completed straight after <em>Unit</em> anyway. The <em>Unit</em> type itself has
+        no value; it just serves as an empty payload for the <em>OnNext</em> notification.
+        Below is an example of using both overloads.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">static</span> <span class="kwrd">void</span> StartAction()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> start = <span class="knownType">Observable</span>.Start(() =&gt;</div>
+    <div class="scope">
+        <div class="line">{</div>
+        <div class="scope">
+            <div class="line"><span class="knownType">Console</span>.Write(<span class="str">"Working away"</span>);</div>
+            <div class="line"><span class="kwrd">for</span> (<span class="kwrd">int</span> i = 0; i &lt; 10; i++)</div>
+            <div class="line">{</div>
+            <div class="scope">
+                <div class="line"><span class="knownType">Thread</span>.Sleep(100);</div>
+                <div class="line"><span class="knownType">Console</span>.Write(<span class="str">"."</span>);</div>
+            </div>
+            <div class="line">}</div>
+        </div>
+        <div class="line">});</div>
+    </div>
+    <div class="line">start.Subscribe(</div>
+    <div class="scope">
+        <div class="line">unit =&gt; <span class="knownType">Console</span>.WriteLine(<span class="str">"Unit published"</span>), </div>
+        <div class="line">() =&gt; <span class="knownType">Console</span>.WriteLine(<span class="str">"Action completed"</span>));</div>
+    </div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">static</span> <span class="kwrd">void</span> StartFunc()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> start = <span class="knownType">Observable</span>.Start(() =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="knownType">Console</span>.Write(<span class="str">"Working away"</span>);</div>
+        <div class="line"><span class="kwrd">for</span> (<span class="kwrd">int</span> i = 0; i &lt; 10; i++)</div>
+        <div class="line">{</div>
+        <div class="scope">
+            <div class="line"><span class="knownType">Thread</span>.Sleep(100);</div>
+            <div class="line"><span class="knownType">Console</span>.Write(<span class="str">"."</span>);</div>
+        </div>
+        <div class="line">}</div>
+        <div class="line"><span class="kwrd">return</span> <span class="str">"Published value"</span>;</div>
+    </div>
+    <div class="line">});</div>
+    <div class="line">start.Subscribe(</div>
+    <div class="scope">
+        <div class="line"><span class="knownType">Console</span>.WriteLine, </div>
+        <div class="line">() =&gt; <span class="knownType">Console</span>.WriteLine(<span class="str">"Action completed"</span>));</div>
+    </div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Note the difference between <em>Observable.Start</em> and <em>Observable.Return</em>;
+        <em>Start</em> lazily evaluates the value from a function, <em>Return</em> provided
+        the value eagerly. This makes <em>Start</em> very much like a <em>Task</em>. This
+        can also lead to some confusion on when to use each of the features. Both are valid
+        tools and the choice come down to the context of the problem space. Tasks are well
+        suited to parallelizing computational work and providing workflows via continuations
+        for computationally heavy work. Tasks also have the benefit of documenting and enforcing
+        single value semantics. Using <em>Start</em> is a good way to integrate computationally
+        heavy work into an existing code base that is largely made up of observable sequences.
+        We look at <a href="12_CombiningSequences.html">composition of sequences</a> in
+        more depth later in the book.
+    </p>
+        <a name="FromEvent"></a>
+        <h3>From events</h3>
+        <p>
+        As we discussed early in the book, .NET already has the event model for providing
+        a reactive, event driven programming model. While Rx is a more powerful and useful
+        framework, it is late to the party and so needs to integrate with the existing event
+        model. Rx provides methods to take an event and turn it into an observable sequence.
+        There are several different varieties you can use. Here is a selection of common
+        event patterns.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Activated delegate is EventHandler</span></div>
+<div class="line"><span class="kwrd">var</span> appActivated = <span class="knownType">Observable</span>.FromEventPattern(</div>
+<div class="scope">
+        <div class="line">h =&gt; <span class="knownType">Application</span>.Current.Activated += h,</div>
+        <div class="line">h =&gt; <span class="knownType">Application</span>.Current.Activated -= h);</div>
+</div>
+<div class="line"><span class="rem">//PropertyChanged is PropertyChangedEventHandler</span></div>
+<div class="line"><span class="kwrd">var</span> propChanged = <span class="knownType">Observable</span>.FromEventPattern</div>
+<div class="scope">
+    <div class="line">&lt;<span class="knownType">PropertyChangedEventHandler</span>, <span class="knownType">PropertyChangedEventArgs</span>&gt;(</div>
+    <div class="scope">
+        <div class="line">handler =&gt; handler.Invoke,</div>
+        <div class="line">h =&gt; <span class="kwrd">this</span>.PropertyChanged += h,</div>
+        <div class="line">h =&gt; <span class="kwrd">this</span>.PropertyChanged -= h);</div>
+    </div>
+</div>
+<div class="line"><span class="rem">//FirstChanceException is EventHandler&lt;FirstChanceExceptionEventArgs&gt;</span></div>
+<div class="line"><span class="kwrd">var</span> firstChanceException = <span class="knownType">Observable</span>.FromEventPattern&lt;<span class="knownType">FirstChanceExceptionEventArgs</span>&gt;(</div>
+<div class="scope">
+        <div class="line">h =&gt; <span class="knownType">AppDomain</span>.CurrentDomain.FirstChanceException += h,</div>
+        <div class="line">h =&gt; <span class="knownType">AppDomain</span>.CurrentDomain.FirstChanceException -= h);      </div>
+</div>
+</div>
+        <p>
+        So while the overloads can be confusing, they key is to find out what the event's
+        signature is. If the signature is just the base <em>EventHandler</em> delegate then
+        you can use the first example. If the delegate is a sub-class of the <em>EventHandler</em>,
+        then you need to use the second example and provide the <em>EventHandler</em> sub-class
+        and also its specific type of <em>EventArgs</em>. Alternatively, if the delegate
+        is the newer generic <em>EventHandler&lt;TEventArgs&gt;</em>, then you need to use
+        the third example and just specify what the generic type of the event argument is.
+    </p>
+        <p>
+        It is very common to want to expose property changed events as observable sequences.
+        These events can be exposed via <em>INotifyPropertyChanged</em> interface, a <em>DependencyProperty</em>
+        or perhaps by events named appropriately to the Property they are representing.
+        If you are looking at writing your own wrappers to do this sort of thing, I would
+        strongly suggest looking at the Rxx library on <a href="http://Rxx.codeplex.com">http://Rxx.codeplex.com</a>
+        first. Many of these have been catered for in a very elegant fashion.
+    </p>
+        <a name="FromTask"></a>
+        <h3>From Task</h3>
+        <p>
+        Rx provides a useful, and well named set of overloads for transforming from other
+        existing paradigms to the Observable paradigm. The <em>ToObservable()</em> method
+        overloads provide a simple route to make the transition.
+    </p>
+        <p>
+        As we mentioned earlier, the <em>AsyncSubject&lt;T&gt;</em> is similar to a <em>Task&lt;T&gt;</em>.
+        They both return you a single value from an asynchronous source. They also both
+        cache the result for any repeated or late requests for the value. The first <code>ToObservable()</code>
+        extension method overload we look at is an extension to <em>Task&lt;T&gt;</em>.
+        The implementation is simple;
+    </p>
+        <ul>
+          <li>if the task is already in a status of <code>RanToCompletion</code> then the value
+            is added to the sequence and then the sequence completed</li>
+          <li>if the task is Cancelled then the sequence will error with a <em>TaskCanceledException</em></li>
+          <li>if the task is Faulted then the sequence will error with the task's inner exception</li>
+          <li>if the task has not yet completed, then a continuation is added to the task to perform
+            the above actions appropriately</li>
+        </ul>
+        <p>
+        There are two reasons to use the extension method:
+    </p>
+        <ol>
+          <li>From Framework 4.5, almost all I/O-bound functions return <em>Task&lt;T&gt;</em></li>
+          <li>If <em>Task&lt;T&gt;</em> is a good fit, it's preferable to use it over <em>IObservable&lt;T&gt;</em>
+            - because it communicates single-value result in the type system. In other words,
+            a function that returns a single value in the future should return a <em>Task&lt;T&gt;</em>,
+            not an <em>IObservable&lt;T&gt;</em>. Then if you need to combine it with other
+            observables, use <code>ToObservable()</code>.</li>
+        </ol>
+        <p>
+        Usage of the extension method is also simple.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> t = <span class="knownType">Task</span>.Factory.StartNew(()=&gt;<span class="str">"Test"</span>);</div>
+<div class="line"><span class="kwrd">var</span> source = t.ToObservable();</div>
+<div class="line">source.Subscribe(</div>
+<div class="scope">
+    <div class="line"><span class="knownType">Console</span>.WriteLine,</div>
+    <div class="line">() =&gt; <span class="knownType">Console</span>.WriteLine(<span class="str">"completed"</span>));</div>
+</div>
+</div>
+        <p>
+        Output:
+    </p>
+        <div class="output">
+          <div class="line">Test</div>
+          <div class="line">completed</div>
+        </div>
+        <p>
+        There is also an overload that converts a <em>Task</em> (non generic) to an <em>IObservable&lt;Unit&gt;</em>.
+    </p>
+        <a name="FromIEnumerable"></a>
+        <h3>From IEnumerable&lt;T&gt;</h3>
+        <p>
+        The final overload of <em>ToObservable</em> takes an <em>IEnumerable&lt;T&gt;</em>.
+        This is semantically like a helper method for an <em>Observable.Create</em> with
+        a <code>foreach</code> loop in it.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Example code only</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">IObservable</span>&lt;T&gt; ToObservable&lt;T&gt;(<span class="kwrd">this</span> <span class="knownType">IEnumerable</span>&lt;T&gt; source)</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">return</span> <span class="knownType">Observable</span>.Create&lt;T&gt;(o =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="kwrd">foreach</span> (<span class="kwrd">var</span> item <span class="kwrd">in</span> source)</div>
+        <div class="line">{</div>
+        <div class="scope">
+            <div class="line">o.OnNext(item);</div>
+        </div>
+        <div class="line">}</div>
+        <div class="line"><span class="rem">//Incorrect disposal pattern</span></div>
+        <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Empty;</div>
+    </div>
+    <div class="line">});</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        This crude implementation however is naive. It does not allow for correct disposal,
+        it does not handle exceptions correctly and as we will see later in the book, it
+        does not have a very nice concurrency model. The version in Rx of course caters
+        for all of these tricky details so you don't need to worry.
+    </p>
+        <p>
+        When transitioning from <em>IEnumerable&lt;T&gt;</em> to <em>IObservable&lt;T&gt;</em>,
+        you should carefully consider what you are really trying to achieve. You should
+        also carefully test and measure the performance impacts of your decisions. Consider
+        that the blocking synchronous (pull) nature of <em>IEnumerable&lt;T&gt;</em> sometimes
+        just does not mix well with the asynchronous (push) nature of <em>IObservable&lt;T&gt;</em>.
+        Remember that it is completely valid to pass <em>IEnumerable</em>, <em>IEnumerable&lt;T&gt;</em>,
+        arrays or collections as the data type for an observable sequence. If the sequence
+        can be materialized all at once, then you may want to avoid exposing it as an <em>IEnumerable</em>.
+        If this seems like a fit for you then also consider passing immutable types like
+        an array or a <em>ReadOnlyCollection&lt;T&gt;</em>. We will see the use of <em>IObservable&lt;IList&lt;T&gt;&gt;</em>
+        later for operators that provide batching of data.
+    </p>
+        <a name="FromAPM"></a>
+        <h3>From APM</h3>
+        <p>
+        Finally we look at a set of overloads that take you from the <a href="http://msdn.microsoft.com/en-us/magazine/cc163467.aspx">
+            Asynchronous Programming Model</a> (APM) to an observable sequence. This is
+        the style of programming found in .NET that can be identified with the use of two
+        methods prefixed with <em>Begin...</em> and <em>End...</em> and the iconic <em>IAsyncResult</em>
+        parameter type. This is commonly seen in the I/O APIs.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">class</span> WebRequest</div>
+<div class="line">{    </div>
+<div class="scope">
+    <div class="line"><span class="kwrd">public</span> WebResponse GetResponse() </div>
+    <div class="line">{...}</div>
+    <div class="line"><span class="kwrd">public</span> <span class="knownType">IAsyncResult</span> BeginGetResponse(</div>
+    <div class="scope">
+        <div class="line"><span class="knownType">AsyncCallback</span> callback, </div>
+        <div class="line"><span class="kwrd">object</span> state) </div>
+    </div>
+    <div class="line">{...}</div>
+    <div class="line"><span class="kwrd">public</span> WebResponse EndGetResponse(<span class="knownType">IAsyncResult</span> asyncResult) </div>
+    <div class="line">{...}</div>
+    <div class="line">...</div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="kwrd">class</span> Stream</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">public</span> <span class="kwrd">int</span> Read(</div>
+    <div class="scope">
+        <div class="line"><span class="kwrd">byte</span>[] buffer, </div>
+        <div class="line"><span class="kwrd">int</span> offset, </div>
+        <div class="line"><span class="kwrd">int</span> count) </div>
+    </div>
+    <div class="line">{...}</div>
+    <div class="line"><span class="kwrd">public</span> <span class="knownType">IAsyncResult</span> BeginRead(</div>
+    <div class="scope">
+        <div class="line"><span class="kwrd">byte</span>[] buffer, </div>
+        <div class="line"><span class="kwrd">int</span> offset, </div>
+        <div class="line"><span class="kwrd">int</span> count, </div>
+        <div class="line"><span class="knownType">AsyncCallback</span> callback, </div>
+        <div class="line"><span class="kwrd">object</span> state) </div>
+    </div>
+    <div class="line">{...}</div>
+    <div class="line"><span class="kwrd">public</span> <span class="kwrd">int</span> EndRead(<span class="knownType">IAsyncResult</span> asyncResult) </div>
+    <div class="line">{...}</div>
+    <div class="line">...</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p class="comment">
+        At time of writing .NET 4.5 was still in preview release. Moving forward with .NET
+        4.5 the APM model will be replaced with <em>Task</em> and new <code>async</code>
+        and <code>await</code> keywords. Rx 2.0 which is also in a beta release will integrate
+        with these features. .NET 4.5 and Rx 2.0 are not in the scope of this book.
+    </p>
+        <p>
+        APM, or the Async Pattern, has enabled a very powerful, yet clumsy way of for .NET
+        programs to perform long running I/O bound work. If we were to use the synchronous
+        access to IO, e.g. <code>WebRequest.GetResponse()</code> or <code>Stream.Read(...)</code>,
+        we would be blocking a thread but not performing any work while we waited for the
+        IO. This can be quite wasteful on busy servers performing a lot of concurrent work
+        to hold a thread idle while waiting for I/O to complete. Depending on the implementation,
+        APM can work at the hardware device driver layer and not require any threads while
+        blocking. Information on how to follow the APM model is scarce. Of the documentation
+        you can find it is pretty shaky, however, for more information on APM, see Jeffery
+        Richter's brilliant book <cite>CLR via C#</cite> or Joe Duffy's comprehensive <cite>
+            Concurrent Programming on Windows</cite>. Most stuff on the internet is blatant
+        plagiary of Richter's examples from his book. An in-depth examination of APM is
+        outside of the scope of this book.
+    </p>
+        <p>
+        To utilize the Asynchronous Programming Model but avoid its awkward API, we can
+        use the <em>Observable.FromAsyncPattern</em> method. Jeffery van Gogh gives a brilliant
+        walk through of the <em>Observable.FromAsyncPattern</em> in <a href="http://blogs.msdn.com/b/jeffva/archive/2010/07/23/rx-on-the-server-part-1-of-n-asynchronous-system-io-stream-reading.aspx">
+            Part 1</a> of his <cite>Rx on the Server</cite> blog series. While the theory
+        backing the Rx on the Server series is sound, it was written in mid 2010 and targets
+        an old version of Rx.
+    </p>
+        <p>
+        With 30 overloads of <em>Observable.FromAsyncPattern</em> we will look at the general
+        concept so that you can pick the appropriate overload for yourself. First if we
+        look at the normal pattern of APM we will see that the BeginXXX method will take
+        zero or more data arguments followed by an <code>AsyncCallback</code> and an <em>Object</em>.
+        The BeginXXX method will also return an <em>IAsyncResult</em> token.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Standard Begin signature</span></div>
+<div class="line"><span class="knownType">IAsyncResult</span> BeginXXX(<span class="knownType">AsyncCallback</span> callback, Object state);</div>
+<div class="line"><span class="rem">//Standard Begin signature with data</span></div>
+<div class="line"><span class="knownType">IAsyncResult</span> BeginYYY(<span class="kwrd">string</span> someParam1, <span class="knownType">AsyncCallback</span> callback, <span class="kwrd">object</span> state);</div>
+</div>
+        <p>
+        The EndXXX method will accept an <em>IAsyncResult</em> which should be the token
+        returned from the BeginXXX method. The EndXXX can also return a value.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Standard EndXXX Signature</span></div>
+<div class="line"><span class="kwrd">void</span> EndXXX(<span class="knownType">IAsyncResult</span> asyncResult);</div>
+<div class="line"><span class="rem">//Standard EndXXX Signature with data</span></div>
+<div class="line"><span class="kwrd">int</span> EndYYY(<span class="knownType">IAsyncResult</span> asyncResult);</div>
+</div>
+        <p>
+        The generic arguments for the <em>FromAsyncPattern</em> method are just the BeginXXX
+        data arguments if any, followed by the EndXXX return type if any. If we apply that
+        to our <code>Stream.Read(byte[], int, int, AsyncResult, object)</code> example above
+        we see that we have a <code>byte[]</code>, an <code>int</code> and another <code>int</code>
+        as our data parameters for <em>BeginRead</em> method.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//IAsyncResult BeginRead(</span></div>
+<div class="line"><span class="rem">//  byte[] buffer, </span></div>
+<div class="line"><span class="rem">//  int offset, </span></div>
+<div class="line"><span class="rem">//  int count, </span></div>
+<div class="line"><span class="rem">//  AsyncCallback callback, object state) {...}</span></div>
+<div class="line"><span class="knownType">Observable</span>.FromAsyncPattern&lt;<span class="kwrd">byte</span>[], <span class="kwrd">int</span>, <span class="kwrd">int</span> ...</div>
+</div>
+        <p>
+        Now we look at the EndXXX method and see it returns an <code>int</code>, which completes
+        the generic signature of our <em>FromAsyncPattern</em> call.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//int EndRead(</span></div>
+<div class="line"><span class="rem">//  IAsyncResult asyncResult) {...}</span></div>
+<div class="line"><span class="knownType">Observable</span>.FromAsyncPattern&lt;<span class="kwrd">byte</span>[], <span class="kwrd">int</span>, <span class="kwrd">int</span>, <span class="kwrd">int</span>&gt;</div>
+</div>
+        <p>
+        The result of the call to <em>Observable.FromAsyncPattern</em> does <i>not</i> return
+        an observable sequence. It returns a delegate that returns an observable sequence.
+        The signature for this delegate will match the generic arguments of the call to
+        <em>FromAsyncPattern</em>, except that the return type will be wrapped in an observable
+        sequence.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> fileLength = (<span class="kwrd">int</span>) stream.Length;</div>
+<div class="line"><span class="rem">//read is a Func&lt;byte[], int, int, IObservable&lt;int&gt;&gt;</span></div>
+<div class="line"><span class="kwrd">var</span> read = <span class="knownType">Observable</span>.FromAsyncPattern&lt;<span class="kwrd">byte</span>[], <span class="kwrd">int</span>, <span class="kwrd">int</span>, <span class="kwrd">int</span>&gt;(</div>
+<div class="scope">
+    <div class="line">stream.BeginRead, </div>
+    <div class="line">stream.EndRead);</div>
+</div>
+<div class="line"><span class="kwrd">var</span> buffer = <span class="kwrd">new</span> <span class="kwrd">byte</span>[fileLength];</div>
+<div class="line"><span class="kwrd">var</span> bytesReadStream = read(buffer, 0, fileLength);</div>
+<div class="line">bytesReadStream.Subscribe(</div>
+<div class="scope">
+    <div class="line">byteCount =&gt;</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="knownType">Console</span>.WriteLine(<span class="str">"Number of bytes read={0}, buffer should be populated with data now."</span>,</div>
+        <div class="line">byteCount);</div>
+    </div>
+    <div class="line">});</div>
+</div>
+</div>
+        <p>
+        Note that this implementation is just an example. For a very well designed implementation
+        that is built against the latest version of Rx you should look at the Rxx project
+        on <a href="http://rxx.codeplex.com">http://rxx.codeplex.com</a>.
+    </p>
+        <p>
+        This covers the first classification of query operators: creating observable sequences.
+        We have looked at the various eager and lazy ways to create a sequence. We have
+        introduced the concept of corecursion and show how we can use it with the <em>Generate</em>
+        method to unfold potentially infinite sequences. We can now produce timer based
+        sequences using the various factory methods. We should also be familiar with ways
+        to transition from other synchronous and asynchronous paradigms and be able to decide
+        when it is or is not appropriate to do so. As a quick recap:
+    </p>
+        <ul>
+          <li>Factory Methods
+            <ul><li>Observable.Return</li><li>Observable.Empty</li><li>Observable.Never</li><li>Observable.Throw</li><li>Observable.Create</li></ul></li>
+          <li>Unfold methods
+            <ul><li>Observable.Range</li><li>Observable.Interval</li><li>Observable.Timer</li><li>Observable.Generate</li></ul></li>
+          <li>Paradigm Transition
+            <ul><li>Observable.Start</li><li>Observable.FromEventPattern</li><li>Task.ToObservable</li><li>Task&lt;T&gt;.ToObservable</li><li>IEnumerable&lt;T&gt;.ToObservable</li><li>Observable.FromAsyncPattern</li></ul></li>
+        </ul>
+        <p>
+        Creating an observable sequence is our first step to practical application of Rx:
+        create the sequence and then expose it for consumption. Now that we have a firm
+        grasp on how to create an observable sequence, we can discover the operators that
+        allow us to query an observable sequence.
+    </p>
+        <hr />
+        <table width="100%">
+          <tr>
+            <td>&lt;&lt; Back to : <a href="03_LifetimeManagement.html">Lifetime management</a></td>
+            <td></td>
+            <td align="right">Moving on to : <a href="05_Filtering.html">Reducing a sequence</a>&gt;&gt;</td>
+          </tr>
+        </table>
+      </div>
+      <div class="footer">
+            Original series @ <a href="http://leecampbell.blogspot.com/2010/08/reactive-extensions-for-net.html">Lee Campbell</a></div>
+    </div>
+  </body>
+</html>

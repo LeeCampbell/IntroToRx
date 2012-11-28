@@ -37,7 +37,27 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KindleGenerator", "KindleGe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KindleGenerator.Tests", "KindleGenerator\KindleGenerator\KindleGenerator.Tests\KindleGenerator.Tests.csproj", "{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntroToRx", "WebSite\IntroToRx\IntroToRx.csproj", "{CE429636-B291-49B4-9279-314D91D28EBA}"
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "WebSite", "http://localhost:50425", "{BB0633B3-E1E9-4535-B090-E642D73566B4}"
+	ProjectSection(WebsiteProperties) = preProject
+		UseIISExpress = "true"
+		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.5"
+		Debug.AspNetCompiler.VirtualPath = "/localhost_50425"
+		Debug.AspNetCompiler.PhysicalPath = "WebSite\"
+		Debug.AspNetCompiler.TargetPath = "PrecompiledWeb\localhost_50425\"
+		Debug.AspNetCompiler.Updateable = "true"
+		Debug.AspNetCompiler.ForceOverwrite = "true"
+		Debug.AspNetCompiler.FixedNames = "false"
+		Debug.AspNetCompiler.Debug = "True"
+		Release.AspNetCompiler.VirtualPath = "/localhost_50425"
+		Release.AspNetCompiler.PhysicalPath = "WebSite\"
+		Release.AspNetCompiler.TargetPath = "PrecompiledWeb\localhost_50425\"
+		Release.AspNetCompiler.Updateable = "true"
+		Release.AspNetCompiler.ForceOverwrite = "true"
+		Release.AspNetCompiler.FixedNames = "false"
+		Release.AspNetCompiler.Debug = "False"
+		SlnRelativePath = "WebSite\"
+		DefaultWebSiteLanguage = "Visual C#"
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -69,16 +89,16 @@ Global
 		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{A5D97C3B-ADAF-4F36-94FD-8E3129011EC6}.Release|x86.ActiveCfg = Release|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{CE429636-B291-49B4-9279-314D91D28EBA}.Release|x86.ActiveCfg = Release|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Release|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Release|Mixed Platforms.Build.0 = Debug|Any CPU
+		{BB0633B3-E1E9-4535-B090-E642D73566B4}.Release|x86.ActiveCfg = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

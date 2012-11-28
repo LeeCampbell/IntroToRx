@@ -1,0 +1,876 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"[]>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Intro to Rx - Key Types</title>
+    <link href="../../Styles/Site.css" rel="stylesheet" type="text/css" />
+    <!--Google analytics-->
+    <script type="text/javascript">
+
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-32704657-1']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+
+    </script>
+  </head>
+  <body>
+    <div class="page">
+      <div class="header">
+        <div style="margin: 70px 20px 5px; float: right;text-align: right">
+          <a href="http://twitter.com/#!/search/%23RxNET">#RxNET</a>
+          <br />
+          <span style="color: #707070; font-weight: 700; font-size: 11px;">Version v1.0.1062.0</span>
+        </div>
+        <img id="Logo" src="../../Styles/titleText.png" style="height: 80px; margin: 20px; float: left" />
+        <table class="toc" border="0" cellspacing="0" cellpadding="0">
+          <tr>
+            <th class="toc">
+              <a class="toc" href="00_Foreword.html">Preface</a>
+            </th>
+            <th class="tocactive">PART 1</th>
+            <th class="toc">
+              <a class="toc" href="04_CreatingObservableSequences.html">PART 2</a>
+            </th>
+            <th class="toc">
+              <a class="toc" href="09_SideEffects.html">PART 3</a>
+            </th>
+            <th class="toc">
+              <a class="toc" href="15_SchedulingAndThreading.html">PART 4</a>
+            </th>
+            <th class="toc">
+              <a class="toc" href="18_UsageGuidelines.html">Appendix</a>
+            </th>
+          </tr>
+          <tr>
+            <td></td>
+            <td class="tocactive">Getting started</td>
+            <td class="toc">
+              <a class="toc" href="04_CreatingObservableSequences.html">Sequence basics</a>
+            </td>
+            <td class="toc">
+              <a class="toc" href="09_SideEffects.html">Taming the sequence</a>
+            </td>
+            <td class="toc">
+              <a class="toc" href="15_SchedulingAndThreading.html">Concurrency</a>
+            </td>
+            <td></td>
+          </tr>
+        </table>
+      </div>
+      <div class="leftCol">
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="00_Foreword.html">Preface</a>
+            </div>
+            <ul>
+              <li>
+                <a href="00_Foreword.html#Acknowledgements">Acknowledgements</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="01_WhyRx.html">PART 1 - Getting started</a>
+            </div>
+            <ul>
+              <li>
+                <a href="01_WhyRx.html#WhyRx">Why Rx?</a>
+                <ul>
+                  <li>
+                    <a href="01_WhyRx.html#WhenRx">When is Rx appropriate?</a>
+                    <ul>
+                      <li>
+                        <a href="01_WhyRx.html#Should">Should use Rx</a>
+                      </li>
+                      <li>
+                        <a href="01_WhyRx.html#Could">Could use Rx</a>
+                      </li>
+                      <li>
+                        <a href="01_WhyRx.html#Wont">Won't use Rx</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <a href="01_WhyRx.html#RxInAction">Rx in action</a>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="02_KeyTypes.html#KeyTypes">Key types</a>
+                <ul>
+                  <li>
+                    <a href="02_KeyTypes.html#IObservable">IObservable&lt;T&gt;</a>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#IObserver">IObserver&lt;T&gt;</a>
+                    <ul>
+                      <li>
+                        <a href="02_KeyTypes.html#ImplementingIObserverAndIObservable">Implementing IObserver&lt;T&gt; and IObservable&lt;T&gt;</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#Subject">Subject&lt;T&gt;</a>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#ReplaySubject">ReplaySubject&lt;T&gt;</a>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#BehaviorSubject">BehaviorSubject&lt;T&gt;</a>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#AsyncSubject">AsyncSubject&lt;T&gt;</a>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#ImplicitContracts">Implicit contracts</a>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#ISubject">ISubject interfaces</a>
+                  </li>
+                  <li>
+                    <a href="02_KeyTypes.html#SubjectFactory">Subject factory</a>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="03_LifetimeManagement.html#LifetimeManagement">Lifetime management</a>
+                <ul>
+                  <li>
+                    <a href="03_LifetimeManagement.html#Subscribe">Subscribing</a>
+                  </li>
+                  <li>
+                    <a href="03_LifetimeManagement.html#Unsubscribing">Unsubscribing</a>
+                  </li>
+                  <li>
+                    <a href="03_LifetimeManagement.html#OnErrorAndOnCompleted">OnError and OnCompleted</a>
+                  </li>
+                  <li>
+                    <a href="03_LifetimeManagement.html#IDisposable">IDisposable</a>
+                  </li>
+                  <li>
+                    <a href="03_LifetimeManagement.html#Finalizers">Resource management vs. memory management</a>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="04_CreatingObservableSequences.html">PART 2 - Sequence basics</a>
+            </div>
+            <ul>
+              <li>
+                <a href="04_CreatingObservableSequences.html#CreationOfObservables">Creating a sequence</a>
+              </li>
+              <li>
+                <a href="05_Filtering.html#Reduction">Reducing a sequence</a>
+              </li>
+              <li>
+                <a href="06_Inspection.html#Inspection">Inspection</a>
+              </li>
+              <li>
+                <a href="07_Aggregation.html#Aggregation">Aggregation</a>
+              </li>
+              <li>
+                <a href="08_Transformation.html#TransformationOfSequences">Transformation of sequences</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="09_SideEffects.html">PART 3 - Taming the sequence</a>
+            </div>
+            <ul>
+              <li>
+                <a href="09_SideEffects.html#SideEffects">Side effects</a>
+              </li>
+              <li>
+                <a href="10_LeavingTheMonad.html#LeavingTheMonad">Leaving the monad</a>
+              </li>
+              <li>
+                <a href="11_AdvancedErrorHandling.html#AdvancedErrorHandling">Advanced error handling</a>
+              </li>
+              <li>
+                <a href="12_CombiningSequences.html#CombiningMultipleSequences">Combining sequences</a>
+              </li>
+              <li>
+                <a href="13_TimeShiftedSequences.html#TimeShiftedSequences">Time-shifted sequences</a>
+              </li>
+              <li>
+                <a href="14_HotAndColdObservables.html#HotAndCold">Hot and Cold observables</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="15_SchedulingAndThreading.html">PART 4 - Concurrency</a>
+            </div>
+            <ul>
+              <li>
+                <a href="15_SchedulingAndThreading.html#SchedulingAndThreading">Scheduling and threading</a>
+              </li>
+              <li>
+                <a href="16_TestingRx.html#TestingRx">Testing Rx</a>
+              </li>
+              <li>
+                <a href="17_SequencesOfCoincidence.html#SequencesOfCoincidence">Sequences of coincidence</a>
+              </li>
+              <li>
+                <a href="17_SequencesOfCoincidence.html#Summary">Summary</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <ul class="partMenu">
+          <li>
+            <div class="partMenuHeader">
+              <a href="18_UsageGuidelines.html">Appendix</a>
+            </div>
+            <ul>
+              <li>
+                <a href="18_UsageGuidelines.html#UsageGuidelines">Usage guidelines</a>
+              </li>
+              <li>
+                <a href="19_DispellingMyths.html#DispellingEventMyths">Dispelling event myths</a>
+              </li>
+              <li>
+                <a href="20_Disposables.html#Disposables">Disposables</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div class="main">
+        <div style="float: right; margin: 10px 0px 10px 10px; width: 140px; font-size: 11px;text-align: center">
+          <img src="../../Styles/IntroToRx_Cover.png" style="margin: 10px" />
+                                            Lee Campbell<br /><a href="IntroToRx.mobi" title="Introduction to Rx as .mobi file (for Kindle)">Introduction to Rx<br />Kindle edition</a> (2012)
+                                        </div>
+        <a name="KeyTypes"></a>
+        <h1>Key types</h1>
+        <p>
+        There are two key types to understand when working with Rx, and a subset of auxiliary
+        types that will help you to learn Rx more effectively. The <em>IObserver&lt;T&gt;</em>
+        and <em>IObservable&lt;T&gt;</em> form the fundamental building blocks for Rx, while
+        implementations of <em>ISubject&lt;TSource, TResult&gt;</em> reduce the learning
+        curve for developers new to Rx.
+    </p>
+        <p>
+        Many are familiar with LINQ and its many popular forms like LINQ to Objects, LINQ
+        to SQL &amp; LINQ to XML. Each of these common implementations allows you query
+        <i>data at rest</i>; Rx offers the ability to query <i>data in motion</i>. Essentially
+        Rx is built upon the foundations of the <a href="http://en.wikipedia.org/wiki/Observer_pattern">
+            Observer</a> pattern. .NET already exposes some other ways to implement the
+        Observer pattern such as multicast delegates or events (which are usually multicast
+        delegates). Multicast delegates are not ideal however as they exhibit the following
+        less desirable features;
+    </p>
+        <ul>
+          <li>In C#, events have a curious interface. Some find the <code>+=</code> and <code>
+            -=</code> operators an unnatural way to register a callback</li>
+          <li>Events are difficult to compose</li>
+          <li>Events don't offer the ability to be easily queried over time</li>
+          <li>Events are a common cause of accidental memory leaks</li>
+          <li>Events do not have a standard pattern for signaling completion</li>
+          <li>Events provide almost no help for concurrency or multithreaded applications. e.g.
+            To raise an event on a separate thread requires you to do all of the plumbing</li>
+        </ul>
+        <p>
+        Rx looks to solve these problems. Here I will introduce you to the building blocks
+        and some basic types that make up Rx.
+    </p>
+        <a name="IObservable"></a>
+        <h2>IObservable&lt;T&gt;</h2>
+        <p>
+          <a title="IObservable(Of T) interface - MSDN" href="http://msdn.microsoft.com/en-us/library/dd990377.aspx">
+            <em>IObservable&lt;T&gt;</em>
+          </a> is one of the two new core interfaces for
+        working with Rx. It is a simple interface with just a <a href="http://msdn.microsoft.com/en-us/library/dd782981(v=VS.100).aspx">
+            Subscribe</a> method. Microsoft is so confident that this interface will be
+        of use to you it has been included in the BCL as of version 4.0 of .NET. You should
+        be able to think of anything that implements <em>IObservable&lt;T&gt;</em> as a
+        streaming sequence of <em>T</em> objects. So if a method returned an <em>IObservable&lt;Price&gt;</em>
+        I could think of it as a stream of Prices.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Defines a provider for push-based notification.</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">interface</span> <span class="knownType">IObservable</span>&lt;<span class="kwrd">out</span> T&gt;</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="rem">//Notifies the provider that an observer is to receive notifications.</span></div>
+    <div class="line"><span class="knownType">IDisposable</span> Subscribe(<span class="knownType">IObserver</span>&lt;T&gt; observer);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p class="comment">
+        .NET already has the concept of Streams with the type and sub types of <em>System.IO.Stream</em>.
+        The <em>System.IO.Stream</em> implementations are commonly used to stream data (generally
+        bytes) to or from an I/O device like a file, network or block of memory. <em>System.IO.Stream</em>
+        implementations can have both the ability to read and write, and sometimes the ability
+        to seek (i.e. fast forward through a stream or move backwards). When I refer to
+        an instance of <em>IObservable&lt;T&gt;</em> as a stream, it does not exhibit the
+        seek or write functionality that streams do. This is a fundamental difference preventing
+        Rx being built on top of the <em>System.IO.Stream</em> paradigm. Rx does however
+        have the concept of forward streaming (push), disposing (closing) and completing
+        (eof). Rx also extends the metaphor by introducing concurrency constructs, and query
+        operations like transformation, merging, aggregating and expanding. These features
+        are also not an appropriate fit for the existing <em>System.IO.Stream</em> types.
+        Some others refer to instances of <em>IObservable&lt;T&gt;</em> as Observable Collections,
+        which I find hard to understand. While the observable part makes sense to me, I
+        do not find them like collections at all. You generally cannot sort, insert or remove
+        items from an <em>IObservable&lt;T&gt;</em> instance like I would expect you can
+        with a collection. Collections generally have some sort of backing store like an
+        internal array. The values from an <em>IObservable&lt;T&gt;</em> source are not
+        usually pre-materialized as you would expect from a normal collection. There is
+        also a type in WPF/Silverlight called an <em>ObservableCollection&lt;T&gt;</em>
+        that does exhibit collection-like behavior, and is very well suited to this description.
+        In fact <em>IObservable&lt;T&gt;</em> integrates very well with <em>ObservableCollection&lt;T&gt;</em>
+        instances. So to save on any confusion we will refer to instances of <em>IObservable&lt;T&gt;</em>
+        as <b>sequences</b>. While instances of <em>IEnumerable&lt;T&gt;</em> are also sequences,
+        we will adopt the convention that they are sequences of <i>data at rest</i>, and
+        <em>IObservable&lt;T&gt;</em> instances are sequences of <i>data in motion</i>.
+    </p>
+        <a name="IObserver"></a>
+        <h2>IObserver&lt;T&gt;</h2>
+        <p>
+          <a title="IObserver(Of T) interface - MSDN" href="http://msdn.microsoft.com/en-us/library/dd783449.aspx">
+            <em>IObserver&lt;T&gt;</em>
+          </a> is the other one of the two core interfaces
+        for working with Rx. It too has made it into the BCL as of .NET 4.0. Don't worry
+        if you are not on .NET 4.0 yet as the Rx team have included these two interfaces
+        in a separate assembly for .NET 3.5 and Silverlight users. <em>IObservable&lt;T&gt;</em>
+        is meant to be the "functional dual of <em>IEnumerable&lt;T&gt;</em>".
+        If you want to know what that last statement means, then enjoy the hours of videos
+        on <a href="http://channel9.msdn.com/tags/Rx/">Channel9</a> where they discuss the
+        mathematical purity of the types. For everyone else it means that where an <em>IEnumerable&lt;T&gt;</em>
+        can effectively yield three things (the next value, an exception or the end of the
+        sequence), so too can <em>IObservable&lt;T&gt;</em> via <em>IObserver&lt;T&gt;</em>'s
+        three methods <em>OnNext(T)</em>, <em>OnError(Exception)</em> and <em>OnCompleted()</em>.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Provides a mechanism for receiving push-based notifications.</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">interface</span> <span class="knownType">IObserver</span>&lt;<span class="kwrd">in</span> T&gt;</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="rem">//Provides the observer with new data.</span></div>
+    <div class="line"><span class="kwrd">void</span> OnNext(T value);</div>
+    <div class="line"><span class="rem">//Notifies the observer that the provider has experienced an error condition.</span></div>
+    <div class="line"><span class="kwrd">void</span> OnError(<span class="knownType">Exception</span> error);</div>
+    <div class="line"><span class="rem">//Notifies the observer that the provider has finished sending push-based notifications.</span></div>
+    <div class="line"><span class="kwrd">void</span> OnCompleted();</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Rx has an implicit contract that must be followed. An implementation of <em>IObserver&lt;T&gt;</em>
+        may have zero or more calls to <em>OnNext(T)</em> followed optionally by a call
+        to either <em>OnError(Exception)</em> or <em>OnCompleted()</em>. This protocol ensures
+        that if a sequence terminates, it is always terminated by an <em>OnError(Exception)</em>,
+        <b>or</b> an <em>OnCompleted()</em>. This protocol does not however demand that
+        an <em>OnNext(T)</em>, <em>OnError(Exception)</em> or <em>OnCompleted()</em> ever
+        be called. This enables to concept of empty and infinite sequences. We will look
+        into this more later.
+    </p>
+        <p>
+        Interestingly, while you will be exposed to the <em>IObservable&lt;T&gt;</em> interface
+        frequently if you work with Rx, in general you will not need to be concerned with
+        <em>IObserver&lt;T&gt;</em>. This is due to Rx providing anonymous implementations
+        via methods like <em>Subscribe</em>.
+    </p>
+        <a name="ImplementingIObserverAndIObservable"></a>
+        <h3>Implementing IObserver&lt;T&gt; and IObservable&lt;T&gt;</h3>
+        <p>
+        It is quite easy to implement each interface. If we wanted to create an observer
+        that printed values to the console it would be as easy as this.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">class</span> MyConsoleObserver&lt;T&gt; : <span class="knownType">IObserver</span>&lt;T&gt;</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> OnNext(T value)</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="knownType">Console</span>.WriteLine(<span class="str">"Received value {0}"</span>, value);</div>
+    </div>
+    <div class="line">}</div>
+    <div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> OnError(<span class="knownType">Exception</span> error)</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="knownType">Console</span>.WriteLine(<span class="str">"Sequence faulted with {0}"</span>, error);</div>
+    </div>
+    <div class="line">}</div>
+    <div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> OnCompleted()</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line"><span class="knownType">Console</span>.WriteLine(<span class="str">"Sequence terminated"</span>);</div>
+    </div>
+    <div class="line">}</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Implementing an observable sequence is a little bit harder. An overly simplified
+        implementation that returned a sequence of numbers could look like this.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">class</span> MySequenceOfNumbers : <span class="knownType">IObservable</span>&lt;<span class="kwrd">int</span>&gt;</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">public</span> <span class="knownType">IDisposable</span> Subscribe(<span class="knownType">IObserver</span>&lt;<span class="kwrd">int</span>&gt; observer)</div>
+    <div class="line">{</div>
+    <div class="scope">
+        <div class="line">observer.OnNext(1);</div>
+        <div class="line">observer.OnNext(2);</div>
+        <div class="line">observer.OnNext(3);</div>
+        <div class="line">observer.OnCompleted();</div>
+        <div class="line"><span class="kwrd">return</span> <span class="knownType">Disposable</span>.Empty;</div>
+    </div>
+    <div class="line">}</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        We can tie these two implementations together to get the following output
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> numbers = <span class="kwrd">new</span> MySequenceOfNumbers();</div>
+<div class="line"><span class="kwrd">var</span> observer = <span class="kwrd">new</span> MyConsoleObserver&lt;<span class="kwrd">int</span>&gt;();</div>
+<div class="line">numbers.Subscribe(observer);</div>
+</div>
+        <p>
+        Output:
+    </p>
+        <div class="output">
+          <div class="line">Received value 1</div>
+          <div class="line">Received value 2</div>
+          <div class="line">Received value 3</div>
+          <div class="line">Sequence terminated</div>
+        </div>
+        <p>
+        The problem we have here is that this is not really reactive at all. This implementation
+        is blocking, so we may as well use an <em>IEnumerable&lt;T&gt;</em> implementation
+        like a <em>List&lt;T&gt;</em> or an array.
+    </p>
+        <p>
+        This problem of implementing the interfaces should not concern us too much. You
+        will find that when you use Rx, you do not have the need to actually implement these
+        interfaces, Rx provides all of the implementations you need out of the box. Let's
+        have a look at the simple ones.
+    </p>
+        <a name="Subject"></a>
+        <h2>Subject&lt;T&gt;</h2>
+        <p>
+        I like to think of the <em>IObserver&lt;T&gt;</em> and the <em>IObservable&lt;T&gt;</em>
+        as the 'reader' and 'writer' or, 'consumer' and 'publisher' interfaces. If you were
+        to create your own implementation of <em>IObservable&lt;T&gt;</em> you may find
+        that while you want to publicly expose the IObservable characteristics you still
+        need to be able to publish items to the subscribers, throw errors and notify when
+        the sequence is complete. Why that sounds just like the methods defined in <em>IObserver&lt;T&gt;</em>!
+        While it may seem odd to have one type implementing both interfaces, it does make
+        life easy. This is what <a title="Using Rx Subjects - MSDN" href="http://msdn.microsoft.com/en-us/library/hh242969(v=VS.103).aspx">
+            subjects</a> can do for you. <a title="Subject(Of T) - MSDN" href="http://msdn.microsoft.com/en-us/library/hh229173(v=VS.103).aspx"><em>Subject&lt;T&gt;</em></a> is the most basic of the subjects. Effectively
+        you can expose your <em>Subject&lt;T&gt;</em> behind a method that returns <em>IObservable&lt;T&gt;</em>
+        but internally you can use the <em>OnNext</em>, <em>OnError</em> and <em>OnCompleted</em>
+        methods to control the sequence.
+    </p>
+        <p>
+        In this very basic example, I create a subject, subscribe to that subject and then
+        publish values to the sequence (by calling <code>subject.OnNext(T)</code>).
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">static</span> <span class="kwrd">void</span> Main(<span class="kwrd">string</span>[] args)</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">Subject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+  <div class="line">WriteSequenceToConsole(subject);</div>
+  <div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+  <div class="line"><span class="knownType">Console</span>.ReadKey();</div>
+</div>
+<div class="line">}</div>
+<div class="line"><span class="rem">//Takes an IObservable&lt;string&gt; as its parameter. </span></div>
+<div class="line"><span class="rem">//Subject&lt;string&gt; implements this interface.</span></div>
+<div class="line"><span class="kwrd">static</span> <span class="kwrd">void</span> WriteSequenceToConsole(<span class="knownType">IObservable</span>&lt;<span class="kwrd">string</span>&gt; sequence)</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="rem">//The next two lines are equivalent.</span></div>
+  <div class="line"><span class="rem">//sequence.Subscribe(value=&gt;Console.WriteLine(value));</span></div>
+  <div class="line">sequence.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Note that the <code>WriteSequenceToConsole</code> method takes an <em>IObservable&lt;string&gt;</em>
+        as it only wants access to the subscribe method. Hang on, doesn't the <em>Subscribe</em>
+        method need an <em>IObserver&lt;string&gt;</em> as an argument? Surely <em>Console.WriteLine</em>
+        does not match that interface. Well it doesn't, but the Rx team supply me with an
+        Extension Method to <em>IObservable&lt;T&gt;</em> that just takes an <a title="Action(Of T) Delegate - MSDN" href="http://msdn.microsoft.com/en-us/library/018hxwa8.aspx"><em>Action&lt;T&gt;</em></a>.
+        The action will be executed every time an item is published. There are <a title="ObservableExtensions class - MSDN" href="http://msdn.microsoft.com/en-us/library/system.observableextensions(v=VS.103).aspx">
+            other overloads to the Subscribe extension method</a> that allows you to pass
+        combinations of delegates to be invoked for <em>OnNext</em>, <em>OnCompleted</em>
+        and <em>OnError</em>. This effectively means I don't need to implement <em>IObserver&lt;T&gt;</em>.
+        Cool.
+    </p>
+        <p>
+        As you can see, <em>Subject&lt;T&gt;</em> could be quite useful for getting started
+        in Rx programming. <em>Subject&lt;T&gt;</em> however, is a basic implementation.
+        There are three siblings to <em>Subject&lt;T&gt;</em> that offer subtly different
+        implementations which can drastically change the way your program runs.
+    </p>
+        <a name="ReplaySubject"></a>
+        <h2>ReplaySubject&lt;T&gt;</h2>
+        <p>
+          <a title="ReplaySubject(Of T) - MSDN" href="http://msdn.microsoft.com/en-us/library/hh211810(v=VS.103).aspx">
+            <em>ReplaySubject&lt;T&gt;</em>
+          </a> provides the feature of caching values and
+        then replaying them for any late subscriptions. Consider this example where we have
+        moved our first publication to occur before our subscription
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">static</span> <span class="kwrd">void</span> Main(<span class="kwrd">string</span>[] args)</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">Subject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+  <div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+  <div class="line">WriteSequenceToConsole(subject);</div>
+  <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+  <div class="line"><span class="knownType">Console</span>.ReadKey();</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        The result of this would be that 'b' and 'c' would be written to the console, but
+        'a' ignored. If we were to make the minor change to make subject a <em>ReplaySubject&lt;T&gt;</em>
+        we would see all publications again.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">ReplaySubject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+<div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+<div class="line">WriteSequenceToConsole(subject);</div>
+<div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+<div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+</div>
+        <p>
+        This can be very handy for eliminating race conditions. Be warned though, the default
+        constructor of the <em>ReplaySubject&lt;T&gt;</em> will create an instance that
+        caches every value published to it. In many scenarios this could create unnecessary
+        memory pressure on the application. <em>ReplaySubject&lt;T&gt;</em> allows you to
+        specify simple cache expiry settings that can alleviate this memory issue. One option
+        is that you can specify the size of the buffer in the cache. In this example we
+        create the <em>ReplaySubject&lt;T&gt;</em> with a buffer size of 2, and so only
+        get the last two values published prior to our subscription:
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> ReplaySubjectBufferExample()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> bufferSize = 2;</div>
+    <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">ReplaySubject</span>&lt;<span class="kwrd">string</span>&gt;(bufferSize);</div>
+    <div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+    <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+    <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+    <div class="line">subject.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+    <div class="line">subject.OnNext(<span class="str">"d"</span>);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Here the output would show that the value 'a' had been dropped from the cache, but
+        values 'b' and 'c' were still valid. The value 'd' was published after we subscribed
+        so it is also written to the console.
+    </p>
+        <div class="output">
+          <div class="line">Output:</div>
+          <div class="line">b</div>
+          <div class="line">c</div>
+          <div class="line">d</div>
+        </div>
+        <p>
+        Another option for preventing the endless caching of values by the <em>ReplaySubject&lt;T&gt;</em>,
+        is to provide a window for the cache. In this example, instead of creating a <em>ReplaySubject&lt;T&gt;</em>
+        with a buffer size, we specify a window of time that the cached values are valid
+        for.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> ReplaySubjectWindowExample()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> window = <span class="knownType">TimeSpan</span>.FromMilliseconds(150);</div>
+    <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">ReplaySubject</span>&lt;<span class="kwrd">string</span>&gt;(window);</div>
+    <div class="line">subject.OnNext(<span class="str">"w"</span>);</div>
+    <div class="line"><span class="knownType">Thread</span>.Sleep(<span class="knownType">TimeSpan</span>.FromMilliseconds(100));</div>
+    <div class="line">subject.OnNext(<span class="str">"x"</span>);</div>
+    <div class="line"><span class="knownType">Thread</span>.Sleep(<span class="knownType">TimeSpan</span>.FromMilliseconds(100));</div>
+    <div class="line">subject.OnNext(<span class="str">"y"</span>);</div>
+    <div class="line">subject.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+    <div class="line">subject.OnNext(<span class="str">"z"</span>);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        In the above example the window was specified as 150 milliseconds. Values are published
+        100 milliseconds apart. Once we have subscribed to the subject, the first value
+        is 200ms old and as such has expired and been removed from the cache.
+    </p>
+        <div class="output">
+          <div class="line">Output:</div>
+          <div class="line">x</div>
+          <div class="line">y</div>
+          <div class="line">z</div>
+        </div>
+        <a name="BehaviorSubject"></a>
+        <h2>BehaviorSubject&lt;T&gt;</h2>
+        <p>
+          <a title="BehaviorSubject(Of T) - MSDN" href="http://msdn.microsoft.com/en-us/library/hh211949(v=VS.103).aspx">
+            <em>BehaviorSubject&lt;T&gt;</em>
+          </a> is similar to <em>ReplaySubject&lt;T&gt;</em>
+        except it only remembers the last publication. <em>BehaviorSubject&lt;T&gt;</em>
+        also requires you to provide it a default value of <em>T</em>. This means that all
+        subscribers will receive a value immediately (unless it is already completed).
+    </p>
+        <p>
+        In this example the value 'a' is written to the console:
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> BehaviorSubjectExample()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="rem">//Need to provide a default value.</span></div>
+    <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">BehaviorSubject</span>&lt;<span class="kwrd">string</span>&gt;(<span class="str">"a"</span>);</div>
+    <div class="line">subject.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        In this example the value 'b' is written to the console, but not 'a'.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> BehaviorSubjectExample2()</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">BehaviorSubject</span>&lt;<span class="kwrd">string</span>&gt;(<span class="str">"a"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+  <div class="line">subject.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        In this example the values 'b', 'c' &amp; 'd' are all written to the console, but
+        again not 'a'
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> BehaviorSubjectExample3()</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">BehaviorSubject</span>&lt;<span class="kwrd">string</span>&gt;(<span class="str">"a"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+  <div class="line">subject.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+  <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"d"</span>);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        Finally in this example, no values will be published as the sequence has completed.
+        Nothing is written to the console.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> BehaviorSubjectCompletedExample()</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">BehaviorSubject</span>&lt;<span class="kwrd">string</span>&gt;(<span class="str">"a"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+  <div class="line">subject.OnCompleted();</div>
+  <div class="line">subject.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        That note that there is a difference between a <em>ReplaySubject&lt;T&gt;</em> with a buffer size
+        of one (commonly called a 'replay one subject') and a <em>BehaviorSubject&lt;T&gt;</em>.
+        A <em>BehaviorSubject&lt;T&gt;</em> requires an initial value. With the assumption
+        that neither subjects have completed, then you can be sure that the <em>BehaviorSubject&lt;T&gt;</em>
+        will have a value. You cannot be certain with the <em>ReplaySubject&lt;T&gt;</em> however. With this
+        in mind, it is unusual to ever complete a <em>BehaviorSubject&lt;T&gt;</em>. Another difference is
+        that a replay-one-subject will still cache its value once it has been completed.
+        So subscribing to a completed <em>BehaviorSubject&lt;T&gt;</em> we can be sure to not receive any
+        values, but with a <em>ReplaySubject&lt;T&gt;</em> it is possible.
+    </p>
+        <p>
+          <em>BehaviorSubject&lt;T&gt;</em>s are often associated with class <a href="http://msdn.microsoft.com/en-us/library/65zdfbdt(v=vs.71).aspx">
+            properties</a>. As they always have a value and can provide change notifications,
+        they could be candidates for backing fields to properties.
+    </p>
+        <a name="AsyncSubject"></a>
+        <h2>AsyncSubject&lt;T&gt;</h2>
+        <p>
+          <a title="AsyncSubject(Of T) - MSDN" href="http://msdn.microsoft.com/en-us/library/hh229363(v=VS.103).aspx">
+            <em>AsyncSubject&lt;T&gt;</em>
+          </a> is similar to the Replay and Behavior subjects
+        in the way that it caches values, however it will only store the last value, and
+        only publish it when the sequence is completed. The general usage of the <em>AsyncSubject&lt;T&gt;</em>
+        is to only ever publish one value then immediately complete. This means that is
+        becomes quite comparable to <em>Task&lt;T&gt;</em>.
+    </p>
+        <p>
+        In this example no values will be published as the sequence never completes. No
+        values will be written to the console.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">static</span> <span class="kwrd">void</span> Main(<span class="kwrd">string</span>[] args)</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">AsyncSubject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+  <div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+  <div class="line">WriteSequenceToConsole(subject);</div>
+  <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+  <div class="line"><span class="knownType">Console</span>.ReadKey();</div>
+</div>
+<div class="line">}</div>
+</div>
+        <p>
+        In this example we invoke the <em>OnCompleted</em> method so the last value 'c'
+        is written to the console:
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">static</span> <span class="kwrd">void</span> Main(<span class="kwrd">string</span>[] args)</div>
+<div class="line">{</div>
+<div class="scope">
+  <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">AsyncSubject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+  <div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+  <div class="line">WriteSequenceToConsole(subject);</div>
+  <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+  <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+  <div class="line">subject.OnCompleted();</div>
+  <div class="line"><span class="knownType">Console</span>.ReadKey();</div>
+</div>
+<div class="line">}</div>
+</div>
+        <a name="ImplicitContracts"></a>
+        <h2>Implicit contracts</h2>
+        <p>
+        There are implicit contacts that need to be upheld when working with Rx as mentioned
+        above. The key one is that once a sequence is completed, no more activity can
+        happen on that sequence. A sequence can be completed in one of two ways, either
+        by <em>OnCompleted()</em> or by <em>OnError(Exception)</em>.
+    </p>
+        <p>
+        The four subjects described in this chapter all cater for this implicit contract by
+        ignoring any attempts to publish values, errors or completions once the sequence
+        has already terminated.
+    </p>
+        <p>
+        Here we see an attempt to publish the value 'c' on a completed sequence. Only values
+        'a' and 'b' are written to the console.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">void</span> SubjectInvalidUsageExample()</div>
+<div class="line">{</div>
+<div class="scope">
+    <div class="line"><span class="kwrd">var</span> subject = <span class="kwrd">new</span> <span class="knownType">Subject</span>&lt;<span class="kwrd">string</span>&gt;();</div>
+    <div class="line">subject.Subscribe(<span class="knownType">Console</span>.WriteLine);</div>
+    <div class="line">subject.OnNext(<span class="str">"a"</span>);</div>
+    <div class="line">subject.OnNext(<span class="str">"b"</span>);</div>
+    <div class="line">subject.OnCompleted();</div>
+    <div class="line">subject.OnNext(<span class="str">"c"</span>);</div>
+</div>
+<div class="line">}</div>
+</div>
+        <a name="ISubject"></a>
+        <h2>ISubject interfaces</h2>
+        <p>
+        While each of the four subjects described in this chapter implement the <em>IObservable&lt;T&gt;</em>
+        and <em>IObserver&lt;T&gt;</em> interfaces, they do so via another set of interfaces:
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Represents an object that is both an observable sequence as well as an observer.</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">interface</span> <span class="knownType">ISubject</span>&lt;<span class="kwrd">in</span> TSource, <span class="kwrd">out</span> TResult&gt; </div>
+<div class="scope">
+    <div class="line">: <span class="knownType">IObserver</span>&lt;TSource&gt;, <span class="knownType">IObservable</span>&lt;TResult&gt;</div>
+</div>
+<div class="line">{</div>
+<div class="line">}</div>
+</div>
+        <p>
+        As all the subjects mentioned here have the same type for both <em>TSource</em>
+        and <em>TResult</em>, they implement this interface which is the superset of all
+        the previous interfaces:
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Represents an object that is both an observable sequence as well as an observer.</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">interface</span> <span class="knownType">ISubject</span>&lt;T&gt; : <span class="knownType">ISubject</span>&lt;T, T&gt;, <span class="knownType">IObserver</span>&lt;T&gt;, <span class="knownType">IObservable</span>&lt;T&gt;</div>
+<div class="line">{</div>
+<div class="line">}</div>
+</div>
+        <p>
+        These interfaces are not widely used, but prove useful as the subjects do not share
+        a common base class. We will see the subject interfaces used later when we discover
+        <a href="14_HotAndColdObservables.html">hot and cold observables</a>.
+    </p>
+        <a name="SubjectFactory"></a>
+        <h2>Subject factory</h2>
+        <p>
+        Finally it is worth making you aware that you can also create a subject via a factory
+        method. Considering that a subject combines the <em>IObservable&lt;T&gt;</em> and
+        <em>IObserver&lt;T&gt;</em> interfaces, it seems sensible that there should be a
+        factory that allows you to combine them yourself. The <em>Subject.Create(IObserver&lt;TSource&gt;,
+            IObservable&lt;TResult&gt;)</em> factory method provides just this.
+    </p>
+        <div class="csharpcode" xmlns="">
+<div class="line"><span class="rem">//Creates a subject from the specified observer used to publish messages to the subject</span></div>
+<div class="line"><span class="rem">//  and observable used to subscribe to messages sent from the subject</span></div>
+<div class="line"><span class="kwrd">public</span> <span class="kwrd">static</span> <span class="knownType">ISubject</span>&lt;TSource, TResult&gt; Create&lt;TSource, TResult&gt;(</div>
+<div class="scope">
+    <div class="line"><span class="knownType">IObserver</span>&lt;TSource&gt; observer, </div>
+    <div class="line"><span class="knownType">IObservable</span>&lt;TResult&gt; observable)</div>
+</div>
+<div class="line">{...}</div>
+</div>
+        <p>
+        Subjects provide a convenient way to poke around Rx, however they are not recommended
+        for day to day use. An explanation is in the <a href="18_UsageGuidelines.html">Usage
+            Guidelines</a> in the appendix. Instead of using subjects, favor the factory
+        methods we will look at in <a href="04_CreatingObservableSequences.html">Part 2</a>.
+    </p>
+        <p>
+        The fundamental types <em>IObserver&lt;T&gt;</em> and <em>IObservable&lt;T&gt;</em>
+        and the auxiliary subject types create a base from which to build your Rx knowledge.
+        It is important to understand these simple types and their implicit contracts. In
+        production code you may find that you rarely use the <em>IObserver&lt;T&gt;</em>
+        interface and subject types, but understanding them and how they fit into the Rx
+        eco-system is still important. The <em>IObservable&lt;T&gt;</em> interface is the
+        dominant type that you will be exposed to for representing a sequence of data in
+        motion, and therefore will comprise the core concern for most of your work with Rx and most
+        of this book.
+    </p>
+        <hr />
+        <table width="100%">
+          <tr>
+            <td>&lt;&lt; Back to : <a href="01_WhyRx.html">PART 1 - Getting started</a></td>
+            <td></td>
+            <td align="right">Moving on to : <a href="03_LifetimeManagement.html">Lifetime management</a>&gt;&gt;</td>
+          </tr>
+        </table>
+      </div>
+      <div class="footer">
+            Original series @ <a href="http://leecampbell.blogspot.com/2010/08/reactive-extensions-for-net.html">Lee Campbell</a></div>
+    </div>
+  </body>
+</html>

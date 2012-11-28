@@ -1,4 +1,5 @@
 Create new blank website (not ASP.NET we just dont need it)
+	WebApplication projects appear to include publish to azure feature
 Integrate the home page into the site generation
 Create UAT sub domain
 Create new build script 

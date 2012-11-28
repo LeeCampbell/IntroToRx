@@ -2,7 +2,7 @@
 SET BOOKNAME=IntroToRx
 ECHO "Book name is %BOOKNAME%"
 
-ECHO Generating formatted book
+ECHO Generating formatted book (and web content)
 .\KindleGenerator\KindleGenerator\bin\Debug\KindleGenerator.exe "%~dp0 " "%BOOKNAME%"
 IF ERRORLEVEL   1 GOTO FAIL
 
@@ -27,10 +27,10 @@ pushd %~dp0
 	move ".\%BOOKNAME%.mobi" "..\..\%BOOKNAME%.mobi"
   popd
 
-  copy ".\%BOOKNAME%.mobi" "WebSite\IntroToRx\content\v1.0.10621.0\%BOOKNAME%.mobi"
+  copy ".\%BOOKNAME%.mobi" "WebSite\content\v1.0.10621.0\%BOOKNAME%.mobi"
   ECHO Opening generated Kindle book : %BOOKNAME%.mobi
   REM	start %BOOKNAME%.mobi
-  REM   START WebSite\IntroToRx\content\v1.0.10621.0\15_SchedulingAndThreading.html
+  REM   START WebSite\content\v1.0.10621.0\15_SchedulingAndThreading.html
   CALL "c:\users\lee\appdata\Local\Amazon\Kindle Previewer\KindlePreviewer.exe" "c:\users\lee\Documents\ArtemisWest\Marketing\Books\Introduction To Rx\IntroToRx.mobi"
 popd
 
