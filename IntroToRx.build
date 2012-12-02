@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build"  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!-- User defined properties-->
+  <PropertyGroup>
+    <MSBuildCommunityTasksPath>.\</MSBuildCommunityTasksPath>
+    <BuildVersion Condition="'$(BuildVersion)'==''">0.0.0.1</BuildVersion>
+    <Configuration Condition="'$(Configuration)'==''">Release</Configuration>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Projects Include=".\src\CallWall\CallWall.csproj"/>
+    <Projects Include=".\src\CallWall.UnitTests\CallWall.UnitTests.csproj"/>
+    <Projects Include=".\src\CallWall.Core.UnitTests\CallWall.Core.UnitTests.csproj"/>
+  </ItemGroup>
+  
+  <Import Project=".\tools\MSBuild.Community.Tasks.Targets" />
+
+  <!-- Replace MySolutionName with the name of your solution and MyCompany with the name of you default namespace prefix (if any)-->
+  <PropertyGroup>
+    <OutputDirectory>.\bin\$(Configuration)</OutputDirectory>
+    <Configuration>Release</Configuration>
+  </PropertyGroup>
+  <!-- User targets -->
+  <Target Name="Clean">
+    <RemoveDir Directories="$(OutputDirectory)"
+         Condition="Exists($(OutputDirectory))">
+    </RemoveDir>
+  </Target>
+  <Target Name="Version">
+    <AssemblyInfo CodeLanguage="CS"
+                  OutputFile=".\src\SharedAssemblyInfo.cs"
+                  AssemblyVersion="$(BuildVersion)"
+                  AssemblyFileVersion="$(BuildVersion)"
+                  AssemblyCompany="Campbell Consultancy London Ltd"
+                  AssemblyProduct="CallWall"
+                  AssemblyCopyright="Copyright © Campbell Consultancy London Ltd 2012"
+                />
+  </Target>
+  <Target Name="Build" DependsOnTargets="Clean; Version">
+    <MSBuild Projects="@(Projects)"
+             Properties="Configuration=$(Configuration)" >
+    </MSBuild>
+  </Target>
+
+  <Target Name="Publish" DependsOnTargets="Clean; Version">
+    <MSBuild Projects=".\src\CallWall\CallWall.csproj"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);ApplicationVersion=$(BuildVersion);PublisherName=Campbell Consultancy London Ltd;ProductName=CallWall" >
+      <!--NOTE: PublishUrl property is ignore from command line. Will always be $(OutputDirectory)\app.publish\-->
+      <!--http://stackoverflow.com/questions/2130985/problems-using-msbuild-using-command-line-for-publish-click-once-->
+      <!--Also appears that no Publish.htm file is prduced from the command line so check this out next.... http://wallism.wordpress.com/2009/12/08/clickonce-creating-publish-page-from-msbuild/ -->
+    </MSBuild>
+  </Target>
+  <!--
+Delete **\*.CodeAnalysisLog.xml
+Delete **\*.lastcodeanalysissucceeded
+Delete **\*.xml
+-->
+</Project>

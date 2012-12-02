@@ -1,59 +1,138 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using CommandLine;
 
 namespace KindleGenerator
 {
-    public enum OutputTarget
-    {
-        MOBI,
-        WebSite
-        //PDF,
-        //DOCX,
-        //HTML
-    }
-
     class Program
     {
-        //TODO: get the console arg parsers from codeproject/codeplex.
-        //-OutputTargetFormat=MOBI|WebSite
-        //-SourceDir=[Path to source files]
-        //-OutputDir=[Path to place output]
-        //-Author=[Lee Campbell]
-        //-BookName=[used as a file name for MOBI format e.g IntroToRx]
-        //-BookTitle=[e.g Introduction To Rx]
-        //-BookSummary=[e.g. An introduction to the Microsoft's Reactive Extensions (Rx).]
-        //-CoverImage=[Path relative to SourceDir for MOBI Cover image]
-        //-Publisher=[e.g. Amazon.com]
-
         static void Main(string[] args)
         {
-            var rootPath = args[0];
-            var bookName = args[1];
-
-
-            var bookTitle = "Introduction to Rx";
-            var bookSummary = "An introduction to the Microsoft's Reactive Extensions (Rx).";
-            var author = "Lee Campbell";
-            var publisher = "Amazon.com";
-            var sourceDir = Path.Combine(rootPath, "content");
-
-            //TODO: ValidatePath(rootPath);
-            //Change all the <a name><h1../></a> to be <a name/><h1></h1>. Fail.
-
-            try
+            var cmdLineOptions = new Options();
+            if (CommandLineParser.Default.ParseArguments(args, cmdLineOptions))
             {
-                Console.WriteLine("Kindle generation starting...");
-                GenerateKindleBook(bookName, bookTitle, bookSummary, author, publisher, sourceDir, Path.Combine(Path.Combine(rootPath, "bin"), "content"));
-                Console.WriteLine("Kindle generation complete.");
-                Console.WriteLine("Web generation starting...");
-                GenerateWebContent(sourceDir, Path.Combine(rootPath, @"WebSite\content\v1.0.10621.0"));
-                Console.WriteLine("Web generation complete.");
+                // consume values here
+                //Console.WriteLine("Author={0}", cmdLineOptions.Author);
+                //Console.WriteLine("BookName={0}", cmdLineOptions.BookName);
+                //Console.WriteLine("BookSummary={0}", cmdLineOptions.BookSummary);
+                //Console.WriteLine("BookTitle={0}", cmdLineOptions.BookTitle);
+                //Console.WriteLine("CoverImage={0}", cmdLineOptions.CoverImage);
+                //Console.WriteLine("OutputDirectory={0}", cmdLineOptions.OutputDirectory);
+                //Console.WriteLine("OutputFormat={0}", cmdLineOptions.OutputFormat);
+                //Console.WriteLine("Publisher={0}", cmdLineOptions.Publisher);
+                //Console.WriteLine("SourceDirectory={0}", cmdLineOptions.SourceDirectory);
+
+                var isHelpRequired = false;
+                try
+                {
+                    switch (cmdLineOptions.OutputFormat)
+                    {
+                        case OutputFormat.MOBI:
+                            if (ValidateMobiArguments(cmdLineOptions))
+                            {
+                                Console.WriteLine("Kindle generation starting...");
+                                GenerateKindleBook(cmdLineOptions.BookName, cmdLineOptions.BookTitle, cmdLineOptions.BookSummary,
+                                                   cmdLineOptions.Author, cmdLineOptions.Publisher,
+                                                   cmdLineOptions.SourceDirectory, cmdLineOptions.OutputDirectory);
+                                Console.WriteLine("Kindle generation complete.");
+                                
+                            }
+                            else
+                            {
+                                isHelpRequired = true;
+                            }
+
+                            break;
+                        case OutputFormat.WebSite:
+                            if (ValidateWebSiteArguments(cmdLineOptions))
+                            {
+                                Console.WriteLine("Web generation starting...");
+                                GenerateWebContent(cmdLineOptions.SourceDirectory, cmdLineOptions.OutputDirectory);
+                                Console.WriteLine("Web generation complete.");
+                            }
+                            else
+                            {
+                                isHelpRequired = true;
+                            }
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+
+                    isHelpRequired = true;
+                }
+                if (isHelpRequired)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine(cmdLineOptions.GetUsage());
+
+                    Environment.ExitCode = -1;
+                }
             }
-            catch (Exception exception)
+            else
             {
-                Console.WriteLine(exception);
+                Console.WriteLine("Incorrect usage. ");
+                Console.WriteLine(cmdLineOptions.GetUsage());
+                Environment.ExitCode = -1;
             }
+        }
+
+        private static bool ValidateMobiArguments(Options cmdLineOptions)
+        {
+            if (!ValidateCoreArguments(cmdLineOptions))
+            {
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(cmdLineOptions.BookName))
+            {
+                Console.WriteLine("bookName is required for Mobi format");
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(cmdLineOptions.BookTitle))
+            {
+                Console.WriteLine("bookTitle is required for Mobi format");
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(cmdLineOptions.BookSummary))
+            {
+                Console.WriteLine("bookSummary is required for Mobi format");
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(cmdLineOptions.Author))
+            {
+                Console.WriteLine("author is required for Mobi format");
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(cmdLineOptions.Publisher))
+            {
+                Console.WriteLine("publisher is required for Mobi format");
+                return false;
+            }
+
+            return true;
+        }
+        private static bool ValidateWebSiteArguments(Options cmdLineOptions)
+        {
+            return ValidateCoreArguments(cmdLineOptions);
+        }
+        private static bool ValidateCoreArguments(Options cmdLineOptions)
+        {
+            if (string.IsNullOrWhiteSpace(cmdLineOptions.SourceDirectory))
+            {
+                Console.WriteLine("sourceDir is required");
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(cmdLineOptions.OutputDirectory))
+            {
+                Console.WriteLine("outputDir is required");
+                return false;
+            }
+            return true;
         }
 
         private static void GenerateKindleBook(string bookName, string bookTitle, string bookSummary, string author, string publisher, string sourceDir, string targetDir)
@@ -61,19 +140,22 @@ namespace KindleGenerator
             //TODO: Validate content files    --Check that is starts with an H1, ends with an HR, and that Headings don't jump i.e. prevent H1 followed by H3.
             //Copy content files to the build dir for modification. i.e. We don't modify the source, we update then generate from that 
             CopyDirectory(sourceDir, targetDir);
+
+            //TODO: Strip out non-kindle content i.e. .Where(x => !x.Attributes().Any(att => att.Name=="class" &&  att.Value.Split(' ').Contains("kindleOnly"))))
+
             CodeFormatting.CodeFormatter.FormatKindleContentFiles(targetDir);
             Indexing.TableOfContents.GenerateFile(targetDir);
             //Indexing.NestedNavigationNcx.Generate(targetPath, "Introduction to Rx", "Lee Campbell", bookName + ".ncx");
             Indexing.FlatNavigationNcx.Generate(targetDir, bookTitle, author, bookName + ".ncx");
             Indexing.Manifest.Generate(targetDir, bookName, bookTitle, bookSummary, author, publisher, "GraphicsIntro\\Cover.jpg");
         }
+
         private static void GenerateWebContent(string sourceDir, string targetDir)
         {
             CopyDirectory(sourceDir, targetDir);
             Indexing.WebFormatter.FormatContentFiles(targetDir);
             CodeFormatting.CodeFormatter.FormatWebContentFiles(targetDir);
         }
-        
 
         private static void CopyDirectory(string sourcePath, string targetPath)
         {
@@ -90,8 +172,7 @@ namespace KindleGenerator
                 Console.WriteLine("Failed to create dir : {0}", targetPath);
                 throw;
             }
-            
-            
+
             var files = Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories).ToList();
             var directories = Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories).ToList();
 

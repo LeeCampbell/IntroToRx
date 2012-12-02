@@ -2,8 +2,13 @@
 SET BOOKNAME=IntroToRx
 ECHO "Book name is %BOOKNAME%"
 
-ECHO Generating formatted book (and web content)
-.\KindleGenerator\KindleGenerator\bin\Debug\KindleGenerator.exe "%~dp0 " "%BOOKNAME%"
+ECHO Generating formatted book
+REM .\KindleGenerator\KindleGenerator\bin\Debug\KindleGenerator.exe "%~dp0" "%BOOKNAME%"
+.\KindleGenerator\KindleGenerator\bin\Debug\KindleGenerator.exe -f MOBI -s "%~dp0\Content" -o "%~dp0\bin\Content" -n "%BOOKNAME%" -t "Introduction to Rx" -u "An introduction to the Microsoft's Reactive Extensions (Rx)." -a "Lee Campbell" -p "Amazon.com"
+IF ERRORLEVEL   1 GOTO FAIL
+
+ECHO Generating formatted web content
+.\KindleGenerator\KindleGenerator\bin\Debug\KindleGenerator.exe -f WebSite -s "%~dp0\Content" -o "%~dp0\WebSite\content\v1.0.10621.0" 
 IF ERRORLEVEL   1 GOTO FAIL
 
 ECHO Deleting cached version from local Kindle Content
@@ -35,6 +40,7 @@ pushd %~dp0
 popd
 
 time/t
+pause
 exit /b
 
 :FAILUp2Dir
@@ -43,4 +49,5 @@ popd
 popd
 :FAIL
 ECHO Failure to generate and open book.
+pause
 exit /b

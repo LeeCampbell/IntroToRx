@@ -578,3 +578,132 @@ Cookbook/LinqPad Samples
 		DO prop change to IOb
 		Collection changes
 	SchedulerProvider revisited.
+
+
+
+------------------------------------------------------------------------------
+Amazon.co.uk snippets
+
+			<!--C# in a nutshell 5.0 (Kindle) Amazon.co.uk-->
+			<div style="display:inline-block; vertical-align: top;  margin: 10px; width: 140px; font-size: 11px; text-align: center">
+                <iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B008E6I1K8&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+                        style="width:120px;height:240px;margin: 10px" 
+                        scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+            </div>
+
+			<!--C# Linq pocket reference Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top;  margin: 10px; width: 140px; font-size: 11px; text-align: center">
+                <iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&o=2&p=8&l=as1&asins=0596519249&ref=qf_sp_asin_til&fc1=000000&IS2=1&lt1=_blank&m=amazon&lc1=0000FF&bc1=000000&bg1=FFFFFF&f=ifr" 
+                        style="width:120px;height:240px;margin: 10px" 
+                        scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+            </div>
+
+			<!--CLR via C# v4 (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+                <iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B00AA36R4U&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+            </div>
+
+			<!--Real-world functional programming Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+                <iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&o=2&p=8&l=as1&asins=1933988924&ref=qf_sp_asin_til&fc1=000000&IS2=1&lt1=_blank&m=amazon&lc1=0000FF&bc1=000000&bg1=FFFFFF&f=ifr" 
+                        style="width:120px;height:240px;margin: 10px" 
+                        scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+            </div>
+
+			<!--Purely functional data structures Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+                <iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=0521663504&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+                        style="width:120px;height:240px;margin: 10px" 
+                        scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+            </div>
+
+			<!--Essential Linq Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&o=2&p=8&l=as1&asins=B001XT616O&ref=qf_sp_asin_til&fc1=000000&IS2=1&lt1=_blank&m=amazon&lc1=0000FF&bc1=000000&bg1=FFFFFF&f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+
+			<!--Head First Design Patterns (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B00AA36RZY&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+
+			<!--Design Patterns (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B000SEIBB8&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+
+			<!--Clean Code (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=0132350882&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+			
+			<!--C# 3.0 Design Patterns (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B0043EWUAC&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+			
+			<!--Domain Driven Design (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B00794TAUG&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+
+			
+			<!--Concurrent Programming on Windows: Architecture, Principles, and Patterns (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B0015DYKI4&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+
+			<!--Parallel Programming with Microsoft® .NET: Design Patterns for Decomposition and Coordination on Multicore Architectures (Patterns & Practices) (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B0043EWUG6&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+			
+			<!--Art of Unit testing Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=1933988274&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+			
+			<!--Test Driven development (By example) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=0321146530&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+			
+			<!--Refactoring (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B007WTFWJ6&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+			
+			<!--Framework Design Guidelines 2nd Edition (Kindle) Amazon.co.uk-->
+            <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
+				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B0017SWPNO&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
+						style="width:120px;height:240px;" 
+						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+			</div>
+			
+
+			
+
