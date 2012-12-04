@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Xml.Linq;
 using CommandLine;
 
 namespace KindleGenerator
@@ -36,7 +38,7 @@ namespace KindleGenerator
                                                    cmdLineOptions.Author, cmdLineOptions.Publisher,
                                                    cmdLineOptions.SourceDirectory, cmdLineOptions.OutputDirectory);
                                 Console.WriteLine("Kindle generation complete.");
-                                
+
                             }
                             else
                             {
@@ -137,17 +139,34 @@ namespace KindleGenerator
 
         private static void GenerateKindleBook(string bookName, string bookTitle, string bookSummary, string author, string publisher, string sourceDir, string targetDir)
         {
-            //TODO: Validate content files    --Check that is starts with an H1, ends with an HR, and that Headings don't jump i.e. prevent H1 followed by H3.
             //Copy content files to the build dir for modification. i.e. We don't modify the source, we update then generate from that 
             CopyDirectory(sourceDir, targetDir);
 
-            //TODO: Strip out non-kindle content i.e. .Where(x => !x.Attributes().Any(att => att.Name=="class" &&  att.Value.Split(' ').Contains("kindleOnly"))))
-
+            RemoveTags(targetDir, x => !x.Attributes().Any(att => att.Name == "class" && att.Value.Split(' ').Contains("webonly")));
             CodeFormatting.CodeFormatter.FormatKindleContentFiles(targetDir);
             Indexing.TableOfContents.GenerateFile(targetDir);
             //Indexing.NestedNavigationNcx.Generate(targetPath, "Introduction to Rx", "Lee Campbell", bookName + ".ncx");
             Indexing.FlatNavigationNcx.Generate(targetDir, bookTitle, author, bookName + ".ncx");
             Indexing.Manifest.Generate(targetDir, bookName, bookTitle, bookSummary, author, publisher, "GraphicsIntro\\Cover.jpg");
+        }
+
+        private static void RemoveTags(string targetDir, Func<XElement, bool> func)
+        {
+            foreach (var file in Directory.EnumerateFiles(targetDir).Where(f=>f.EndsWith(".html")))
+            {
+                RemoveFileTags(file, func);
+            }
+        }
+
+        private static void RemoveFileTags(string contentFilePath, Func<XElement, bool> tagPredicate)
+        {
+            var html = contentFilePath.LoadXml();
+            
+            html.Descendants()
+                .Where(x=>!tagPredicate(x))
+                .Remove();
+            
+            html.WriteToFile(contentFilePath);
         }
 
         private static void GenerateWebContent(string sourceDir, string targetDir)
