@@ -8,34 +8,25 @@
     <Configuration Condition="'$(Configuration)'==''">Release</Configuration>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Projects Include=".\src\KindleGenerator\KindleGenerator.csproj"/>
-  </ItemGroup>
-  
   <Import Project=".\tools\MSBuild.Community.Tasks.Targets" />
+  
+  <ItemGroup>
+    <Projects Include=".\KindleGenerator\KindleGenerator\KindleGenerator.csproj"/>
+  </ItemGroup>
 
   <!-- Replace MySolutionName with the name of your solution and MyCompany with the name of you default namespace prefix (if any)-->
   <PropertyGroup>
     <OutputDirectory>.\KindleGenerator\KindleGenerator\bin\$(Configuration)</OutputDirectory>
     <Configuration>Release</Configuration>
   </PropertyGroup>
-  <!-- User targets -->
   
- 
-  <!-- TODO: Build (Builds KindleGen) -->
-  <!-- TODO: GenerateWebConent -->
-  <!-- TODO: PublishWebContent (Depends on GenerateWebContent) -->
-  <!-- TODO: GenerateKindle -->
-  <!-- TODO: PublishKindle -->
   <!-- TODO: GenerateWord -->
-  <!-- TODO: PublishWord -->
   <!-- TODO: GeneratePdf -->
-  <!-- TODO: PublishPdf -->
-  
+  <!-- TODO: Publish -->
   <Target Name="Clean">
-    <RemoveDir Directories="$(OutputDirectory)"
-         Condition="Exists($(OutputDirectory))">
-    </RemoveDir>
+    <RemoveDir Directories="$(OutputDirectory)" ContinueOnError="true"/>
+    <RemoveDir Directories="$(MSBuildStartupDirectory)\WebSite\content\v1.0.10621.0" ContinueOnError="true"/>
+    <RemoveDir Directories="$(MSBuildStartupDirectory)\bin\" ContinueOnError="true"/>
   </Target>
   <Target Name="Build" DependsOnTargets="Clean;">
     <MSBuild Projects="@(Projects)"
@@ -43,14 +34,14 @@
     </MSBuild>
   </Target>
 
-  <Target Name="GenerateWeb">
-    <Exec Command=".\KindleGenerator\KindleGenerator\bin\Debug\KindleGenerator.exe -f WebSite -s &quot;$(MSBuildStartupDirectory)\Content&quot; -o &quot;$(MSBuildStartupDirectory)\WebSite\content\v1.0.10621.0&quot; "/>     
+  <Target Name="GenerateWeb" DependsOnTargets="Clean;Build;">
+    <Exec Command=".\KindleGenerator\KindleGenerator\bin\$(Configuration)\KindleGenerator.exe -f WebSite -s &quot;$(MSBuildStartupDirectory)\Content&quot; -o &quot;$(MSBuildStartupDirectory)\WebSite\content\v1.0.10621.0&quot; "/>
   </Target>
 
-
-  <Target Name="GenerateKindle" DependsOnTargets="Clean;">
-    <Exec Command=".\KindleGenerator\KindleGenerator\bin\Debug\KindleGenerator.exe -f MOBI -s &quot;$(MSBuildStartupDirectory)\Content&quot; -o &quot;$(MSBuildStartupDirectory)\bin\Content&quot; -n &quot;IntroToRx&quot; -t &quot;Introduction to Rx&quot; -u &quot;An introduction to the Microsoft's Reactive Extensions (Rx).&quot; -a &quot;Lee Campbell&quot; -p &quot;Amazon.com&quot; "/>
+  <Target Name="GenerateKindle" DependsOnTargets="Clean;Build;GenerateWeb;">
+    <Exec Command=".\KindleGenerator\KindleGenerator\bin\$(Configuration)\KindleGenerator.exe -f MOBI -s &quot;$(MSBuildStartupDirectory)\Content&quot; -o &quot;$(MSBuildStartupDirectory)\bin\Content&quot; -n &quot;IntroToRx&quot; -t &quot;Introduction to Rx&quot; -u &quot;An introduction to the Microsoft's Reactive Extensions (Rx).&quot; -a &quot;Lee Campbell&quot; -p &quot;Amazon.com&quot; "/>
     <Exec Command="..\..\Tools\kindlegen.exe &quot;IntroToRx.opf&quot; -o &quot;IntroToRx.mobi&quot;"
           WorkingDirectory="$(MSBuildStartupDirectory)\bin\Content"/>
+    <Copy SourceFiles="$(MSBuildStartupDirectory)\bin\Content\IntroToRx.mobi" DestinationFolder="$(MSBuildStartupDirectory)\WebSite\content\v1.0.10621.0"/>
   </Target>
 </Project>
