@@ -444,7 +444,7 @@
     <pre class="csharpcode">
         var subject = new Subject&lt;int&gt;();
         subject
-            .SkipLast(2)
+            .TakeLast(2)
             .Subscribe(Console.WriteLine, () =&gt; Console.WriteLine("Completed"));
         Console.WriteLine("Pushing 1");
         subject.OnNext(1);
