@@ -1,16 +1,10 @@
 ---
+layout: page
+permalink: /00_Foreword.html
 title: 'Intro to Rx - Foreword'
-...
+---
 
-Introduction to Rx {.ignoreToc .kindleOnly}
-==================
-
-Lee Campbell {.ignoreToc .kindleOnly style="text-align: center"}
-------------
-
-* * * * *
-
-Preface {.SectionHeader}
+Preface
 =======
 
 Reactive programming is not a new concept. I remember studying my first
@@ -167,15 +161,4 @@ the blog was free, I have made the first version of this book free.
 The version that this book has been written against is the .Net 4.0
 targeted Rx assemblies version 1.0.10621.0 (NuGet: Rx-Main v1.0.11226).
 
-The [Table of Contents](toc.html) for the *Introduction to Rx* shows you
-all of the topics covered in this book. Kindle users can get to the
-table of contents by pressing the Menu button from any page. Move the
-5-way down until you underline "Table of Contents" and press the 5-way
-to go to it.
-
 So, fire up Visual Studio and let's get started.
-
-* * * * *
-
-Additional recommended reading {.ignoreToc}
-==============================
