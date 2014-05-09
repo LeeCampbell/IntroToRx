@@ -1,6 +1,6 @@
 ---
 layout: page
-permalink: /08_Transformation.html
+permalink: /09_SideEffects.html
 title: 'Intro to Rx - Side effects'
 ---
 
