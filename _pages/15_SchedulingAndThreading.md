@@ -277,17 +277,17 @@ You could use the method like this:
 
 These are the static properties that you can find on the `Scheduler` type.
 
-`Scheduler.Immediate` will ensure the action is not scheduled, but rather executed immediately.
+ - `Scheduler.Immediate` will ensure the action is not scheduled, but rather executed immediately.
 
-`Scheduler.CurrentThread` ensures that the actions are performed on the thread that made the original call. 
+ - `Scheduler.CurrentThread` ensures that the actions are performed on the thread that made the original call. 
 This is different from `Immediate`, as `CurrentThread` will queue the action to be performed. 
 We will compare these two schedulers using a code example soon.
 
-`Scheduler.NewThread` will schedule work to be done on a new thread.
+ - `Scheduler.NewThread` will schedule work to be done on a new thread.
 
-`Scheduler.ThreadPool` will schedule all actions to take place on the Thread Pool.
+ - `Scheduler.ThreadPool` will schedule all actions to take place on the Thread Pool.
 
-`Scheduler.TaskPool` will schedule actions onto the TaskPool. 
+ - `Scheduler.TaskPool` will schedule actions onto the TaskPool. 
 This is not available in Silverlight 4 or .NET 3.5 builds.
 
 If you are using WPF or Silverlight, then you will also have access to `DispatcherScheduler.Instance`. 
