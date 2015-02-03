@@ -1,1 +1,0 @@
-CALL "C:\Program Files\Calibre2\ebook-convert.exe" %1 %2 --output-profile kindle --author-sort "Lee Campbell" --authors "Lee Campbell" --cover "%CD%\GraphicsIntro\Cover.jpg" --title "Introduction to Rx" --title-sort "Introduction to Rx" --chapter "/" --chapter-mark none --disable-remove-fake-margins --max-toc-links 0
