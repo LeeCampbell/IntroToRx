@@ -1,3 +1,7 @@
+---
+title : Foreword
+---
+
 #Introduction to Rx {#IntroductiontoRx .ignoreToc .kindleOnly}
 ##Lee Campbell		{.ignoreToc .kindleOnly text-align=center}
    

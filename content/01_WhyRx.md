@@ -1,5 +1,5 @@
 ---
-title : Intro to Rx - Why Rx?
+title : Why Rx?
 ---
 
 #PART 1 - Getting started	{#PART1 .SectionHeader}
