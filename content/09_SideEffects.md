@@ -195,6 +195,8 @@ The signature of the `Do` extension method looks very much like the `Select` met
  * They both have various overloads to cater for combinations of `OnNext`, `OnError` and `OnCompleted` handlers
  * They both return and take an observable sequence
 
+The overloads are as follows:
+
 	// Invokes an action with side effecting behavior for each element in the observable 
 	//  sequence.
 	public static IObservable<TSource> Do<TSource>(
