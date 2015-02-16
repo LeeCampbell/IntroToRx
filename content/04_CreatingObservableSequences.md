@@ -17,7 +17,7 @@ Cannot convert lambda expression to delegate type 'System.Func<System.IObserver<
 -->
 
 #PART 2 - Sequence basics		{#PART2 .SectionHeader}
-<p>
+
 So you want to get involved and write some Rx code, but how do you get started?
 We have looked at the key types, but know that we should not be creating our own implementations of `IObserver<T>` or `IObservable<T>` and should favor factory methods over using subjects. 
 Even if we have an observable sequence, how do we pick out the data we want from it? 
@@ -60,7 +60,6 @@ In functional programming this can be described as _anamorphism_ or referred to 
 In our first and most basic example we introduce `Observable.Return<T>(T value)`.
 This method takes a value of `T` and returns an `IObservable<T>` with the single value and then completes. 
 It has _unfolded_ a value of `T` into an observable sequence.
-
 
 	var singleValue = Observable.Return<string>("Value");
 	//which could have also been simulated with a replay subject

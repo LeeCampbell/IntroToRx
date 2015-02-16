@@ -206,12 +206,10 @@ As you can see, `Subject<T>` could be quite useful for getting started in Rx pro
 `Subject<T>` however, is a basic implementation. 
 There are three siblings to `Subject<T>` that offer subtly different implementations which can drastically change the way your program runs.
 
-    <!--
-        G.A:
- 
-        ReplaySubject<T>
-                     Rewrite second sentence.
-    -->
+<!--
+	TODO: ReplaySubject<T> - Rewrite second sentence. -GA
+-->
+
 ##ReplaySubject&lt;T&gt;			{#ReplaySubject}
 
 [`ReplaySubject<T>`](http://msdn.microsoft.com/en-us/library/hh211810(v=VS.103).aspx "ReplaySubject(Of T) - MSDN") provides the feature of caching values and then replaying them for any late subscriptions. 

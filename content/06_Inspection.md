@@ -2,19 +2,18 @@
 title: Inspection
 ---
 
-    <!--
-        Review code samples. I think one says 6 in the code but 2 in the output.
-        Begin middle end.
-        EM vs Strong
-        Word spell check.
-        -->
-    <!--
-        Last chapter talked about the deluge of data and removing the crap.
-        This chapter shoould continue the theme and instead discuss "in contrast to removing data 
-        we dont want, we can also picking out data we do want, or validate that the sequence meets
-         an expectation."
+<!--
+	Review code samples. I think one says 6 in the code but 2 in the output.
+	Begin middle end.
+	Word spell check.
+-->
+<!--
+	Last chapter talked about the deluge of data and removing the crap.
+	This chapter should continue the theme and instead discuss "in contrast to removing data 
+	we dont want, we can also picking out data we do want, or validate that the sequence meets
+	 an expectation."
 
-	-->
+-->
 
 #Inspection			{#Inspection}
 
@@ -363,6 +362,7 @@ Output:
 	<div class="line">areEqual.OnNext(True)</div>
 	<div class="line">areEqual completed</div>
 </div>
+
 
 This chapter covered a set of methods that allow us to inspect observable sequences.
 The result of each, generally, returns a sequence with a single value.
