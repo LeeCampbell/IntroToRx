@@ -1,0 +1,221 @@
+[33mcommit 9036d598a59faf5c36b73303e0a4a10c977cb872[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Sat Feb 14 23:47:52 2015 +0000
+
+    Leaving the Monad to markdown
+
+[33mcommit f529aeb353e91f3c487ca3a449e9d74a694f9ce1[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Feb 13 22:29:07 2015 +0000
+
+    Side effects to markdown
+
+[33mcommit 8f23e03039bb18b4ff21e1942b9aff2de7c71071[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Feb 13 22:28:49 2015 +0000
+
+    Side effects to markdown
+
+[33mcommit 0b508986e28a57e7fcbcf8b4b5567b43bd02ad54[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Feb 13 19:37:00 2015 +0000
+
+    Transformation to markdown
+
+[33mcommit 49fe25f6561dc7ae137a832b92815873d87397cf[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Feb 13 18:09:05 2015 +0000
+
+    Aggregation to markdown
+
+[33mcommit 2753c3acce80649f5419d803eab74b83d546d07b[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Feb 13 17:44:18 2015 +0000
+
+    Inspection to markdown
+
+[33mcommit 179b204097de890b37a606741fd5bf71d8f31a62[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Feb 13 17:17:12 2015 +0000
+
+    Filtering to markdown
+
+[33mcommit a58197ba116595678f83a043fd550410babadf7d[m
+Merge: 338d54a 59ca373
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Tue Feb 3 21:12:03 2015 +0000
+
+    Merge branch 'RxNET/2.0-markdown' of https://github.com/LeeCampbell/IntroToRx into RxNET/2.0-markdown
+
+[33mcommit 338d54a4186752763860e64aa0fd4e3426a7e911[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Tue Feb 3 20:01:06 2015 +0000
+
+    Hot and cold to markdown
+
+[33mcommit 59ca373834f94b4a9ac393f121bdf29d7a8d66db[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Tue Feb 3 19:28:21 2015 +0000
+
+    Creating Observable Seq to markdown
+
+[33mcommit c0a30cac9f63e666b3c45064bad40c650a68fb27[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Tue Feb 3 13:41:07 2015 +0000
+
+    Lifetime Management to markdown
+
+[33mcommit 5e0f21da297c65b159007791451eb7863ebc8d1c[m
+Merge: aeef33e 338d80f
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Tue Feb 3 09:47:13 2015 +0000
+
+    Merge branch 'RxNET/2.0-markdown' of https://github.com/LeeCampbell/IntroToRx into RxNET/2.0-markdown
+
+[33mcommit aeef33e3c87bd372ac2d133f39063de1c597cba8[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Tue Feb 3 09:46:23 2015 +0000
+
+    Key Types to markdown
+
+[33mcommit 338d80f52c964b83e7614ae97a034af48967f8d8[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Mon Feb 2 22:43:30 2015 +0000
+
+    Scheduling and threading to markdown
+
+[33mcommit 38cef084ef1429b3e93beff5f263d851ff17c2ce[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Mon Feb 2 10:18:08 2015 +0000
+
+    Testing Rx to markdown
+
+[33mcommit a64277ff7ee7f9a3816d87b8e6504d3577501b2d[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Sun Feb 1 22:52:39 2015 +0000
+
+    Sequences of Coincidence to markdown
+
+[33mcommit ea927a8615323410c73b8fbde6315ddfedf3500c[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Jan 30 20:15:43 2015 +0000
+
+    Usage Guidelines appendix to markdown
+
+[33mcommit 1269a4238812994bc0b390284ba54ef5ffc92a71[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Jan 30 20:07:39 2015 +0000
+
+    Dispelling Myths Appendix to Markdown
+
+[33mcommit 7c9da34922127ae4a921a3fd335673521b980c20[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Jan 30 20:00:12 2015 +0000
+
+    Dispoasables appendix to markdown
+
+[33mcommit c3311ab680372ec4f633eb01c5475d195245886b[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Fri Jan 30 08:15:59 2015 +0000
+
+    WhyRx to markdown
+
+[33mcommit bd30d1c6e15dd03356466b2a067fac81e1d6a5de[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Thu Jan 29 17:09:59 2015 +0000
+
+    Foreword to markdown
+
+[33mcommit cf4086c327bf497cf042e21a4f72e050f4b24eba[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Thu Jan 29 16:12:30 2015 +0000
+
+    Renamed all html content to markdown
+
+[33mcommit 189aa6dcf4413c9cd48091d91819c516c23d57be[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Wed Apr 3 22:00:02 2013 +0100
+
+    Jeffery to Jeffrey
+    
+    Spelling mistake of the referenced authors. Fail.
+
+[33mcommit d45b473cd294fd977f58014c26257f608858523d[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Wed Apr 3 21:58:20 2013 +0100
+
+    Correcting the TakeLast sample
+    
+    Copy-paste fail has had SkipLast operator in the TakeLast sample for 10
+    months.
+    
+    http://social.msdn.microsoft.com/Forums/en-US/rx/thread/bc03541d-7b0a-445c-aa86-0cfd541544df
+
+[33mcommit 6fd63258f9aefc92a889aaae14485efe5d8f960b[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Wed Dec 5 23:36:46 2012 +0000
+
+    Deleting generated content
+
+[33mcommit 27f4538b3a040b64a1709eb9c69945628ef4f528[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Wed Dec 5 20:54:44 2012 +0000
+
+    Updated build to clean correctly
+
+[33mcommit bb68a114127a96f18b8bb22cf38dce499ef7b919[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Tue Dec 4 18:25:17 2012 +0000
+
+    Updated build to build kindle and website
+
+[33mcommit 73bd8ecc7951b441cdc0bb98679bd67d2d1cb8d2[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Sun Dec 2 21:28:52 2012 +0000
+
+    Enable Nuget package restore
+
+[33mcommit 17323e886099e846214840ca00bbf7ab7532af0e[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Sun Dec 2 20:51:43 2012 +0000
+
+    Adding Amazon.co.uk links
+    
+    Added links to relevant books on Amazon.co.uk. Also made updates to the
+    generator to take command line arguments to tailor its usage.
+
+[33mcommit c4ae6ddbbf3a211584d894d92268544d1c37c585[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Wed Nov 28 23:48:33 2012 +0000
+
+    Switched the WebApplication to a Website
+    
+    As we dont use any .NET features in the website it is now just a simple
+    site.
+
+[33mcommit 2582468caaf8d42f95fb806ab1eb61cf66dec060[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Mon Nov 12 19:11:45 2012 +0000
+
+    Update front page and TODO list
+
+[33mcommit 9139e4f84bb9d830052263e017151ddeaa3323ab[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Sun Nov 11 23:49:59 2012 +0000
+
+    Dummy checkin
+
+[33mcommit cf4520521e4189e34f8d9a3a994ad69e6c784745[m
+Author: Lee Campbell <Lee.Ryan.Campbell@gmail.com>
+Date:   Sun Nov 11 23:38:14 2012 +0000
+
+    Port from SVN
+    
+    I didn't take the svn history as it was not a root of the SVN
+    repository.
+
+[33mcommit 6309c604df097f6478bd5668314b13c4b635ecd9[m
+Author: Lee Campbell <lee.ryan.campbell@gmail.com>
+Date:   Sun Nov 11 15:26:11 2012 -0800
+
+    Initial commit

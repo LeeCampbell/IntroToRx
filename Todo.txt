@@ -704,6 +704,24 @@ Amazon.co.uk snippets
 						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
 			</div>
 			
+--------------------------------------------------------------------------------------------
+//From https://highlightjs.org/usage/
+//Get custom cSharp only pack from https://highlightjs.org/download/
+  <link rel="stylesheet" href="..\WebSite\Styles\Site.css" type="text/css" />
+  <link rel="stylesheet" href="vs.css">			<!-- Visualstudio code style sheet for highlight.pack.js -->
+  <script src="highlight.cs.pack.js"></script>	<!--Custom CSharp highlighter -->
+  <script>hljs.initHighlightingOnLoad();</script>
+  
+  
+By using the bare min of 
+	C:\Users\Lee\AppData\Local\Pandoc\pandoc.exe -o 17_SequencesOfCoincidence.html 17_SequencesOfCoincidence.md
 
+so actually
+	&$pandocExePath -o $OutputPath $InputPath
+	
+i.e. no css, no -s (stand alone), then the title, css and other headers will not be created. 
+We will get just the raw content. 
+We are now free to wrap that content in what ever we need.
+So we can still use the previous code to generate the side TOC, and potentially an Index too.
 			
 
