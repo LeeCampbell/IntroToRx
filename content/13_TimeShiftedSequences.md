@@ -980,7 +980,7 @@ We can either specify the period as a sliding window with a `TimeSpan`, or as an
 
 If we provide a `TimeSpan` and no values are produced within that time span, then the sequence fails with a `TimeoutException`.
 
-	var source = Observable.Interval(TimeSpan.FromMilliseconds(100)).Take(10)
+	var source = Observable.Interval(TimeSpan.FromMilliseconds(100)).Take(5)
 		.Concat(Observable.Interval(TimeSpan.FromSeconds(2)));
 
 	var timeout = source.Timeout(TimeSpan.FromSeconds(1));
