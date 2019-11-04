@@ -584,6 +584,8 @@ Next, `N` produces the number '1' so we now have a pair '1a' that is yielded in 
 We then receive the number '2' from `N`. The last letter is still 'a' so the next pair is '2a'. 
 The letter 'b' is then produced creating the pair '2b', followed by 'c' giving '2c'. 
 Finally the number 3 is produced and we get the pair '3c'.
+Note that if `L` had produced any other values prior to 'a' (for example, 'z'), there would be no output for them (no '1z'), because only the `Latest` values are paired together; as noted above, only the last value is cached.  
+
 
 This is great in case you need to evaluate some combination of state which needs to be kept up-to-date when the state changes. 
 A simple example would be a monitoring system. 
@@ -843,4 +845,5 @@ Pairing values with `CombineLatest`, `Zip` and the `And`/`Then`/`When` operators
 					scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
 
 		</div>           
-	</div></div>
+	</div>
+</div>
