@@ -544,7 +544,7 @@ var firstChanceException = Observable.FromEventPattern<FirstChanceExceptionEvent
 
 So while the overloads can be confusing, they key is to find out what the event's signature is. If the signature is just the base `EventHandler` delegate then you can use the first example. If the delegate is a sub-class of the `EventHandler`, then you need to use the second example and provide the `EventHandler` sub-class and also its specific type of `EventArgs`. Alternatively, if the delegate is the newer generic `EventHandler<TEventArgs>`, then you need to use the third example and just specify what the generic type of the event argument is.
 
-It is very common to want to expose property changed events as observable sequences. These events can be exposed via `INotifyPropertyChanged` interface, a `DependencyProperty` or perhaps by events named appropriately to the Property they are representing. If you are looking at writing your own wrappers to do this sort of thing, I would strongly suggest looking at the Rxx library on [http://Rxx.codeplex.com](http://Rxx.codeplex.com) first. Many of these have been catered for in a very elegant fashion.
+It is very common to want to expose property changed events as observable sequences. These events can be exposed via `INotifyPropertyChanged` interface, a `DependencyProperty` or perhaps by events named appropriately to the Property they are representing. If you are looking at writing your own wrappers to do this sort of thing, I would strongly suggest looking at the Rxx library on [https://github.com/dotnet/reactive](https://github.com/dotnet/reactive) first. Many of these have been catered for in a very elegant fashion.
 
 ### From Task						
 
@@ -710,7 +710,7 @@ bytesReadStream.Subscribe(byteCount =>
 });
 ```
 
-Note that this implementation is just an example. For a very well designed implementation that is built against the latest version of Rx you should look at the Rxx project on [http://rxx.codeplex.com](http://rxx.codeplex.com).
+Note that this implementation is just an example. For a very well designed implementation that is built against the latest version of Rx you should look at the Rxx project on [https://github.com/dotnet/reactive](https://github.com/dotnet/reactive).
 
 This covers the first classification of query operators: creating observable sequences. We have looked at the various eager and lazy ways to create a sequence. We have introduced the concept of corecursion and show how we can use it with the `Generate` method to unfold potentially infinite sequences. We can now produce timer based sequences using the various factory methods. We should also be familiar with ways to transition from other synchronous and asynchronous paradigms and be able to decide when it is or is not appropriate to do so. 
 
