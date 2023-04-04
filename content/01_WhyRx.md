@@ -8,7 +8,7 @@ title : Why Rx?
 
 Users expect real time data. They want their tweets now. Their order confirmed now. They need prices accurate as of now. Their online games need to be responsive. As a developer, you demand fire-and-forget messaging. You don't want to be blocked waiting for a result. You want to have the result pushed to you when it is ready. Even better, when working with result sets, you want to receive individual results as they are ready. You do not want to wait for the entire set to be processed before you see the first row. The world has moved to push; users are waiting for us to catch up. Developers have tools to push data, this is easy. Developers need tools to react to push data.
     
-Welcome to [Reactive Extensions for .NET](http://msdn.microsoft.com/en-us/devlabs/gg577609) (Rx). This book is aimed at any .NET developer curious about the `IObservable<T>` and `IObserver<T>` interfaces that have popped up in .NET 4. The Reactive Extensions libraries from Microsoft are the implementations of these interfaces that are quickly picking up traction with Server, Client and Web developers alike. Rx is a powerfully productive development tool. Rx enables developers to solve problems in an elegant, familiar and declarative style; often crucially with less code than was possible without Rx. By leveraging LINQ, Rx gets to boast the standard benefits of a LINQ implementation<sup><a href="#reference1">1</a></sup>.
+Welcome to [Reactive Extensions for .NET](https://github.com/dotnet/reactive) (Rx). This book is aimed at any .NET developer curious about the `IObservable<T>` and `IObserver<T>` interfaces in .NET. The Reactive Extensions libraries from Microsoft are the implementations of these interfaces that are quickly picking up traction with Server, Client and Web developers alike. Rx is a powerfully productive development tool. Rx enables developers to solve problems in an elegant, familiar and declarative style; often crucially with less code than was possible without Rx. By leveraging LINQ, Rx gets to boast the standard benefits of a LINQ implementation<sup><a href="#reference1">1</a></sup>.
 
 ### Integrated
 LINQ is integrated into the C# language.
@@ -36,11 +36,11 @@ Rx offers a natural paradigm for dealing with sequences of events. A sequence ca
 
 Managing events like these is what Rx was built for:
 
-* UI events like mouse move, button click
-* Domain events like property changed, collection updated, "Order Filled", "Registration accepted" etc.
-* Infrastructure events like from file watcher, system and WMI events
-* Integration events like a broadcast from a message bus or a push event from WebSockets API or other low latency middleware like [Nirvana](http://www.my-channels.com)
-* Integration with a CEP engine like [StreamInsight](http://www.microsoft.com/sqlserver/en/us/solutions-technologies/business-intelligence/complex-event-processing.aspx) or [StreamBase](http://www.streambase.com).
+- UI events like mouse move, button click
+- Domain events like property changed, collection updated, "Order Filled", "Registration accepted" etc.
+- Infrastructure events like from file watcher, system and WMI events
+- Integration events like a broadcast from a message bus or a push event from WebSockets API or other low latency middleware like [Azure Service Bus](https://azure.microsoft.com/en-gb/products/service-bus/)
+- Integration with a CEP engine like [StreamInsight](http://www.microsoft.com/sqlserver/en/us/solutions-technologies/business-intelligence/complex-event-processing.aspx) or [StreamBase](http://www.streambase.com).
 
 Interestingly Microsoft's CEP product StreamInsight, which is part of the SQL Server family, also uses LINQ to build queries over streaming events of data.
 
@@ -48,25 +48,21 @@ Rx is also very well suited for introducing and managing concurrency for the pur
 That is, performing a given set of work concurrently to free up the current thread. 
 A very popular use of this is maintaining a responsive UI.
 
-You should consider using Rx if you have an existing `IEnumerable<T>`        that is attempting to model data in motion. 
-While `IEnumerable<T>` _can_ model data in motion (by using lazy evaluation like `yield return`), it probably won't scale. 
-Iterating over an `IEnumerable<T>` will consume/block a thread. 
-You should either favor the non-blocking nature of Rx via either `IObservable<T>` or consider the `async` features in .NET 4.5.
+You should consider using Rx if you have an existing `IEnumerable<T>` that is attempting to model data in motion. 
+While `IEnumerable<T>` _can_ model data in motion (by using lazy evaluation like `yield return`), it probably won't scale. Iterating over an `IEnumerable<T>` will consume/block a thread. You should either favor the non-blocking nature of Rx via either `IObservable<T>` or consider the `async` features in .NET 4.5.
     
 ### Could use Rx
 
-Rx can also be used for asynchronous calls. 
-These are effectively sequences of one event.
+Rx can also be used for asynchronous calls. These are effectively sequences of one event.
 
 * Result of a `Task` or `Task<T>`
 * Result of an APM method call like `FileStream` BeginRead/EndRead
 
-You may find the using TPL, Dataflow or `async` keyword (.NET 4.5) proves to be a more natural way of composing asynchronous methods. 
-While Rx can definitely help with these scenarios, if there are other more appropriate frameworks at your disposal you should consider them first.
+You may find the using TPL, Dataflow or `async` keyword proves to be a more natural way of composing asynchronous methods. While Rx can definitely help with these scenarios, if there are other more appropriate frameworks at your disposal you should consider them first.
 
-Rx can be used, but is less suited for, introducing and managing concurrency for the purposes of _scaling_ or performing _parallel_ computations. Other dedicated frameworks like TPL (Task Parallel Library) or C++ AMP are more appropriate for performing parallel compute intensive work.
+Rx can be used, but is less suited for, introducing and managing concurrency for the purposes of _scaling_ or performing _parallel_ computations. Other dedicated frameworks like TPL (Task Parallel Library) or [C++ AMP](https://learn.microsoft.com/en-us/cpp/parallel/amp/cpp-amp-cpp-accelerated-massive-parallelism) are more appropriate for performing parallel compute intensive work.
 
-See more on TPL, Dataflow, `async` and C++ AMP at [Microsoft's Concurrency homepage](http://msdn.microsoft.com/en-us/concurrency).
+See more on TPL, [TPL Dataflow](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/dataflow-task-parallel-library), [PLINQ](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/introduction-to-plinq) `async` and [C++ AMP](https://learn.microsoft.com/en-us/cpp/parallel/amp/cpp-amp-cpp-accelerated-massive-parallelism).
 
 ### Won't use Rx
 
