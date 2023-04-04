@@ -10,23 +10,20 @@ Users expect real time data. They want their tweets now. Their order confirmed n
     
 Welcome to [Reactive Extensions for .NET](https://github.com/dotnet/reactive) (Rx). This book is aimed at any .NET developer curious about the `IObservable<T>` and `IObserver<T>` interfaces in .NET. The Reactive Extensions libraries from Microsoft are the implementations of these interfaces that are quickly picking up traction with Server, Client and Web developers alike. Rx is a powerfully productive development tool. Rx enables developers to solve problems in an elegant, familiar and declarative style; often crucially with less code than was possible without Rx. By leveraging LINQ, Rx gets to boast the standard benefits of a LINQ implementation<sup><a href="#reference1">1</a></sup>.
 
-### Integrated
-LINQ is integrated into the C# language.
-
-### Unitive
-Using LINQ allows you to leverage your existing skills for querying data at rest (LINQ to SQL, LINQ to XML or LINQ to objects) to query data in motion. You could think of Rx as LINQ to events. LINQ allows you to transition from other paradigms into a common paradigm. For example you can transition a standard .NET event, an asynchronous method call, a `Task` or perhaps a 3rd party middleware API into a single common Rx paradigm. By leveraging our existing language of choice and using familiar operators like `Select`, `Where`, `GroupBy` etc, developers can rationalize and communicate designs or code in a common form.
-
-### Extensible
-You can extend Rx with your own custom query operators (extension methods).
-
-### Declarative
-LINQ allows your code to read as a declaration of _what_ your code does and leaves the _how_ to the implementation of the operators.
-
-### Composable
-LINQ features, such as extension methods, lambda syntax and query comprehension syntax, provide a fluent API for developers to consume. Queries can be constructed with numerous operators. Queries can then be composed together to further produce composite queries.
-
-### Transformative
-Queries can transform their data from one type to another. A query might translate a single value to another value, aggregated from a sequence of values to a single average value or expand a single data value into a sequence of values.
+<dl>
+    <dt>Integrated</dt>
+    <dd>LINQ is integrated into the C# language.</dd>
+    <dt>Unitive</dt>
+    <dd>Using LINQ allows you to leverage your existing skills for querying data at rest (LINQ to SQL, LINQ to XML or LINQ to objects) to query data in motion. You could think of Rx as LINQ to events. LINQ allows you to transition from other paradigms into a common paradigm. For example you can transition a standard .NET event, an asynchronous method call, a `Task` or perhaps a 3rd party middleware API into a single common Rx paradigm. By leveraging our existing language of choice and using familiar operators like `Select`, `Where`, `GroupBy` etc, developers can rationalize and communicate designs or code in a common form.</dd>
+    <dt>Extensible</dt>
+    <dd>You can extend Rx with your own custom query operators (extension methods).</dd>
+    <dt>Declarative</dt>
+    <dd>LINQ allows your code to read as a declaration of _what_ your code does and leaves the _how_ to the implementation of the operators.</dd>
+    <dt>Composable</dt>
+    <dd>LINQ features, such as extension methods, lambda syntax and query comprehension syntax, provide a fluent API for developers to consume. Queries can be constructed with numerous operators. Queries can then be composed together to further produce composite queries.</dd>
+    <dt>Transformative</dt>
+    <dd>Queries can transform their data from one type to another. A query might translate a single value to another value, aggregated from a sequence of values to a single average value or expand a single data value into a sequence of values. </dd>
+</dl>
 
 ## When is Rx appropriate?
 
