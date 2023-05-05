@@ -1,0 +1,71 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"languageName":"csharp","name":"csharp"}]}}
+
+#!csharp
+
+using Microsoft.DotNet.Interactive;
+using Microsoft.DotNet.Interactive.Commands;
+var jsKernel = Kernel.Root.FindKernelByName("javascript");
+
+#!html
+
+Output:
+<div id="output">
+</div>
+
+#!javascript
+
+show = function(text) {
+    var o = document.getElementById("output");
+    o.innerText += text;
+}
+
+#!javascript
+
+show("test");
+
+#!csharp
+
+Kernel.Javascript("show(from c#);")
+
+#!csharp
+
+var jsKernel = Kernel.Root.FindKernelByName("javascript");
+
+#!csharp
+
+jsKernel
+
+#!csharp
+
+await jsKernel.SendAsync(new SubmitCode("show(\"from C#\");"));
+
+#!csharp
+
+//#r System.Reactive,6*
+using System;
+using System.Reactive;
+using System.Reactive.Linq;
+
+#!csharp
+
+{
+    using var _ = Observable
+        .Timer(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1))
+        .Subscribe(t => Console.WriteLine($"Tick {t}"));
+    await Task.Delay(TimeSpan.FromSeconds(5));
+}
+
+#!csharp
+
+TaskCompletionSource done = new();
+Observable
+    .Timer(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1))
+    .Take(5)
+    .Subscribe(
+        t => Console.WriteLine($"Tick {t}"),
+        () => done.SetResult()
+    );
+
+await done.Task;
