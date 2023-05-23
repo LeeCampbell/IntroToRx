@@ -4,25 +4,76 @@ title : Key Types
 
 # Key types
 
-To use a framework you need to have a familiarty with the key features and their benefits. Without this you find yourself just pasting samples from forums and hacking code until it works, kind of. Then the next poor developer to maintain the code base ha to try to figure out what the intention of your code base was. Fate is only too kind when that maintenence developer is the same as the original developer. Rx is powerful, but also allows for a simplification of your code. To write good Reactive code you have to know the basics.
+Rx is a powerful framework that can greatly simplify code that response to events. But to write good Reactive code you have to understand the basic concepts.
 
-There are two key types to understand when working with Rx, and a subset of auxiliary types that will help you to learn Rx more effectively. The `IObserver<T>` and `IObservable<T>` form the fundamental building blocks for Rx, while implementations of `ISubject<Source, TResult>` reduce the learning curve for developers new to Rx.
+The fundamental building block of Rx is an interface called `IObservable<T>`. Understanding this, and its counterpart `IObserver<T>`, is the key to success with Rx. This chapter will also describe a family of types called _subjects_, which implement both `IObserver<T>` and `IObservable<T>`. Although subjects are not quite as important as the two fundamental types, they can be very helpful when using Rx, and can sometimes provide an easy way in for developers new to Rx.
 
-Many are familiar with LINQ and its many popular forms like LINQ to Objects, LINQ to SQL &amp; LINQ to XML. Each of these common implementations allows you query _data at rest_; Rx offers the ability to query _data in motion_. Essentially Rx is built upon the foundations of the [Observer](http://en.wikipedia.org/wiki/Observer_pattern) pattern. .NET already exposes some other ways to implement the Observer pattern such as multicast delegates or events (which are usually multicast delegates). Multicast delegates are not ideal however as they exhibit the following less desirable features;
+Most .NET developers will be familiar with [LINQ](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/basic-linq-query-operations) in at least one of its many popular forms such as [LINQ to Objects](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/linq-to-objects), or [Entity Framework Core queries](https://learn.microsoft.com/en-us/ef/core/querying/). Most LINQ implementations allow you to query _data at rest_—LINQ to objects works on arrays or other collections; LINQ queries in Entity Framework Core run against data in a database. But Rx is different: it offers the ability to define queries over live event streams—what you might call _data in motion_.
 
-- In C#, events have a curious interface. Some find the `+=` and ` -=` operators an unnatural way to register a callback
-- Events are difficult to compose
-- Events don't offer the ability to be easily queried over time
-- Events are a common cause of accidental memory leaks
-- Events do not have a standard pattern for signaling completion
-- Events provide almost no help for concurrency or multithreaded applications. e.g. To raise an event on a separate thread requires you to do all of the plumbing
- 
-Rx looks to solve these problems. Here I will introduce you to the building blocks and some basic types that make up Rx.
+The preceding chapter had this example:
+
+```cs
+var bigTrades =
+    from trade in trades
+    where trade.Volume > 1_000_000;
+```
+
+If you don't like the query expression syntax, you can write exactly equivalent code by invoking LINQ operators directly:
+
+```cs
+var bigTrades = trades
+    .Where(trade => trade.Volume > 1_000_000);
+```
+
+Whichever style we use, this is the LINQ way of saying that we want `bigTrades` to have just those items in `trades` where the `Volume` property is greater than one million.
+
+We can't tell exactly what these examples do because we can't see the type of the `trades` or `bigTrades` variables. The meaning of this code is going to vary greatly depending on these types. If we were using LINQ to objects, these would both likely be `IEnumerable<Trade>`. That would mean that these were both objects representing collections whose contents we could enumerate with a `foreach` loop. This would represent _data at rest_, data that our code could inspect directly.
+
+But let's make it clear what the code means by being explicit about the type:
+
+```cs
+IObservable<Trade> bigTrades = trades
+    .Where(trade => trade.Volume > 1_000_000);
+```
+
+This removes all ambiguity. It is now clear that we're not dealing with data at rest. We're working with an `IObservable<Trade>`. But what exactly is that?
+
 
 ## IObservable<T>
     
-[`IObservable<T>`](http://msdn.microsoft.com/en-us/library/dd990377.aspx "IObservable(Of T) interface - MSDN") is one of the two new core interfaces for working with Rx. It is a simple interface with just a [Subscribe](http://msdn.microsoft.com/en-us/library/dd782981(v=VS.100).aspx) method. Microsoft is so confident that this interface will be of use to you it has been included in the BCL as of version 4.0 of .NET. You should be able to think of anything that implements `IObservable<T>` as a streaming sequence of `T` objects. 
-So if a method returned an `IObservable<Price>` I could think of it as a stream of Prices.
+The [`IObservable<T>` interface](https://learn.microsoft.com/en-us/dotnet/api/system.iobservable-1 "IObservable<T> interface - Microsoft Learn") represents Rx's fundamental abstraction: a sequence of values of some type `T`. In a very abstract sense, this means it represents the same thing as `IEnumerable<T>`. The difference is in how code consumes those values. Whereas `IEnumerable<T>` enables code to retrieve values (typically with a `foreach` loop), an `IObservable<T>` provides values when they become available. This distinction is sometimes characterised as _push_ vs _pull_. We can _pull_ values out of an `IEnumerable<T>` by executing a `foreach` loop, but and `IObservable<T>` will _push_ values into our code.
+
+How will an `IObservable<T>` push its values into our code? If we want these values, our code must _subscribe_ to the `IObservable<T>`, which means providing it with some methods it can invoke.
+
+In fact, subscription is the only operation an `IObservable<T>` directly supports. Here's the entire definition of the interface:
+
+```cs
+public interface IObservable<out T>
+{
+    IDisposable Subscribe(IObserver<T> observer);
+}
+```
+
+You can see [the source for `IObservable<T>` on GitHub](https://github.com/dotnet/runtime/blob/b4008aefaf8e3b262fbb764070ea1dd1abe7d97c/src/libraries/System.Private.CoreLib/src/System/IObservable.cs). Notice that it is part of the .NET runtime libraries, and not the `System.Reactive` NuGet package. `IObservable<T>` is of such fundamental importance that it is baked into .NET. (So you might be wondering what the `System.Reactive` NuGet package is for. The .NET runtime libraries define only the `IObservable<T>` and `IObserver<T>` interfaces, and not the LINQ implementation. The Rx NuGet package gives us LINQ support, and also deals with threading.)
+
+Observant readers will have noticed that the example in the preceding chapter looks like it shouldn't work. Having created an `IObservable<long>` that produced events once per second, it subscribed to it with this code:
+
+```cs
+ticks.Subscribe(
+    tick => Console.WriteLine($"Tick {tick}"));
+```
+
+That's passing a delegate, but we can see that `IObservable<T>.Subscribe` requires something called an `IObserver<T>`. We'll get to `IObserver<T>` shortly, but all that's happening here is that this example is using an extension method from the Rx NuGet package:
+
+```cs
+// From the System.Reactive library's ObservableExtensions class
+public static IDisposable Subscribe<T>(this IObservable<T> source, Action<T> onNext)
+```
+
+This is a convenient helper method that wraps a delegate in an implementation of `IObserver<T>` and then passes that to `IObservable<T>.Subscribe`. The effect is that we can write just a simple method (instead of a complete implementation of `IObserver<T>`) and the observable source will invoke our callback each time it wants to supply a value.
+
+Because
+
 
 ```csharp
 //Defines a provider for push-based notification.
@@ -400,3 +451,24 @@ public static ISubject>TSource, TResult< Create>TSource, TResult<(
 Subjects provide a convenient way to poke around Rx, however they are not recommended for day to day use. An explanation is in the [Usage Guidelines](18_UsageGuidelines.md) in the appendix. Instead of using subjects, favor the factory methods we will look at in [Part 2](04_CreatingObservableSequences.md).
 
 The fundamental types `IObserver<T>` and `IObservable<T>` and the auxiliary subject types create a base from which to build your Rx knowledge. It is important to understand these simple types and their implicit contracts. In production code you may find that you rarely use the `IObserver<T>` interface and subject types, but understanding them and how they fit into the Rx eco-system is still important. The `IObservable<T>` interface is the dominant type that you will be exposed to for representing a sequence of data in motion, and therefore will comprise the core concern for most of your work with Rx and most of this book.
+
+
+
+# Spare parts
+
+## Comparison with events
+
+This was originally the opening text. I don't think it belongs there, but we probably do want to talk about it in the context of why we need `IObservable<T>` at all.
+
+<hr/>
+
+Essentially Rx is built upon the foundations of the [Observer](http://en.wikipedia.org/wiki/Observer_pattern) pattern. .NET already exposes some other ways to implement the Observer pattern such as multicast delegates or events (which are usually multicast delegates). Multicast delegates are not ideal however as they exhibit the following less desirable features;
+
+- In C#, events have a curious interface. Some find the `+=` and ` -=` operators an unnatural way to register a callback
+- Events are difficult to compose
+- Events don't offer the ability to be easily queried over time
+- Events are a common cause of accidental memory leaks
+- Events do not have a standard pattern for signaling completion
+- Events provide almost no help for concurrency or multithreaded applications. e.g. To raise an event on a separate thread requires you to do all of the plumbing
+ 
+Rx looks to solve these problems. Here I will introduce you to the building blocks and some basic types that make up Rx.
