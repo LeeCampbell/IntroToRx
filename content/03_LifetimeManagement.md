@@ -2,6 +2,8 @@
 title: Lifetime management
 ---
 
+TODO: I think most of this is critical to use of `IObservable<T>` so I don't think it really makes sense for this to be in its own chapter. I've covered it in Ch02. However, I need to go through this and work out if there's anything in here that I've not covered, and if so, work out what do to with it.
+
 # Lifetime management
 
 The very nature of Rx code is that you as a consumer do not know when a sequence will provide values or terminate. This uncertainty does not prevent your code from providing a level of certainty. You can control when you will start accepting values and when you choose to stop accepting values. You still need to be the master of your domain. Understanding the basics of managing Rx resources allow your applications to be as efficient, bug free and predictable as possible.

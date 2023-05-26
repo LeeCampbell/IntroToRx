@@ -207,6 +207,41 @@ public interface IObserver<in T>
 
 As with `IObservable<T>`, you can find [the source for `IObserver<T>`](https://github.com/dotnet/runtime/blob/7cf329b773fa5ed544a9377587018713751c73e3/src/libraries/System.Private.CoreLib/src/System/IObserver.cs) in the .NET runtime GitHub repository, because both of these interfaces are built into the runtime libraries.
 
+If we wanted to create an observer that printed values to the console it would be as easy as this:
+
+```csharp
+public class MyConsoleObserver<T> : IObserver<T>
+{
+    public void OnNext(T value)
+    {
+        Console.WriteLine($"Received value {value}");
+    }
+
+    public void OnError(Exception error)
+    {
+        Console.WriteLine($"Sequence faulted with {error}");
+    }
+
+    public void OnCompleted()
+    {
+        Console.WriteLine("Sequence terminated");
+    }
+}
+```
+
+In the preceding chapter, I used a `Subscribe` extension method that accepted a delegate which it invoked each time the source produced an item. Rx's `ObservableExtensions` class defines that, and various other extension methods for `IObservable<T>`. It includes overloads of `Subscribe` that enable me to write exactly equivalent code without needing to provide my own implementation of `IObserver<T>`:
+
+```csharp
+source.Subscribe(
+    value => Console.WriteLine($"Received value {value}"),
+    error => Console.WriteLine($"Sequence faulted with {error}"),
+    () => Console.WriteLine("Sequence terminated")
+);
+```
+
+The overloads of `Subscribe` where we don't pass all three methods (e.g., my earlier example just supplied a single callback corresponding to `OnNext`) are equivalent to writing an `IObserver<T>` implementation where one or more of the methods simply has an empty body. Whether we find it more convenient to write our own type that implements `IObserver<T>`, or just supply callbacks for some or all of its `OnNext`, `OnError` and `OnCompleted` method, and `IObservable<T>` source reports each event with a call to `OnNext`, and tells us that the events have come to an end either by calling `OnError` or `OnCompleted`.
+
+
 If you're wondering whether the relationship between `IObservable<T>` and `IObserver<T>` is similar to the relationship between [`IEnumerable<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1) and [`IEnumerator<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerator-1), then you're onto something. Both `IEnumerator<T>` and `IObservable<T>` represent _potential_ sequences. With both of these interfaces, they will only supply data if we ask them for it. To get values out of an `IEnumerable<T>`, an `IEnumerator<T>` needs to come into existence, and similarly, to get values out of an `IObservable<T>` requires an `IObserver<T>`.
 
 The difference reflects the fundamental _pull vs push_ difference between `IEnumerable<T>` and `IObservable<T>`. Whereas with `IEnumerable<T>` we ask the source to create an `IEnumerator<T>` for us which we can then use to retrieve items (which is what a C# `foreach` loop does), with `IObservable<T>`, the source does not _implement_ `IObserver<T>`: it expects _us_ to supply an `IObserver<T>` and it will then push its values into that observer.
@@ -226,6 +261,7 @@ These three outcomes correspond precisely to the three method defined by `IObser
 * There are no more items
 
 That describes the three things that either can happen next when consuming either an `IEnumerable<T>` or an `IObservable<T>`. The only difference is the means by which consumers discover this. With an `IEnumerable<T>` source, each call to `MoveNext` will tell us which of these three applies. And with an `IObservable<T>` source, it will tell you one of these three things with a call to the corresponding member of your `IObserver<T>` implementation.
+
 
 ### The Rules of `IObserver<T>`
 
@@ -421,345 +457,57 @@ So you might argue that this is a slightly better way to describe the rules form
 
 More subtly, observable sources are allowed to do nothing at all. In fact there's a built-in implementation. If you call `Observable.Never<int>()` it will return an `IObservable<int>`, and if you subscribe to that, it will never call any methods on your observer. This might not look immediately useful—it is logically equivalent to an `IEnumerable<T>` in which the enumerator's `MoveNext` method never returns. That might not be usefully distinguishable from crashing. It's slightly different with Rx, because when we model this "no items emerge ever" behaviour, we don't need to block a thread forever to do it. We can just decide never to call any methods on the observer. This may seem daft, but as you've seen with the `Quiescent` example, sometimes we create observable sources not because we want the actual items that emerge from it, but because we're interested in the instants where interesting things happen. It can sometimes be useful to be able to model "nothing interesting ever happens" cases.
 
+## Subscription Lifetime
 
-### Implementing IObserver<T> and IObservable<T>
+Before we can move on to seeing how to create `IObservable<T>` sources that represent streams of events that are meaningful to our applications, there's one more thing we need to understand about the relationship between observers and observables: the lifetime of a subscription.
 
-TODO: I've not reviewed past here.
+You already know from the rules of `IObserver<T>` that a call to either `OnComplete` or `OnError` denotes the end of a sequence. We passed an `IObserver<T>` to `IObservable<T>.Subscribe`, and now the subscription is over. But what if we want to stop the subscription earlier.
 
-It is quite easy to implement each interface. If we wanted to create an observer that printed values to the console it would be as easy as this.
+You might have noticed that the `Subscribe` method returns an `IDisposable`. It does that so that we can cancel our subscription. Perhaps we only subscribed to a source because our application opened some window showing the status of some process, and we wanted to update the window to reflect that's process's progress. If the user closes that window, we no longer have any use for the notifications. And although we could just ignore all further notifications, that could be a problem if the thing we're monitoring never reaches a natural end—our observer would continue to receive notifications for the lifetime of the application. This is a waste of CPU power (with corresponding implications for battery life and environmental impact) and it can also prevent the garbage collector from reclaiming memory that should have become free.
 
-```csharp
-public class MyConsoleObserver<T> : IObserver<T>
-{
-    public void OnNext(T value)
-    {
-        Console.WriteLine("Received value {0}", value);
-    }
+So we are free to indicate that we no longer wish to receive notifications by calling `Dispose` on the object returned by `Subscribe`. There are a few non-obvious details, however.
 
-    public void OnError(Exception error)
-    {
-        Console.WriteLine("Sequence faulted with {0}", error);
-    }
+First, you aren't required to call `Dispose`. Obviously if you want to remain subscribed to events for the lifetime of your process, this makes sense, but what might be less obvious is that if you subscribe to an `IObservable<T>` that does come to an end, it automatically tidies up after itself: `IObservable<T>` implementations are not allowed to assume that you will definitely call `Dispose`, so they are required to perform whatever cleanup they need to do if they stop by calling the observer's `OnCompleted` or `OnError`. This is unusual—in most cases where a .NET API returns a brand new object created on your behalf that implements `IDisposable`, it's an error not to dispose it. But `IDisposable` objects representing Rx subscriptions are an exception to this rule. You only need to dispose them if you want them to stop earlier than they otherwise would.
 
-    public void OnCompleted()
-    {
-        Console.WriteLine("Sequence terminated");
-    }
-}
+Second, `Dispose` won't necessarily take effect instantly. Obviously it will take some non-zero amount of time in between your code reaching the point where it calls `Dispose`, and the `Dispose` implementation reaching the point where it actually does something. Less obviously, some observable sources may need to do non-trivial work to shut things down. A source might create a thread to be able to monitor for and report whatever events it represents. (That would happen with the filesystem source shown above when running on Linux on .NET 7, because the `FileSystemWatcher` class itself creates its own thread on Linux.) It might take a while for the thread to detect that it is supposed to shut down.
+
+Thirdly, sources have considerable latitude about when they stop producing events. The only guarantee is that once the call to `Dispose` has returned, the source will make no further calls to the relevant observer. But otherwise, observable sources have latitude here. Any of the following would be legal:
+
+* stopping calls to `IObserver<T>` almost immediately after `Dispose` begins, even when it takes a relatively long time to bring any relevant underlying processes to a halt, in which case your observer will never receive an `OnCompleted` or `OnError`
+* producing notifications that reflect the process of shutting down (including calling `OnError` if an error occurs while trying to bring things to a neat halt, or `OnCompleted` if it halted without problems)
+* producing a few more notifications for some time after the call to `Dispose` begins, but cutting them off at some arbitrary point, potentially losing track even of important things like errors that occurred while trying to bring things to a halt
+
+As it happens, Rx has a preference for the first option. If you're using an `IObservable<T>` implemented by Rx (e.g., one returned by a LINQ operator) it is highly likely to have this characteristic. This is partly to avoid trick situations in which observers try to do things to their sources inside their notification callbacks—re-entrancy tends to be awkward to deal with, and Rx avoids ever having to deal with this particular form of re-entrancy by ensuring that it has already stopped delivering notifications to the observer before it begins the work of shutting down a subscription.
+
+This sometimes catches people out. If you need to be able to cancel some process that you are observing but you need to be able to observe everything it does up until the point that it stops, then you can't use unsubscription as the shutdown mechanism. As soon as you've called `Dispose`, the `IObservable<T>` that returned that `IDisposable` is no longer under any obligation to tell you anything. This can be frustrating, because the `IDisposable` returned by `Subscribe` can sometimes seem like such a natural and easy way to shut something down. But basic truth is this: once you've initiated unsubscription, you can't rely on getting any further notifications associated with that subscription. You _might_ receive some—the source is allowed to do that. But you can't rely on it—the source is also allowed to silence itself immediately, and that's what most Rx-implemented sources will do.
+
+### Subscription Lifetime and Composition
+
+We typically combine multiple LINQ operators to express our processing requirements in Rx. What does this mean for subscription lifetime.
+
+For example, consider this:
+
+```cs
+IObservable<int> source = GetSource();
+IObservable<int> filtered = source.Where(i => i % 2 == 0);
+IDisposable subscription = filtered.Subscribe(
+    i => Console.WriteLine(i),
+    error => Console.WriteLine($"OnError: {error}"),
+    () => Console.WriteLine("OnCompleted"));
 ```
 
-Implementing an observable sequence is a little bit harder. An overly simplified implementation that returned a sequence of numbers could look like this.
+We're calling `Subscribe` on the observable returned by `Where`. When we do that, it will in turn call `Subscribe` on the  the `IObservable<int>` returned by `GetSource` (stored in the `source` variable). So there is in effect a chain of subscriptions here. (We only have access to the `IDisposable` returned by `filtered.Subscribe` but the object that returns will be storing the `IDisposable` that it received when it called `source.Subscribe`.)
 
-```csharp
-public class MySequenceOfNumbers : IObservable<int>
-{
-    public IDisposable Subscribe(IObserver<int> observer)
-    {
-        observer.OnNext(1);
-        observer.OnNext(2);
-        observer.OnNext(3);
-        observer.OnCompleted();
-        return Disposable.Empty;
-    }
-}
-```
+If the source comes to an end all by itself (by calling either `OnCompleted` or `OnError`), this cascades through the chain. So `source` will call `OnCompleted` on the `IObserver<int>` that was supplied by the `Where` operator. And that in turn will call `OnCompleted` on the `IObserver<int>` that the was supplied in the call to `filtered.Subscribe`, and that will have references to the three methods we passed, so it will call our completion handler. So you could look at this by saying that `source` completes, it tells `filtered` that it has completed, which invokes our completion handler. (In reality this is a very slight oversimplification, because `source` doesn't tell `filtered` anything; it's actually talking to the `IObserver<T>` that `filtered` supplied. This distinction matters if you have multiple subscriptions active simultaneously for the same chain of observables. But in this case, the simpler way of describing it is good enough even if it's not absolutely precise.)
 
-We can tie these two implementations together to get the following output
+In short, completion bubbles up from the source, through all the operators, and arrives at our handler.
 
-```csharp
-var numbers = new MySequenceOfNumbers();
-var observer = new MyConsoleObserver<int>();
-numbers.Subscribe(observer);
-```
+What if we unsubscribe early by calling `subscription.Dispose()`? In that case it all happens the other way round—the `subscription` returned by `filtered.Subscribe` is the first to know that we're unsubscribing, but it will then call `Dispose` on the object that was returned when it called `source.Subscribe` for us.
 
-Output:
+Either way, everything from the source to the observer, including any operators that were sitting in between, gets shut down in either case.
 
-```
-Received value 1
-Received value 2
-Received value 3
-Sequence terminated
-```
 
-The problem we have here is that this is not really reactive at all. This implementation is blocking, so we may as well use an `IEnumerable<T>` implementation like a `List<T>` or an array.
-    
-This problem of implementing the interfaces should not concern us too much. You will find that when you use Rx, you do not have the need to actually implement these interfaces, Rx provides all of the implementations you need out of the box. Let's have a look at the simple ones.
-
-## Subject<T>
-
-TODO: move this into a separate chapter? I'm not convinced all the subject types are really intro stuff. `Subject<T>` is useful, but the rest?
-    
-I like to think of the `IObserver<T>` and the `IObservable<T>` as the 'reader' and 'writer' or, 'consumer' and 'publisher' interfaces. If you were to create your own implementation of `IObservable<T>` you may find that while you want to publicly expose the IObservable characteristics you still need to be able to publish items to the subscribers, throw errors and notify when the sequence is complete. Why that sounds just like the methods defined in `IObserver<T>`! While it may seem odd to have one type implementing both interfaces, it does make life easy. This is what [subjects](http://msdn.microsoft.com/en-us/library/hh242969(v=VS.103).aspx "Using Rx Subjects - MSDN") can do for you. [`Subject<T>`](http://msdn.microsoft.com/en-us/library/hh229173(v=VS.103).aspx "Subject(Of T) - MSDN") is the most basic of the subjects. Effectively you can expose your `Subject<T>` behind a method that returns `IObservable<T>` but internally you can use the `OnNext`, `OnError` and `OnCompleted` methods to control the sequence.
-
-In this very basic example, I create a subject, subscribe to that subject and then publish values to the sequence (by calling `subject.OnNext(T)`).
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new Subject<string>();
-    WriteSequenceToConsole(subject);
-
-    subject.OnNext("a");
-    subject.OnNext("b");
-    subject.OnNext("c");
-    Console.ReadKey();
-}
-
-// Takes an IObservable<string> as its parameter. 
-// Subject<string> implements this interface.
-static void WriteSequenceToConsole(IObservable<string> sequence)
-{
-    // The next two lines are equivalent.
-    // sequence.Subscribe(value=>Console.WriteLine(value));
-    sequence.Subscribe(Console.WriteLine);
-}
-```
-
-Note that the `WriteSequenceToConsole` method takes an `IObservable<string>` as it only wants access to the subscribe method. Hang on, doesn't the `Subscribe` method need an `IObserver<string>` as an argument? Surely `Console.WriteLine` does not match that interface. Well it doesn't, but the Rx team supply me with an Extension Method to `IObservable<T>` that just takes an [`Action<T>`](http://msdn.microsoft.com/en-us/library/018hxwa8.aspx "Action(Of T) Delegate - MSDN"). The action will be executed every time an item is published. There are [other overloads to the Subscribe extension method](http://msdn.microsoft.com/en-us/library/system.observableextensions(v=VS.103).aspx "ObservableExtensions class - MSDN") that allows you to pass combinations of delegates to be invoked for `OnNext`, `OnCompleted` and `OnError`. This effectively means I don't need to implement `IObserver<T>`. Cool.
-
-As you can see, `Subject<T>` could be quite useful for getting started in Rx programming. `Subject<T>` however, is a basic implementation. There are three siblings to `Subject<T>` that offer subtly different implementations which can drastically change the way your program runs.
-
-<!--
-    TODO: ReplaySubject<T> - Rewrite second sentence. -GA
--->
-
-## ReplaySubject<T>
-
-[`ReplaySubject<T>`](http://msdn.microsoft.com/en-us/library/hh211810(v=VS.103).aspx "ReplaySubject(Of T) - MSDN") provides the feature of caching values and then replaying them for any late subscriptions. Consider this example where we have moved our first publication to occur before our subscription
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new Subject<string>();
-
-    subject.OnNext("a");
-    WriteSequenceToConsole(subject);
-
-    subject.OnNext("b");
-    subject.OnNext("c");
-    Console.ReadKey();
-}
-```
-
-The result of this would be that 'b' and 'c' would be written to the console, but 'a' ignored. 
-If we were to make the minor change to make subject a `ReplaySubject<T>` we would see all publications again.
-
-```csharp
-var subject = new ReplaySubject<string>();
-
-subject.OnNext("a");
-WriteSequenceToConsole(subject);
-
-subject.OnNext("b");
-subject.OnNext("c");
-```
-
-This can be very handy for eliminating race conditions. Be warned though, the default constructor of the `ReplaySubject<T>` will create an instance that caches every value published to it. In many scenarios this could create unnecessary memory pressure on the application. `ReplaySubject<T>` allows you to specify simple cache expiry settings that can alleviate this memory issue. One option is that you can specify the size of the buffer in the cache. In this example we create the `ReplaySubject<T>` with a buffer size of 2, and so only get the last two values published prior to our subscription:
-
-```csharp    
-public void ReplaySubjectBufferExample()
-{
-    var bufferSize = 2;
-    var subject = new ReplaySubject<string>(bufferSize);
-
-    subject.OnNext("a");
-    subject.OnNext("b");
-    subject.OnNext("c");
-    subject.Subscribe(Console.WriteLine);
-    subject.OnNext("d");
-}
-```
-
-Here the output would show that the value 'a' had been dropped from the cache, but values 'b' and 'c' were still valid. The value 'd' was published after we subscribed so it is also written to the console.
-
-```
-Output:
-b
-c
-d
-```
-
-Another option for preventing the endless caching of values by the `ReplaySubject<T>`, is to provide a window for the cache. In this example, instead of creating a `ReplaySubject<T>` with a buffer size, we specify a window of time that the cached values are valid for.
-
-```csharp
-public void ReplaySubjectWindowExample()
-{
-    var window = TimeSpan.FromMilliseconds(150);
-    var subject = new ReplaySubject<string>(window);
-
-    subject.OnNext("w");
-    Thread.Sleep(TimeSpan.FromMilliseconds(100));
-    subject.OnNext("x");
-    Thread.Sleep(TimeSpan.FromMilliseconds(100));
-    subject.OnNext("y");
-    subject.Subscribe(Console.WriteLine);
-    subject.OnNext("z");
-}
-```
-
-In the above example the window was specified as 150 milliseconds. Values are published 100 milliseconds apart. Once we have subscribed to the subject, the first value	is 200ms old and as such has expired and been removed from the cache.
-
-```
-Output:
-x
-y
-z
-```
-
-## BehaviorSubject<T>
-
-[`BehaviorSubject<T>`](http://msdn.microsoft.com/en-us/library/hh211949(v=VS.103).aspx "BehaviorSubject(Of T) - MSDN") is similar to `ReplaySubject<T>` except it only remembers the last publication. `BehaviorSubject<T>` also requires you to provide it a default value of `T`. This means that all subscribers will receive a value immediately (unless it is already completed).
-
-In this example the value 'a' is written to the console:
-
-```csharp
-public void BehaviorSubjectExample()
-{
-    //Need to provide a default value.
-    var subject = new BehaviorSubject<string>("a");
-    subject.Subscribe(Console.WriteLine);
-}
-```
-
-In this example the value 'b' is written to the console, but not 'a'.
-
-```csharp
-public void BehaviorSubjectExample2()
-{
-    var subject = new BehaviorSubject<string>("a");
-    subject.OnNext("b");
-    subject.Subscribe(Console.WriteLine);
-}
-```
-
-In this example the values 'b', 'c' &amp; 'd' are all written to the console, but again not 'a'
-
-```csharp
-public void BehaviorSubjectExample3()
-{
-    var subject = new BehaviorSubject<string>("a");
-
-    subject.OnNext("b");
-    subject.Subscribe(Console.WriteLine);
-    subject.OnNext("c");
-    subject.OnNext("d");
-}
-```
-
-Finally in this example, no values will be published as the sequence has completed. Nothing is written to the console.
-
-```csharp
-public void BehaviorSubjectCompletedExample()
-{
-    var subject = new BehaviorSubject<string>("a");
-    subject.OnNext("b");
-    subject.OnNext("c");
-    subject.OnCompleted();
-    subject.Subscribe(Console.WriteLine);
-}
-```
-
-That note that there is a difference between a `ReplaySubject<T>` with a buffer size of one (commonly called a 'replay one subject') and a `BehaviorSubject<T>`. A `BehaviorSubject<T>` requires an initial value. With the assumption that neither subjects have completed, then you can be sure that the `BehaviorSubject<T>` will have a value. You cannot be certain with the `ReplaySubject<T>` however. With this in mind, it is unusual to ever complete a `BehaviorSubject<T>`. Another difference is that a replay-one-subject will still cache its value once it has been completed. So subscribing to a completed `BehaviorSubject<T>` we can be sure to not receive any values, but with a `ReplaySubject<T>` it is possible.
-
-`BehaviorSubject<T>`s are often associated with class [properties](http://msdn.microsoft.com/en-us/library/65zdfbdt(v=vs.71).aspx). 
-As they always have a value and can provide change notifications, they could be candidates for backing fields to properties.
-
-## AsyncSubject<T>
-
-[`AsyncSubject<T>`](http://msdn.microsoft.com/en-us/library/hh229363(v=VS.103).aspx "AsyncSubject(Of T) - MSDN") is similar to the Replay and Behavior subjects in the way that it caches values, however it will only store the last value, and only publish it when the sequence is completed. The general usage of the `AsyncSubject<T>` is to only ever publish one value then immediately complete. This means that is becomes quite comparable to `Task<T>`.
-
-In this example no values will be published as the sequence never completes. 
-No values will be written to the console.
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new AsyncSubject<string>();
-    subject.OnNext("a");
-    WriteSequenceToConsole(subject);
-    subject.OnNext("b");
-    subject.OnNext("c");
-    Console.ReadKey();
-}
-```
-
-In this example we invoke the `OnCompleted` method so the last value 'c' is written to the console:
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new AsyncSubject<string>();
-
-    subject.OnNext("a");
-    WriteSequenceToConsole(subject);
-    subject.OnNext("b");
-    subject.OnNext("c");
-    subject.OnCompleted();
-    Console.ReadKey();
-}
-```
-
-## Implicit contracts
-
-There are implicit contacts that need to be upheld when working with Rx as mentioned above. The key one is that once a sequence is completed, no more activity can happen on that sequence. A sequence can be completed in one of two ways, either by `OnCompleted()` or by `OnError(Exception)`.
-
-The four subjects described in this chapter all cater for this implicit contract by ignoring any attempts to publish values, errors or completions once the sequence has already terminated.
-
-Here we see an attempt to publish the value 'c' on a completed sequence. Only values 'a' and 'b' are written to the console.
-
-```csharp
-public void SubjectInvalidUsageExample()
-{
-    var subject = new Subject<string>();
-
-    subject.Subscribe(Console.WriteLine);
-
-    subject.OnNext("a");
-    subject.OnNext("b");
-    subject.OnCompleted();
-    subject.OnNext("c");
-}
-```
-
-## ISubject interfaces
-
-While each of the four subjects described in this chapter implement the `IObservable<T>` and `IObserver<T>` interfaces, they do so via another set of interfaces:
-
-```csharp
-//Represents an object that is both an observable sequence as well as an observer.
-public interface ISubject<in TSource, out TResult> 
-    : IObserver<TSource>, IObservable<TResult>
-{
-}
-```
-
-As all the subjects mentioned here have the same type for both `TSource` and `TResult`, they implement this interface which is the superset of all the previous interfaces:
-
-```csharp
-//Represents an object that is both an observable sequence as well as an observer.
-public interface ISubject<T> : ISubject<T, T>, IObserver<T>, IObservable<T>
-{
-}
-```
-
-These interfaces are not widely used, but prove useful as the subjects do not share a common base class. We will see the subject interfaces used later when we discover [Hot and cold observables](14_HotAndColdObservables.html).
-
-## Subject factory
-
-Finally it is worth making you aware that you can also create a subject via a factory method. Considering that a subject combines the `IObservable<T>` and `IObserver<T>` interfaces, it seems sensible that there should be a factory that allows you to combine them yourself. The `Subject.Create(IObserver<TSource>, IObservable<TResult>)` factory method provides just this.
-
-```csharp
-//Creates a subject from the specified observer used to publish messages to the subject
-//  and observable used to subscribe to messages sent from the subject
-public static ISubject>TSource, TResult< Create>TSource, TResult<(
-    IObserver>TSource< observer, 
-    IObservable>TResult< observable)
-{...}
-```
-
-Subjects provide a convenient way to poke around Rx, however they are not recommended for day to day use. An explanation is in the [Usage Guidelines](18_UsageGuidelines.md) in the appendix. Instead of using subjects, favor the factory methods we will look at in [Part 2](04_CreatingObservableSequences.md).
-
-The fundamental types `IObserver<T>` and `IObservable<T>` and the auxiliary subject types create a base from which to build your Rx knowledge. It is important to understand these simple types and their implicit contracts. In production code you may find that you rarely use the `IObserver<T>` interface and subject types, but understanding them and how they fit into the Rx eco-system is still important. The `IObservable<T>` interface is the dominant type that you will be exposed to for representing a sequence of data in motion, and therefore will comprise the core concern for most of your work with Rx and most of this book.
+Now that we understand the relationship between an `IObservable<T>` source and the `IObserver<T>` interface that received event notifications, we can look at how we might create an `IObservable<T>` instance to represent events of interest in our application.
 
 
 

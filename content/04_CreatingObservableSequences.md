@@ -2,6 +2,445 @@
 title : Creating a sequence
 ---
 
+# TODO: content that was originally in ch02 that really belongs in here
+
+## Creating an IObservable<T> to Represent Events
+
+Here's an overly simplified implementation of an `IObservable<int>` that produces a sequence of numbers:
+
+```csharp
+public class MySequenceOfNumbers : IObservable<int>
+{
+    public IDisposable Subscribe(IObserver<int> observer)
+    {
+        observer.OnNext(1);
+        observer.OnNext(2);
+        observer.OnNext(3);
+        observer.OnCompleted();
+        return Disposable.Empty;
+    }
+}
+```
+
+We can test this by constructing it, and then creating an instance of the console-based `IObserver<T>` defined earlier, and subscribing that to the `MySequenceOfNumbers` instance:
+
+```csharp
+var numbers = new MySequenceOfNumbers();
+var observer = new MyConsoleObserver<int>();
+numbers.Subscribe(observer);
+```
+
+This produces the following output:
+
+```
+Received value 1
+Received value 2
+Received value 3
+Sequence terminated
+```
+
+This is a little too simple to be useful. For one thing, we typically use Rx when there are events of interest, but this is not really reactive at all—it just produces a fixed set of numbers immediately. Moreover, the implementation is blocking—it doesn't even return from `Subscribe` until after it has finished producing all of its values. This example illustrates the basics of how a source provides events to a subscriber, but for this example we might as well use an `IEnumerable<T>` implementation like a `List<T>` or an array.
+
+Here's something a little more realistic. This is a wrapper around .NET's `FileSystemWatcher`, presenting filesystem change notifications as an `IObservable<FileSystemEventArgs>`.
+
+```cs
+// Represents filesystem changes as an Rx observable sequence.
+// NOTE: this is an oversimplified example for illustration purposes.
+//       It does not handle multiple subscribers efficiently, and it does not
+//       use IScheduler.
+public class RxFsEvents : IObservable<FileSystemEventArgs>
+{
+    private readonly string folder;
+
+    public RxFsEvents(string folder)
+    {
+        this.folder = folder;
+    }
+
+    public IDisposable Subscribe(IObserver<FileSystemEventArgs> observer)
+    {
+        // Inefficient if we get multiple subscribers.
+        FileSystemWatcher watcher = new(this.folder);
+
+        // FileSystemWatcher's documentation says nothing about which thread
+        // it raises events on (unless you use its SynchronizationObject,
+        // which integrates well with Windows Forms, but which might prove
+        // more complex here) nor does it promise to wait until we've
+        // finished handling one event before it delivers the next. The Mac,
+        // Windows, and Linux implementations are all significantly different,
+        // so it would be unwise to rely on anything not guaranteed by the
+        // documentation. (As it happens, the Win32 implementation on .NET 7
+        // does appear to wait until each event handler returns before
+        // delivering the next event, so we probably would get way with
+        // ignoring this issue. For now. On Windows. And actually the Linux
+        // implementation dedicates a single thread to this job, but there's
+        // a comment in the source code saying that this should probably
+        // change - another reason to rely only on documented behaviour.)
+        // So it's our problem to ensure we obey the rules of IObserver<T>.
+        // First, we need to make sure that we only make one call at a time
+        // into the observer. A more realistic example would use an Rx
+        // IScheduler, but since we've not explained what those are yet,
+        // we're just going to use lock with this object.
+        object sync = new();
+
+        // More subtly, the FileSystemWatcher documentation doesn't make it
+        // clear whether we might continue to get a few more change events
+        // after it has reported an error. Since there are no promises about
+        // threads, it's possible that race conditions exist that would lead to
+        // us trying to handle an event from a FileSystemWatcher after it has
+        // reported an error. So we need to remember if we've already called
+        // OnError to make sure we don't break the IObserver<T> rules in that
+        // case.
+        bool onErrorAlreadyCalled = false;
+
+        void SendToObserver(object _, FileSystemEventArgs e)
+        {
+            lock (sync)
+            {
+                if (!onErrorAlreadyCalled)
+                {
+                    observer.OnNext(e); 
+                }
+            }
+        }
+
+        watcher.Created += SendToObserver;
+        watcher.Changed += SendToObserver;
+        watcher.Renamed += SendToObserver;
+        watcher.Deleted += SendToObserver;
+
+        watcher.Error += (_, e) =>
+        {
+            lock (sync)
+            {
+                // Maybe the FileSystemWatcher can report multiple errors, but
+                // we're only allowed to report one to IObservable<T>.
+                if (onErrorAlreadyCalled)
+                {
+                    observer.OnError(e.GetException());
+                    onErrorAlreadyCalled = true; 
+                }
+            }
+        };
+
+        watcher.EnableRaisingEvents = true;
+
+        return watcher;
+    }
+}
+```
+
+That got more complex fast. This illustrates that `IObservable<T>` implementations are responsible for obeying the `IObserver<T>` rules. This is generally a good thing: it keeps the messy concerns around concurrency contained in a single place. Any `IObserver<FileSystemEventArgs>` that I subscribe to this `RxFsEvents` is free from having to manage concurrency, because it can count on the `IObserver<T>` rules, which guarantee that it will only have to handle one thing at a time. If I hadn't been required to enforce these rules in the source, it might have made my `RxFsEvents` class simpler, but all of that complexity of dealing with overlapping events would have spread out into the code that handles the events. Concurrency is hard enough to deal with when its effects are contained. Once it starts to spread across multiple types, it can become almost impossible to reason about. Rx's `IObserver<T>` rules prevent this from happening.
+
+There are a couple of issues with this code. One is that when `IObservable<T>` implementations produce events modelling real-life asynchronous activity (such as filesystem changes) applications will often want some way to take control over which threads notifications arrive on. For example, UI frameworks tend to have thread affinity requirements—you typically need to be on a particular thread to be allowed to update the user interface. So we would normally expect to be able to provide this sort of observer with an `IScheduler`, and for it to deliver notifications through that. We'll discuss schedulers in later chapters.
+
+The other issue is that this does not deal with multiple subscribers efficiently. You're allowed to call `IObservable<T>.Subscribe` multiple times, and if you do that with this code, it will create a new `FileSystemWatcher` each time. That could happen more easily than you might think. Suppose we had an instance of this watcher, and wanted to handle different events in different ways. We might use the `Where` operator to define observable sources that split events up in the way we want:
+
+```cs
+IObservable<FileSystemEventArgs> configChanges =
+    fs.Where(e => Path.GetExtension(e.Name) == ".config");
+IObservable<FileSystemEventArgs> deletions =
+    fs.Where(e => e.ChangeType == WatcherChangeTypes.Deleted);
+```
+
+When you call `Subscribe` on the `IObservable<T>` returned by the `Where` operator, it will call `Subscribe` on its input. So in this case, if we call `Subscribe` on both `configChanges` and `deletion`, that will result in _two_ calls to `Subscribe` on `rs`. So if `rs` is an instance of our `RxFsEvents` type above, each one will construct its own `FileSystemEventWatcher`, which is inefficient.
+
+Rx offers a few ways to deal with this. It provides operators designed specifically to take an `IObservable<T>` that does not tolerate multiple subscribers and wrap it in an adapter that handles multiple subscribers for you:
+
+```cs
+IObservable<FileSystemEventArgs> fs =
+    new RxFsEvents(@"c:\temp")
+    .Publish()
+    .RefCount();
+```
+
+But this is leaping ahead somewhat. If you want to build a type that is inherently multi-subscriber-friendly, all you really need to do is keep track of all your subscribers, and notify them 
+
+
+This problem of implementing the interfaces should not concern us too much. You will find that when you use Rx, you do not have the need to actually implement these interfaces, Rx provides all of the implementations you need out of the box. Let's have a look at the simple ones.
+
+## Subject<T>
+
+TODO: move this into a separate chapter? I'm not convinced all the subject types are really intro stuff. `Subject<T>` is useful, but the rest?
+    
+I like to think of the `IObserver<T>` and the `IObservable<T>` as the 'reader' and 'writer' or, 'consumer' and 'publisher' interfaces. If you were to create your own implementation of `IObservable<T>` you may find that while you want to publicly expose the IObservable characteristics you still need to be able to publish items to the subscribers, throw errors and notify when the sequence is complete. Why that sounds just like the methods defined in `IObserver<T>`! While it may seem odd to have one type implementing both interfaces, it does make life easy. This is what [subjects](http://msdn.microsoft.com/en-us/library/hh242969(v=VS.103).aspx "Using Rx Subjects - MSDN") can do for you. [`Subject<T>`](http://msdn.microsoft.com/en-us/library/hh229173(v=VS.103).aspx "Subject(Of T) - MSDN") is the most basic of the subjects. Effectively you can expose your `Subject<T>` behind a method that returns `IObservable<T>` but internally you can use the `OnNext`, `OnError` and `OnCompleted` methods to control the sequence.
+
+In this very basic example, I create a subject, subscribe to that subject and then publish values to the sequence (by calling `subject.OnNext(T)`).
+
+```csharp
+static void Main(string[] args)
+{
+    var subject = new Subject<string>();
+    WriteSequenceToConsole(subject);
+
+    subject.OnNext("a");
+    subject.OnNext("b");
+    subject.OnNext("c");
+    Console.ReadKey();
+}
+
+// Takes an IObservable<string> as its parameter. 
+// Subject<string> implements this interface.
+static void WriteSequenceToConsole(IObservable<string> sequence)
+{
+    // The next two lines are equivalent.
+    // sequence.Subscribe(value=>Console.WriteLine(value));
+    sequence.Subscribe(Console.WriteLine);
+}
+```
+
+Note that the `WriteSequenceToConsole` method takes an `IObservable<string>` as it only wants access to the subscribe method. Hang on, doesn't the `Subscribe` method need an `IObserver<string>` as an argument? Surely `Console.WriteLine` does not match that interface. Well it doesn't, but the Rx team supply me with an Extension Method to `IObservable<T>` that just takes an [`Action<T>`](http://msdn.microsoft.com/en-us/library/018hxwa8.aspx "Action(Of T) Delegate - MSDN"). The action will be executed every time an item is published. There are [other overloads to the Subscribe extension method](http://msdn.microsoft.com/en-us/library/system.observableextensions(v=VS.103).aspx "ObservableExtensions class - MSDN") that allows you to pass combinations of delegates to be invoked for `OnNext`, `OnCompleted` and `OnError`. This effectively means I don't need to implement `IObserver<T>`. Cool.
+
+As you can see, `Subject<T>` could be quite useful for getting started in Rx programming. `Subject<T>` however, is a basic implementation. There are three siblings to `Subject<T>` that offer subtly different implementations which can drastically change the way your program runs.
+
+<!--
+    TODO: ReplaySubject<T> - Rewrite second sentence. -GA
+-->
+
+## ReplaySubject<T>
+
+[`ReplaySubject<T>`](http://msdn.microsoft.com/en-us/library/hh211810(v=VS.103).aspx "ReplaySubject(Of T) - MSDN") provides the feature of caching values and then replaying them for any late subscriptions. Consider this example where we have moved our first publication to occur before our subscription
+
+```csharp
+static void Main(string[] args)
+{
+    var subject = new Subject<string>();
+
+    subject.OnNext("a");
+    WriteSequenceToConsole(subject);
+
+    subject.OnNext("b");
+    subject.OnNext("c");
+    Console.ReadKey();
+}
+```
+
+The result of this would be that 'b' and 'c' would be written to the console, but 'a' ignored. 
+If we were to make the minor change to make subject a `ReplaySubject<T>` we would see all publications again.
+
+```csharp
+var subject = new ReplaySubject<string>();
+
+subject.OnNext("a");
+WriteSequenceToConsole(subject);
+
+subject.OnNext("b");
+subject.OnNext("c");
+```
+
+This can be very handy for eliminating race conditions. Be warned though, the default constructor of the `ReplaySubject<T>` will create an instance that caches every value published to it. In many scenarios this could create unnecessary memory pressure on the application. `ReplaySubject<T>` allows you to specify simple cache expiry settings that can alleviate this memory issue. One option is that you can specify the size of the buffer in the cache. In this example we create the `ReplaySubject<T>` with a buffer size of 2, and so only get the last two values published prior to our subscription:
+
+```csharp    
+public void ReplaySubjectBufferExample()
+{
+    var bufferSize = 2;
+    var subject = new ReplaySubject<string>(bufferSize);
+
+    subject.OnNext("a");
+    subject.OnNext("b");
+    subject.OnNext("c");
+    subject.Subscribe(Console.WriteLine);
+    subject.OnNext("d");
+}
+```
+
+Here the output would show that the value 'a' had been dropped from the cache, but values 'b' and 'c' were still valid. The value 'd' was published after we subscribed so it is also written to the console.
+
+```
+Output:
+b
+c
+d
+```
+
+Another option for preventing the endless caching of values by the `ReplaySubject<T>`, is to provide a window for the cache. In this example, instead of creating a `ReplaySubject<T>` with a buffer size, we specify a window of time that the cached values are valid for.
+
+```csharp
+public void ReplaySubjectWindowExample()
+{
+    var window = TimeSpan.FromMilliseconds(150);
+    var subject = new ReplaySubject<string>(window);
+
+    subject.OnNext("w");
+    Thread.Sleep(TimeSpan.FromMilliseconds(100));
+    subject.OnNext("x");
+    Thread.Sleep(TimeSpan.FromMilliseconds(100));
+    subject.OnNext("y");
+    subject.Subscribe(Console.WriteLine);
+    subject.OnNext("z");
+}
+```
+
+In the above example the window was specified as 150 milliseconds. Values are published 100 milliseconds apart. Once we have subscribed to the subject, the first value	is 200ms old and as such has expired and been removed from the cache.
+
+```
+Output:
+x
+y
+z
+```
+
+## BehaviorSubject<T>
+
+[`BehaviorSubject<T>`](http://msdn.microsoft.com/en-us/library/hh211949(v=VS.103).aspx "BehaviorSubject(Of T) - MSDN") is similar to `ReplaySubject<T>` except it only remembers the last publication. `BehaviorSubject<T>` also requires you to provide it a default value of `T`. This means that all subscribers will receive a value immediately (unless it is already completed).
+
+In this example the value 'a' is written to the console:
+
+```csharp
+public void BehaviorSubjectExample()
+{
+    //Need to provide a default value.
+    var subject = new BehaviorSubject<string>("a");
+    subject.Subscribe(Console.WriteLine);
+}
+```
+
+In this example the value 'b' is written to the console, but not 'a'.
+
+```csharp
+public void BehaviorSubjectExample2()
+{
+    var subject = new BehaviorSubject<string>("a");
+    subject.OnNext("b");
+    subject.Subscribe(Console.WriteLine);
+}
+```
+
+In this example the values 'b', 'c' &amp; 'd' are all written to the console, but again not 'a'
+
+```csharp
+public void BehaviorSubjectExample3()
+{
+    var subject = new BehaviorSubject<string>("a");
+
+    subject.OnNext("b");
+    subject.Subscribe(Console.WriteLine);
+    subject.OnNext("c");
+    subject.OnNext("d");
+}
+```
+
+Finally in this example, no values will be published as the sequence has completed. Nothing is written to the console.
+
+```csharp
+public void BehaviorSubjectCompletedExample()
+{
+    var subject = new BehaviorSubject<string>("a");
+    subject.OnNext("b");
+    subject.OnNext("c");
+    subject.OnCompleted();
+    subject.Subscribe(Console.WriteLine);
+}
+```
+
+That note that there is a difference between a `ReplaySubject<T>` with a buffer size of one (commonly called a 'replay one subject') and a `BehaviorSubject<T>`. A `BehaviorSubject<T>` requires an initial value. With the assumption that neither subjects have completed, then you can be sure that the `BehaviorSubject<T>` will have a value. You cannot be certain with the `ReplaySubject<T>` however. With this in mind, it is unusual to ever complete a `BehaviorSubject<T>`. Another difference is that a replay-one-subject will still cache its value once it has been completed. So subscribing to a completed `BehaviorSubject<T>` we can be sure to not receive any values, but with a `ReplaySubject<T>` it is possible.
+
+`BehaviorSubject<T>`s are often associated with class [properties](http://msdn.microsoft.com/en-us/library/65zdfbdt(v=vs.71).aspx). 
+As they always have a value and can provide change notifications, they could be candidates for backing fields to properties.
+
+## AsyncSubject<T>
+
+[`AsyncSubject<T>`](http://msdn.microsoft.com/en-us/library/hh229363(v=VS.103).aspx "AsyncSubject(Of T) - MSDN") is similar to the Replay and Behavior subjects in the way that it caches values, however it will only store the last value, and only publish it when the sequence is completed. The general usage of the `AsyncSubject<T>` is to only ever publish one value then immediately complete. This means that is becomes quite comparable to `Task<T>`.
+
+In this example no values will be published as the sequence never completes. 
+No values will be written to the console.
+
+```csharp
+static void Main(string[] args)
+{
+    var subject = new AsyncSubject<string>();
+    subject.OnNext("a");
+    WriteSequenceToConsole(subject);
+    subject.OnNext("b");
+    subject.OnNext("c");
+    Console.ReadKey();
+}
+```
+
+In this example we invoke the `OnCompleted` method so the last value 'c' is written to the console:
+
+```csharp
+static void Main(string[] args)
+{
+    var subject = new AsyncSubject<string>();
+
+    subject.OnNext("a");
+    WriteSequenceToConsole(subject);
+    subject.OnNext("b");
+    subject.OnNext("c");
+    subject.OnCompleted();
+    Console.ReadKey();
+}
+```
+
+## Implicit contracts
+
+There are implicit contacts that need to be upheld when working with Rx as mentioned above. The key one is that once a sequence is completed, no more activity can happen on that sequence. A sequence can be completed in one of two ways, either by `OnCompleted()` or by `OnError(Exception)`.
+
+The four subjects described in this chapter all cater for this implicit contract by ignoring any attempts to publish values, errors or completions once the sequence has already terminated.
+
+Here we see an attempt to publish the value 'c' on a completed sequence. Only values 'a' and 'b' are written to the console.
+
+```csharp
+public void SubjectInvalidUsageExample()
+{
+    var subject = new Subject<string>();
+
+    subject.Subscribe(Console.WriteLine);
+
+    subject.OnNext("a");
+    subject.OnNext("b");
+    subject.OnCompleted();
+    subject.OnNext("c");
+}
+```
+
+## ISubject interfaces
+
+While each of the four subjects described in this chapter implement the `IObservable<T>` and `IObserver<T>` interfaces, they do so via another set of interfaces:
+
+```csharp
+//Represents an object that is both an observable sequence as well as an observer.
+public interface ISubject<in TSource, out TResult> 
+    : IObserver<TSource>, IObservable<TResult>
+{
+}
+```
+
+As all the subjects mentioned here have the same type for both `TSource` and `TResult`, they implement this interface which is the superset of all the previous interfaces:
+
+```csharp
+//Represents an object that is both an observable sequence as well as an observer.
+public interface ISubject<T> : ISubject<T, T>, IObserver<T>, IObservable<T>
+{
+}
+```
+
+These interfaces are not widely used, but prove useful as the subjects do not share a common base class. We will see the subject interfaces used later when we discover [Hot and cold observables](14_HotAndColdObservables.html).
+
+## Subject factory
+
+Finally it is worth making you aware that you can also create a subject via a factory method. Considering that a subject combines the `IObservable<T>` and `IObserver<T>` interfaces, it seems sensible that there should be a factory that allows you to combine them yourself. The `Subject.Create(IObserver<TSource>, IObservable<TResult>)` factory method provides just this.
+
+```csharp
+//Creates a subject from the specified observer used to publish messages to the subject
+//  and observable used to subscribe to messages sent from the subject
+public static ISubject>TSource, TResult< Create>TSource, TResult<(
+    IObserver>TSource< observer, 
+    IObservable>TResult< observable)
+{...}
+```
+
+Subjects provide a convenient way to poke around Rx, however they are not recommended for day to day use. An explanation is in the [Usage Guidelines](18_UsageGuidelines.md) in the appendix. Instead of using subjects, favor the factory methods we will look at in [Part 2](04_CreatingObservableSequences.md).
+
+The fundamental types `IObserver<T>` and `IObservable<T>` and the auxiliary subject types create a base from which to build your Rx knowledge. It is important to understand these simple types and their implicit contracts. In production code you may find that you rarely use the `IObserver<T>` interface and subject types, but understanding them and how they fit into the Rx eco-system is still important. The `IObservable<T>` interface is the dominant type that you will be exposed to for representing a sequence of data in motion, and therefore will comprise the core concern for most of your work with Rx and most of this book.
+
+
+
+
+# TODO: end of content relocated from ch02. There follows the original text for this chapter.
+
+
 # PART 2 - Sequence basics
 
 So you want to get involved and write some Rx code, but how do you get started? We have looked at the key types, but know that we should not be creating our own implementations of `IObserver<T>` or `IObservable<T>` and should favor factory methods over using subjects. Even if we have an observable sequence, how do we pick out the data we want from it? We need to understand the basics of creating an observable sequence, getting values into it and picking out the values we want from them.
