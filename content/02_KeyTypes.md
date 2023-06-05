@@ -4,19 +4,17 @@ title : Key Types
 
 # Key types
 
-Rx is a powerful framework that can greatly simplify code that response to events. But to write good Reactive code you have to understand the basic concepts.
+Rx is a powerful framework that can greatly simplify code that responds to events. But to write good Reactive code you have to understand the basic concepts. The fundamental building block of Rx is an interface called `IObservable<T>`. Understanding this, and its counterpart `IObserver<T>`, is the key to success with Rx.
 
-The fundamental building block of Rx is an interface called `IObservable<T>`. Understanding this, and its counterpart `IObserver<T>`, is the key to success with Rx. This chapter will also describe a family of types called _subjects_, which implement both `IObserver<T>` and `IObservable<T>`. Although subjects are not quite as important as the two fundamental types, they can be very helpful when using Rx, and can sometimes provide an easy way in for developers new to Rx.
-
-Most .NET developers will be familiar with [LINQ](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/basic-linq-query-operations) in at least one of its many popular forms such as [LINQ to Objects](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/linq-to-objects), or [Entity Framework Core queries](https://learn.microsoft.com/en-us/ef/core/querying/). Most LINQ implementations allow you to query _data at rest_—LINQ to objects works on arrays or other collections; LINQ queries in Entity Framework Core run against data in a database. But Rx is different: it offers the ability to define queries over live event streams—what you might call _data in motion_.
-
-The preceding chapter had this example:
+The preceding chapter showed this LINQ query expression as the first example:
 
 ```cs
 var bigTrades =
     from trade in trades
     where trade.Volume > 1_000_000;
 ```
+
+Most .NET developers will be familiar with [LINQ](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/basic-linq-query-operations) in at least one of its many popular forms such as [LINQ to Objects](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/linq-to-objects), or [Entity Framework Core queries](https://learn.microsoft.com/en-us/ef/core/querying/). Most LINQ implementations allow you to query _data at rest_—LINQ to Objects works on arrays or other collections; LINQ queries in Entity Framework Core run against data in a database. But Rx is different: it offers the ability to define queries over live event streams—what you might call _data in motion_.
 
 If you don't like the query expression syntax, you can write exactly equivalent code by invoking LINQ operators directly:
 
@@ -52,16 +50,18 @@ public interface IObservable<out T>
 }
 ```
 
-You can see [the source for `IObservable<T>` on GitHub](https://github.com/dotnet/runtime/blob/b4008aefaf8e3b262fbb764070ea1dd1abe7d97c/src/libraries/System.Private.CoreLib/src/System/IObservable.cs). Notice that it is part of the .NET runtime libraries, and not the `System.Reactive` NuGet package. `IObservable<T>` is of such fundamental importance that it is baked into .NET. (So you might be wondering what the `System.Reactive` NuGet package is for. The .NET runtime libraries define only the `IObservable<T>` and `IObserver<T>` interfaces, and not the LINQ implementation. The Rx NuGet package gives us LINQ support, and also deals with threading.)
+You can see [the source for `IObservable<T>` on GitHub](https://github.com/dotnet/runtime/blob/b4008aefaf8e3b262fbb764070ea1dd1abe7d97c/src/libraries/System.Private.CoreLib/src/System/IObservable.cs). Notice that it is part of the .NET runtime libraries, and not the `System.Reactive` NuGet package. `IObservable<T>` represents such a fundamentally important abstraction that it is baked into .NET. (So you might be wondering what the `System.Reactive` NuGet package is for. The .NET runtime libraries define only the `IObservable<T>` and `IObserver<T>` interfaces, and not the LINQ implementation. The Rx NuGet package gives us LINQ support, and also deals with threading.)
 
-Observant readers will have noticed that an example in the preceding chapter looks like it shouldn't work. Having created an `IObservable<long>` that produced events once per second, it subscribed to it with this code:
+This interface's only method makes it clear what we can do with an `IObservable<T>`: if we want to receive the events it has to offer, we can _subscribe_ to it. (We can also unsubscribe: the `Subscribe` method returns an `IDisposable`, and if we call `Dispose` on that it cancels our subscription.) The `Subscribe` method requires us to pass in an implementation of `IObserver<T>`, which we will get to shortly.
+
+Observant readers will have noticed that an example in the preceding chapter looks like it shouldn't work. That code created an `IObservable<long>` that produced events once per second, and then it subscribed to it with this code:
 
 ```cs
 ticks.Subscribe(
     tick => Console.WriteLine($"Tick {tick}"));
 ```
 
-That's passing a delegate, but we can see that `IObservable<T>.Subscribe` requires something called an `IObserver<T>`. We'll get to `IObserver<T>` shortly, but all that's happening here is that this example is using an extension method from the Rx NuGet package:
+That's passing a delegate, and not the `IObserver<T>` that `IObservable<T>.Subscribe` requires. We'll get to `IObserver<T>` shortly, but all that's happening here is that this example is using an extension method from the `System.Reactive` NuGet package:
 
 ```cs
 // From the System.Reactive library's ObservableExtensions class
@@ -76,9 +76,9 @@ Since `IObservable<T>` defines just one method, `Subscribe`, you might be wonder
 
 So far I've shown only a very simple LINQ example, using the `Where` operator to filter events down to ones that meet certain criteria. To give you a flavour of how we can build more advanced functionality through composition, I'm going to introduce an example scenario.
 
-Suppose you want to write a program that watches some folder on a filesystem, and performs automatic processing any time something in that folder changes. For example, web developers often to trigger automatic rebuilds of their client side code when they save changes in the editor so they can quickly see the effect of their changes. Often in these cases, filesystem changes often come in bursts—text editors might perform a few distinct operations when saving a file. (Some save modifications to a new file, then perform a couple of renames once this is complete, because this avoids data loss if a power failure or system crash happens to occur at the moment you save the file.) So you typically won't want to take action as soon as you detect file activity. It would be better to give it a moment to see if any more activity occurs, and take action only after everything has settled down.
+Suppose you want to write a program that watches some folder on a filesystem, and performs automatic processing any time something in that folder changes. For example, web developers often want to trigger automatic rebuilds of their client side code when they save changes in the editor so they can quickly see the effect of their changes. Often in these cases, filesystem changes often come in bursts—text editors might perform a few distinct operations when saving a file. (Some save modifications to a new file, then perform a couple of renames once this is complete, because this avoids data loss if a power failure or system crash happens to occur at the moment you save the file.) So you typically won't want to take action as soon as you detect file activity. It would be better to give it a moment to see if any more activity occurs, and take action only after everything has settled down.
 
-So what we really want to report is those moments when everything goes quiet after a flurry of activity. The following code defines an Rx operator that detects and reports such things. If you're new to Rx (which seems likely if you're reading this) it probably won't be instantly obvious how this works, so I'll walk through it.
+So we should not react directly to filesystem activity. We want take action at those moments when everything goes quiet after a flurry of activity. The following code defines an Rx operator that detects and reports such things. If you're new to Rx (which seems likely if you're reading this) it probably won't be instantly obvious how this works, so I'll walk through it.
 
 ```cs
 static class RxExt
@@ -105,9 +105,9 @@ When we want to show how an Rx operator behaves, we typically draw a 'marble' di
 
 ![An Rx marble diagram illustrating two observables. The first is labelled 'source', and it shows six events, labelled numerically. These fall into three groups: events 1 and 2 occur close together, and are followed by a gap. Then events 3, 4, and 5 are close together. And then after another gap event 6 occurs, not close to any. The second observable is labelled 'source.Quiescent(TimeSpan.FromSeconds(2), Scheduler.Default). It shows three events. The first is labelled '[1, 2], and its horizontal position shows that it occurs a little bit after the '2' event on the 'source' observable. The second event on the second observable is labelled '[3,4,5]' and occurs a bit after the '5' event on the 'source' observable. The third event from on the second observable is labelled '[6]', and occurs a bit after the '6' event on the 'source' observable. The image conveys the idea that each time the source produces some events and then stops, the second observable will produce an event shortly after the source stops, which will contain a list with all of the events from the source's most recent burst of activity.](GraphicsIntro/Ch02-Quiescent-Marbles-Input-And-Output.svg)
 
-This shows that the source produced a couple of events (the values `1` and `2`, in this example), and then stopped for a bit. A little while after it stopped, the observable returned by the `Quiescent` operator produced a single event with a list containing both of those events (`[1,2]`). Then the source started up again, producing the values `3`, `4`, and `5` in quick succession, and then going quiet for a bit. Again, once the quiet spell had gone on for long enough, the source returned by `Quiescent` produced a single event containing all of the source events from this second burst of activity (`[3,4,5]`). And then the final bit of source activity shown in this diagram consists of a single event, `6`, followed by more inactivity, and again, once the inactivity has gone on for long enough the `Quiescent` source produces a single event to report this. And since that last 'burst' of activity from the source contained only a single event, the list reported by this final output from the `Quiescent` observable is a list with a single value: `[6]`.
+This shows that the source produced a couple of events (the values `1` and `2`, in this example), and then stopped for a bit. A little while after it stopped, the observable returned by the `Quiescent` operator produced a single event with a list containing both of those events (`[1,2]`). Then the source started up again, producing the values `3`, `4`, and `5` in fairly quick succession, and then going quiet for a bit. Again, once the quiet spell had gone on for long enough, the source returned by `Quiescent` produced a single event containing all of the source events from this second burst of activity (`[3,4,5]`). And then the final bit of source activity shown in this diagram consists of a single event, `6`, followed by more inactivity, and again, once the inactivity has gone on for long enough the `Quiescent` source produces a single event to report this. And since that last 'burst' of activity from the source contained only a single event, the list reported by this final output from the `Quiescent` observable is a list with a single value: `[6]`.
 
-So how does the code shown achieve this? The first thing to notice about the `Quiescent` method is that it's just using other Rx LINQ operators (the `Return`, `Scan`, `Where`, and `Buffer` operators are explicitly visible, and the query expression will be using the `SelectMany` operator, because that's what C# query expressions do when they contain to `from` clauses in a row) in a combination that produces the final `IObservable<IList<T>>` output.
+So how does the code shown achieve this? The first thing to notice about the `Quiescent` method is that it's just using other Rx LINQ operators (the `Return`, `Scan`, `Where`, and `Buffer` operators are explicitly visible, and the query expression will be using the `SelectMany` operator, because that's what C# query expressions do when they contain two `from` clauses in a row) in a combination that produces the final `IObservable<IList<T>>` output.
 
 This is Rx's _compositional_ approach, and it is how we normally use Rx. We use a mixture of operators, combined (_composed_) in a way that produces the effect we want.
 
@@ -125,7 +125,7 @@ In simple cases like the final event `6`, in which it's the only event that happ
 
 That middle section is the messiest, but it's also most representative of the kind of activity this operator is designed to deal with. Remember, the whole point here is that we're expecting to see flurries of activity, and if those represents filesystem activity, they will tend to be slightly chaotic in nature, because storage devices don't always have entirely predictable performance characteristics (especially if it's a magnetic storage device with moving parts, or remote storage in which variable networking delays might come into play).
 
-With this measure of recent activity in hand, we can spot the end of bursts of activity by watching for when `oustanding` drops back to zero, which is what the observable referred to by `zeroCrossing` in the code above does. (That's just using the `Where` operator to filter out everything except the events where `outstanding`'s currently value returns to zero.)
+With this measure of recent activity in hand, we can spot the end of bursts of activity by watching for when `oustanding` drops back to zero, which is what the observable referred to by `zeroCrossing` in the code above does. (That's just using the `Where` operator to filter out everything except the events where `outstanding`'s current value returns to zero.)
 
 But how does `outstanding` itself work? The basic approach here is that every time `source` produces a value, we actually create a brand new `IObservable<int>`, which produces exactly two values. It immediately produces the value 1, and then after the specified timespan (2 seconds in these examples) it produces the value -1. That's what's going in in this clause of the query expression:
 
@@ -133,7 +133,7 @@ But how does `outstanding` itself work? The basic approach here is that every ti
 from delta in Observable.Return(1, scheduler).Concat(Observable.Return(-1, scheduler).Delay(minimumInactivityPeriod, scheduler))
 ```
 
-I said Rx is all about composition, and that's certainly the case here. We are using the very simple `Return` operator to create an `IObservable<int>` that immediately produces just a single value and then terminates. This code calls that twice, once to produce the value `1` and again to produce the value `-1`. It uses the `Delay` operator so that with instead of getting that `-1` value immediately, we get an observable that waits for the specified time period (2 seconds in these examples, but whatever `minimumInactivityPeriod` is in general) before producing the value. And then we use `Concat` to stitch those two together into a single `IObservable<int>` that produces the value `1`, and then two seconds later produces the value `-1`.
+I said Rx is all about composition, and that's certainly the case here. We are using the very simple `Return` operator to create an `IObservable<int>` that immediately produces just a single value and then terminates. This code calls that twice, once to produce the value `1` and again to produce the value `-1`. It uses the `Delay` operator so that instead of getting that `-1` value immediately, we get an observable that waits for the specified time period (2 seconds in these examples, but whatever `minimumInactivityPeriod` is in general) before producing the value. And then we use `Concat` to stitch those two together into a single `IObservable<int>` that produces the value `1`, and then two seconds later produces the value `-1`.
 
 Although this produces a brand new `IObservable<int>` for each `source` event, the `from` clause shown above is part of a query expression of the form `from ... from .. select`, which the C# compiler turns into a call to `SelectMany`, which has the effect of flattening those all back into a single observable, which is what the `onoffs` variable refers to. This marble diagram illustrates that:
 
@@ -145,7 +145,7 @@ This also shows the `outstanding` observable again, but we can now see where tha
 IObservable<int> outstanding = onoffs.Scan(0, (total, delta) => total + delta);
 ```
 
-Rx's `Scan` operator works much like the standard LINQ [`Aggregate`](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/aggregation-operations) operator, in that it repeatedly applies an operation (adding, in this case) to every single item in a sequence. The different is that whereas `Aggregate` produces just the final result once it reaches the end of the sequence, `Scan` shows all of its working, producing the aggregated value so far after each input. So this means that `outstanding` will produce an event every time `onoffs` produces one, and that event's value will be the running total—the sum total of every value from `onoffs` so far.
+Rx's `Scan` operator works much like the standard LINQ [`Aggregate`](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/aggregation-operations) operator, in that it cumulatively applies an operation (adding, in this case) to every single item in a sequence. The different is that whereas `Aggregate` produces just the final result once it reaches the end of the sequence, `Scan` shows all of its working, producing the accumulated value so far after each input. So this means that `outstanding` will produce an event every time `onoffs` produces one, and that event's value will be the running total—the sum total of every value from `onoffs` so far.
 
 So that's how `outstanding` comes to tell us how many events `source` produced within the last two seconds (or whatever `minimumActivityPeriod` has been specified).
 
@@ -153,7 +153,7 @@ The final piece of the puzzle is how we go from the `zeroCrossings` (which produ
 
 (One last detail, just in case you saw it and were wondering, is that this method requires an `IScheduler`. This is an Rx abstraction for dealing with timing and concurrency. We need it because we need to be able to generate events after a one second delay, and that sort of time-driven activity requires a scheduler.)
 
-We'll get into all of these operators, and the workings of schedulers in more detail in later chapters. For now, the key point is that we typically use Rx by using a combination of LINQ operators that process and combine `IObservable<T>` sources to define the logic that we require.
+We'll get into all of these operators, and the workings of schedulers, in more detail in later chapters. For now, the key point is that we typically use Rx by creating a combination of LINQ operators that process and combine `IObservable<T>` sources to define the logic that we require.
 
 Notice that nothing in that example actually called the one and only method that `IObservable<T>` defines (`Subscribe`). There will always be something somewhere that ultimately consumes the events, but most of the work of using Rx tends to entail declaratively defining the `IObservable<T>`s we need.
 
@@ -165,7 +165,7 @@ Now that you've seen an example of what Rx programming looks like, we can addres
 
 The basic problem with .NET events is that they get special handling from the .NET type system. Ironically, this makes them less flexible than if there had been no built-in support for the idea of events. Without .NET events, we would have needed some sort of object-based representation of events, at which point you can do all the same things with events that you can do with any other objects: you could store them in fields, pass them as arguments to methods, define methods on them and so on.
 
-To be fair to .NET version 1, it wasn't really possible to define a good object-based representation of events without generics, and .NET didn't get those until version 2 (three and a half years after .NET 1.0 shipped). Different event sources need to be able to report different data, and .NET events could provided a way to parameterize events by type. But once generics came along, it became possible to define types such as `IObservable<T>`, and the main advantage that events offered went away. (The other benefit was some language support for implementing and subscribing to events, but in principle that's something that could have been done for Rx if Microsoft had chosen to. It's not a feature that required events to be fundamentally different from other features of the type system.)
+To be fair to .NET version 1, it wasn't really possible to define a good object-based representation of events without generics, and .NET didn't get those until version 2 (three and a half years after .NET 1.0 shipped). Different event sources need to be able to report different data, and .NET events provided a way to parameterize events by type. But once generics came along, it became possible to define types such as `IObservable<T>`, and the main advantage that events offered went away. (The other benefit was some language support for implementing and subscribing to events, but in principle that's something that could have been done for Rx if Microsoft had chosen to. It's not a feature that required events to be fundamentally different from other features of the type system.)
 
 Consider the example we've just worked through. It was possible to define our own custom LINQ operator, `Quiescent`, because `IObservable<T>` is just an interface like any other, meaning that we're free to write extension methods for it. You can't write an extension method for an event.
 
@@ -194,7 +194,7 @@ Now that we've seen why `IObservable<T>` needs to exist, we need to look at its 
 
 ## IObserver<T>
 
-Earlier, I showed the definition of `IObservable<T>`. As you saw, it has just one method, `Subscribe`. And this method takes just one argument, of type [`IObserver<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.iobserver-1). So if you want to observe the events that an `IObservable<T>` has to offer, you must supply it with an `IObserver<T>`. In the examples so far, we've just supplied a simple callback, and Rx has wrapper that in an implementation of `IObserver<T>` for us, but to use Rx effectively you need to understand `IObserver<T>`. It is not a complex interface:
+Earlier, I showed the definition of `IObservable<T>`. As you saw, it has just one method, `Subscribe`. And this method takes just one argument, of type [`IObserver<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.iobserver-1). So if you want to observe the events that an `IObservable<T>` has to offer, you must supply it with an `IObserver<T>`. In the examples so far, we've just supplied a simple callback, and Rx has wrapped that in an implementation of `IObserver<T>` for us, but to use Rx effectively you need to understand `IObserver<T>`. It is not a complex interface:
 
 ```cs
 public interface IObserver<in T>
@@ -229,7 +229,7 @@ public class MyConsoleObserver<T> : IObserver<T>
 }
 ```
 
-In the preceding chapter, I used a `Subscribe` extension method that accepted a delegate which it invoked each time the source produced an item. Rx's `ObservableExtensions` class defines that, and various other extension methods for `IObservable<T>`. It includes overloads of `Subscribe` that enable me to write exactly equivalent code without needing to provide my own implementation of `IObserver<T>`:
+In the preceding chapter, I used a `Subscribe` extension method that accepted a delegate which it invoked each time the source produced an item. This method is defined by Rx's `ObservableExtensions` class, which also defines various other extension methods for `IObservable<T>`. It includes overloads of `Subscribe` that enable me to write code that has the same effect as the preceding example, without needing to provide my own implementation of `IObserver<T>`:
 
 ```csharp
 source.Subscribe(
@@ -239,16 +239,15 @@ source.Subscribe(
 );
 ```
 
-The overloads of `Subscribe` where we don't pass all three methods (e.g., my earlier example just supplied a single callback corresponding to `OnNext`) are equivalent to writing an `IObserver<T>` implementation where one or more of the methods simply has an empty body. Whether we find it more convenient to write our own type that implements `IObserver<T>`, or just supply callbacks for some or all of its `OnNext`, `OnError` and `OnCompleted` method, and `IObservable<T>` source reports each event with a call to `OnNext`, and tells us that the events have come to an end either by calling `OnError` or `OnCompleted`.
-
+The overloads of `Subscribe` where we don't pass all three methods (e.g., my earlier example just supplied a single callback corresponding to `OnNext`) are equivalent to writing an `IObserver<T>` implementation where one or more of the methods simply has an empty body. Whether we find it more convenient to write our own type that implements `IObserver<T>`, or just supply callbacks for some or all of its `OnNext`, `OnError` and `OnCompleted` method, the basic behaviour is the same: an `IObservable<T>` source reports each event with a call to `OnNext`, and tells us that the events have come to an end either by calling `OnError` or `OnCompleted`.
 
 If you're wondering whether the relationship between `IObservable<T>` and `IObserver<T>` is similar to the relationship between [`IEnumerable<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1) and [`IEnumerator<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerator-1), then you're onto something. Both `IEnumerator<T>` and `IObservable<T>` represent _potential_ sequences. With both of these interfaces, they will only supply data if we ask them for it. To get values out of an `IEnumerable<T>`, an `IEnumerator<T>` needs to come into existence, and similarly, to get values out of an `IObservable<T>` requires an `IObserver<T>`.
 
 The difference reflects the fundamental _pull vs push_ difference between `IEnumerable<T>` and `IObservable<T>`. Whereas with `IEnumerable<T>` we ask the source to create an `IEnumerator<T>` for us which we can then use to retrieve items (which is what a C# `foreach` loop does), with `IObservable<T>`, the source does not _implement_ `IObserver<T>`: it expects _us_ to supply an `IObserver<T>` and it will then push its values into that observer.
 
-So why does `IObserver<T>` have these three methods? It's because, when I said earlier that in an abstract sense, `IObserver<T>` represents the same thing as `IEnumerable<T>`, I meant it. It might be an abstract sense, but it is precise: `IObservable<T>` and `IObserver<T>` were designed to preserve the exact meaning of `IEnumerable<T>` and `IEnumerator<T>`, changing only the detailed mechanism of consumption.
+So why does `IObserver<T>` have these three methods? Remember when I said that in an abstract sense, `IObserver<T>` represents the same thing as `IEnumerable<T>`? I meant it. It might be an abstract sense, but it is precise: `IObservable<T>` and `IObserver<T>` were designed to preserve the exact meaning of `IEnumerable<T>` and `IEnumerator<T>`, changing only the detailed mechanism of consumption.
 
-When you iterate over an `IEnumerable<T>` (with, say, a `foreach` loop), then with each iteration (and more precisely, on each call to the enumerator's [`MoveNext`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.ienumerator.movenext) method) there are three things that could happen:
+To see what that means, think about what happens when you iterate over an `IEnumerable<T>` (with, say, a `foreach` loop). With each iteration (and more precisely, on each call to the enumerator's [`MoveNext`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.ienumerator.movenext) method) there are three things that could happen:
 
 * `MoveNext` could return `true` to indicate that a value is available in the enumerator's [`Current`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerator-1.current) property
 * `MoveNext` could throw an exception
@@ -263,11 +262,11 @@ These three outcomes correspond precisely to the three method defined by `IObser
 That describes the three things that either can happen next when consuming either an `IEnumerable<T>` or an `IObservable<T>`. The only difference is the means by which consumers discover this. With an `IEnumerable<T>` source, each call to `MoveNext` will tell us which of these three applies. And with an `IObservable<T>` source, it will tell you one of these three things with a call to the corresponding member of your `IObserver<T>` implementation.
 
 
-### The Rules of `IObserver<T>`
+## The Fundamental Rules of Rx Sequences
 
 Notice that two of the three outcomes in the list above are terminal. If you're iterating through an `IEnumerable<T>` with a `foreach` loop, and it throws an exception, the `foreach` loop will terminate. The C# compiler understands that if `MoveNext` throws, the `IEnumerator<T>` is now done, so it disposes it and then allows the exception to propagate. Likewise, if you get to the end of a sequence, then you're done, and the compiler understands that too: the code it generates for a `foreach` loop detects when `MoveNext` returns false and when that happens it disposes the enumerator and then moves onto the code after the loop.
 
-These rules might seem so obvious that we might never even think about them when iterating over `IEnumerable<T>` sequences. What might be less immediately obvious is that exactly the same rules apply for an `IObservable<T>` sequence.
+These rules might seem so obvious that we might never even think about them when iterating over `IEnumerable<T>` sequences. What might be less immediately obvious is that exactly the same rules apply for an `IObservable<T>` sequence. If an observable source either tells an observer that the sequence has finished, or reports an error, then in either case, that is the last thing the source is allowed to do to the observer.
 
 That means these examples would be breaking the rules:
 
@@ -279,7 +278,7 @@ public static void WrongOnError(IObserver<int> obs)
     obs.OnNext(2);  // Against the rules! We already reported failure, so iteration must stop
 }
 
-public static void WrongOnCompletedError(IObserver<int> obs)
+public static void WrongOnCompleted(IObserver<int> obs)
 {
     obs.OnNext(1);
     obs.OnCompleted();
@@ -289,7 +288,7 @@ public static void WrongOnCompletedError(IObserver<int> obs)
 public static void WrongOnErrorAndOnCompleted(IObserver<int> obs)
 {
     obs.OnNext(1);
-    obs.OnError(new ArgumentException("This isn't an argument!"));
+    obs.OnError(new ArgumentException("A connected series of statements was not supplied"));
 
     // This next call is against the rule because we reported an error, and you're not
     // allowed to make any further calls after you did that.
@@ -303,17 +302,16 @@ public static void WrongOnCompletedAndOnError(IObserver<int> obs)
 
     // This next call is against the rule because already said we were done.
     // When you terminate a sequence you have to pick between OnCompleted or OnError
-    obs.OnError(new ArgumentException("This isn't an argument!"));
+    obs.OnError(new ArgumentException("Definite proposition not established"));
 }
 ```
 
 These correspond in a pretty straightforward way to things we already know about `IEnumerable<T>`:
 
-* If an enumerator throws from `MoveNext`, it's done and you mustn't call `MoveNext` again, so you won't be getting any more items out of it
-* If an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again, so you won't be getting any more items out of it
-* If an enumerator throws from `MoveNext`, that means its done, it's done and you mustn't call `MoveNext` again, meaning it won't have any opportunity to tell that it's done by returning `false` from `MoveNext`
-* If an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again,  meaning it won't have any opportunity to also throw an exception
-* If an enumerator tells you it's done by returning `false` from `MoveNext`, you can't get anything more out of it 
+* `WrongOnError`: if an enumerator throws from `MoveNext`, it's done and you mustn't call `MoveNext` again, so you won't be getting any more items out of it
+* `WrongOnCompleted`: If an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again, so you won't be getting any more items out of it
+* `WrongOnErrorAndOnCompleted` If an enumerator throws from `MoveNext`, that means its done, it's done and you mustn't call `MoveNext` again, meaning it won't have any opportunity to tell that it's done by returning `false` from `MoveNext`
+* `WrongOnCompletedAndOnError` If an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again,  meaning it won't have any opportunity to also throw an exception
 
 Because `IObservable<T>` is push-based, the onus for obeying all of these rules fall on the observable source. With `IEnumerable<T>`, which is pull-based, it's up to the code using the `IEnumerator<T>` (e.g. a `foreach` loop) to obey these rules. But they are essentially the same rules.
 
@@ -332,7 +330,7 @@ public static void EverythingEverywhereAllAtOnce(IEnumerable<int> obs)
 
 This calls `obs.OnNext` 10,000 times, but it executes these calls as individual tasks to be run on the thread pool. The thread pool is designed to be able to execute work in parallel, and that's a a problem here because nothing here ensures that one call to `OnNext` completes before the next begins. We've broken the rule that says we must wait for each call to `OnNext` to return before calling either `OnNext`, `OnError`, or `OnComplete` on the same observer. (Note: this assumes that the caller won't subscribe the same observer to multiple different sources. If you do that, you can't assume that all calls to its `OnNext` will obey the rules, because the different sources won't have any way of knowing they're talking to the same observer.)
 
-This rule in which we must wait for `OnNext` to return is tricky and subtle. It's perhaps less obvious than the others, because there's no equivalent rule for `IEnumerable<T>`—the opportunity to break this rule only arises when the source pushes data into the application. You might look at the example above and think "well who would do that?" However, multithreading is just an easy way to understand how it might be technically possible to break the rule. The harder cases are where single-threaded re-entrancy occurs. Take this code:
+This rule in which we must wait for `OnNext` to return is tricky and subtle. It's perhaps less obvious than the others, because there's no equivalent rule for `IEnumerable<T>`—the opportunity to break this rule only arises when the source pushes data into the application. You might look at the example above and think "well who would do that?" However, multithreading is just an easy way to show that it is technically possible to break the rule. The harder cases are where single-threaded re-entrancy occurs. Take this code:
 
 ```cs
 public class GoUntilStopped
@@ -429,15 +427,21 @@ OnCompleted
 OnNext returning
 ```
 
-This tells us that the call to our observer's `OnCompleted` happened before a call in progress to `OnNext` occurred. It didn't take multiple threads to make this occur. It happened because the code in `OnNext` decides whether it wants to keep receiving events, and when it wants to stop, it immediately calls the `GoUntilStopped` object's `Stop` method. There's nothing wrong with that—observers are allowed to make outbound calls to other objects inside `OnNext`, and it's actually quite common for an observer to inspect an incoming event and decide that it wants to stop.
+This tells us that the call to our observer's `OnCompleted` happened before a call in progress to `OnNext` returned. It didn't take multiple threads to make this occur. It happened because the code in `OnNext` decides whether it wants to keep receiving events, and when it wants to stop, it immediately calls the `GoUntilStopped` object's `Stop` method. There's nothing wrong with that—observers are allowed to make outbound calls to other objects inside `OnNext`, and it's actually quite common for an observer to inspect an incoming event and decide that it wants to stop.
 
 The problem is in the `GoUntilStopped.Stop` method. This calls `OnCompleted` but it makes no attempt to determine whether a call to `OnNext` is in progress.
 
-This can be a surprisingly tricky problem to solve. Suppose `GoUntilStopped` _did_ detect that. What then? In the multithreaded case, we could have solved this by using `lock` or some other synchronization primitive to ensure that calls into the observer happened one at at time, but that won't work here: the call to `Stop` has happened on _the same thread_ that called `OnNext`. We need to wait for `OnNext` to return, but it can't return until we return from `Stop`.
+This can be a surprisingly tricky problem to solve. Suppose `GoUntilStopped` _did_ detect that there was a call in progress to `OnNext`. What then? In the multithreaded case, we could have solved this by using `lock` or some other synchronization primitive to ensure that calls into the observer happened one at at time, but that won't work here: the call to `Stop` has happened on _the same thread_ that called `OnNext`. The call stack will look something like this at the moment where `Stop` has been called and it wants to call `OnCompleted`:
+
+* `GoUntilStopped.Go`
+  * `MyObserver.OnNext`
+    * `GoUntilStopped.Stop`
+ 
+ Our `GoUntilStopped.Stop` method needs to wait for `OnNext` to return before calling `OnCompleted`. But notice that the `OnNext` method can't return until our `Stop` method returns. We've managed to create a deadlock with single-threaded code!
 
 In this case it's not all that hard to fix: we could modify `Stop` so it just sets the `running` field to `false`, and then move the call to `OnComplete` into the `Go` method, after the `for` loop. But more generally this can be a hard problem to fix, and it's one of the reasons for using the `System.Reactive` library instead of just attempting to implement `IObservable<T>` and `IObserver<T>` directly. Rx has general purpose mechanisms for solving exactly this kind of problem. (We'll see these when we look at [Scheduling](15_SchedulingAndThreading.md).) Moreover, all of the implementations Rx provides take advantage of these mechanisms for you. If you're using Rx by composing its built-in operators in a declarative way, you never have to think about these rules, because all of Rx's operators obey the rules.
 
-So as long as you're using Rx to build the observable sources you need, you get to depend on these rules in your callbacks that receive the events, but it's Rx's problem to keep to the rules.
+So as long as you're using Rx to build the observable sources you need, you get to depend on these rules in your callbacks that receive the events, but it's mostly Rx's problem to keep to the rules. So the main effect of these rules is that it makes life simpler for code that consumes events.
 
 These rules are sometimes expressed as a _grammar_. For example, consider this regular expression:
 
@@ -455,31 +459,53 @@ So you might argue that this is a slightly better way to describe the rules form
 (OnNext)*(OnError|OnComplete)?
 ```
 
-More subtly, observable sources are allowed to do nothing at all. In fact there's a built-in implementation. If you call `Observable.Never<int>()` it will return an `IObservable<int>`, and if you subscribe to that, it will never call any methods on your observer. This might not look immediately useful—it is logically equivalent to an `IEnumerable<T>` in which the enumerator's `MoveNext` method never returns. That might not be usefully distinguishable from crashing. It's slightly different with Rx, because when we model this "no items emerge ever" behaviour, we don't need to block a thread forever to do it. We can just decide never to call any methods on the observer. This may seem daft, but as you've seen with the `Quiescent` example, sometimes we create observable sources not because we want the actual items that emerge from it, but because we're interested in the instants where interesting things happen. It can sometimes be useful to be able to model "nothing interesting ever happens" cases.
+More subtly, observable sources are allowed to do nothing at all. In fact there's a built-in implementation to save developers from the effort of writing a source that does nothing: if you call `Observable.Never<int>()` it will return an `IObservable<int>`, and if you subscribe to that, it will never call any methods on your observer. This might not look immediately useful—it is logically equivalent to an `IEnumerable<T>` in which the enumerator's `MoveNext` method never returns. That might not be usefully distinguishable from crashing. It's slightly different with Rx, because when we model this "no items emerge ever" behaviour, we don't need to block a thread forever to do it. We can just decide never to call any methods on the observer. This may seem daft, but as you've seen with the `Quiescent` example, sometimes we create observable sources not because we want the actual items that emerge from it, but because we're interested in the instants when interesting things happen. It can sometimes be useful to be able to model "nothing interesting ever happens" cases.
+
+We're not quite done with the Rx's rules, but the last one applies only when we choose to unsubscribe from a source before it comes to a natural end.
 
 ## Subscription Lifetime
 
-Before we can move on to seeing how to create `IObservable<T>` sources that represent streams of events that are meaningful to our applications, there's one more thing we need to understand about the relationship between observers and observables: the lifetime of a subscription.
+There's one more aspect of the relationship between observers and observables to understand: the lifetime of a subscription.
 
-You already know from the rules of `IObserver<T>` that a call to either `OnComplete` or `OnError` denotes the end of a sequence. We passed an `IObserver<T>` to `IObservable<T>.Subscribe`, and now the subscription is over. But what if we want to stop the subscription earlier.
+You already know from the rules of `IObserver<T>` that a call to either `OnComplete` or `OnError` denotes the end of a sequence. We passed an `IObserver<T>` to `IObservable<T>.Subscribe`, and now the subscription is over. But what if we want to stop the subscription earlier?
 
-You might have noticed that the `Subscribe` method returns an `IDisposable`. It does that so that we can cancel our subscription. Perhaps we only subscribed to a source because our application opened some window showing the status of some process, and we wanted to update the window to reflect that's process's progress. If the user closes that window, we no longer have any use for the notifications. And although we could just ignore all further notifications, that could be a problem if the thing we're monitoring never reaches a natural end—our observer would continue to receive notifications for the lifetime of the application. This is a waste of CPU power (with corresponding implications for battery life and environmental impact) and it can also prevent the garbage collector from reclaiming memory that should have become free.
+I mentioned earlier that the `Subscribe` method returns an `IDisposable`, which enables us to cancel our subscription. Perhaps we only subscribed to a source because our application opened some window showing the status of some process, and we wanted to update the window to reflect that's process's progress. If the user closes that window, we no longer have any use for the notifications. And although we could just ignore all further notifications, that could be a problem if the thing we're monitoring never reaches a natural end—our observer would continue to receive notifications for the lifetime of the application. This is a waste of CPU power (with corresponding implications for battery life and environmental impact) and it can also prevent the garbage collector from reclaiming memory that should have become free.
 
-So we are free to indicate that we no longer wish to receive notifications by calling `Dispose` on the object returned by `Subscribe`. There are a few non-obvious details, however.
+So we are free to indicate that we no longer wish to receive notifications by calling `Dispose` on the object returned by `Subscribe`. There are, however, a few non-obvious details.
 
-First, you aren't required to call `Dispose`. Obviously if you want to remain subscribed to events for the lifetime of your process, this makes sense, but what might be less obvious is that if you subscribe to an `IObservable<T>` that does come to an end, it automatically tidies up after itself: `IObservable<T>` implementations are not allowed to assume that you will definitely call `Dispose`, so they are required to perform whatever cleanup they need to do if they stop by calling the observer's `OnCompleted` or `OnError`. This is unusual—in most cases where a .NET API returns a brand new object created on your behalf that implements `IDisposable`, it's an error not to dispose it. But `IDisposable` objects representing Rx subscriptions are an exception to this rule. You only need to dispose them if you want them to stop earlier than they otherwise would.
+### Disposal of Subscriptions is Optional
 
-Second, `Dispose` won't necessarily take effect instantly. Obviously it will take some non-zero amount of time in between your code reaching the point where it calls `Dispose`, and the `Dispose` implementation reaching the point where it actually does something. Less obviously, some observable sources may need to do non-trivial work to shut things down. A source might create a thread to be able to monitor for and report whatever events it represents. (That would happen with the filesystem source shown above when running on Linux on .NET 7, because the `FileSystemWatcher` class itself creates its own thread on Linux.) It might take a while for the thread to detect that it is supposed to shut down.
+You are not required to call `Dispose` on the object returned by `Subscribe`. Obviously if you want to remain subscribed to events for the lifetime of your process, this makes sense: you never stop using the object, so of course you don't dispose it. But what might be less obvious is that if you subscribe to an `IObservable<T>` that does come to an end, it automatically tidies up after itself.
 
-Thirdly, sources have considerable latitude about when they stop producing events. The only guarantee is that once the call to `Dispose` has returned, the source will make no further calls to the relevant observer. But otherwise, observable sources have latitude here. Any of the following would be legal:
+`IObservable<T>` implementations are not allowed to assume that you will definitely call `Dispose`, so they are required to perform any necessary cleanup if they stop by calling the observer's `OnCompleted` or `OnError`. This is unusual—in most cases where a .NET API returns a brand new object created on your behalf that implements `IDisposable`, it's an error not to dispose it. But `IDisposable` objects representing Rx subscriptions are an exception to this rule. You only need to dispose them if you want them to stop earlier than they otherwise would.
+
+### Cancelling Subscriptions may be Slow or Even Ineffectual
+
+`Dispose` won't necessarily take effect instantly. Obviously it will take some non-zero amount of time in between your code calling into `Dispose`, and the `Dispose` implementation reaching the point where it actually does something. Less obviously, some observable sources may need to do non-trivial work to shut things down.
+
+A source might create a thread to be able to monitor for and report whatever events it represents. (That would happen with the filesystem source shown above when running on Linux on .NET 7, because the `FileSystemWatcher` class itself creates its own thread on Linux.) It might take a while for the thread to detect that it is supposed to shut down.
+
+It is fairly common practice for an `IObservable<T>` to represent some underlying work. For example, Rx can take any factory method that returns a `Task<T>` and wrap it as an `IObservable<T>`. It will invoke the factory once for each call to `Subscribe`, so if there are multiple subscribers to a single `IObservable<T>` of this kind, each one effectively gets its own `Task<T>`. This wrapper is able to supply the factory with a `CancellationToken`, and if an observer unsubscribes by calling `Dispose` before the task naturally runs to completion, it will put that `CancellationToken` into a cancelled state. This might have the effect of bringing the task to a halt, but that will work only if the task happens to be monitoring the `CancellationToken`. Even if it is, it might take some time to bring things to a complete halt. Crucially, the `Dispose` call doesn't wait for that to happen—it will attempt to initiate cancellation but it may return before cancellation is complete.
+
+### The Rules of Rx Sequences when Unsubscribing
+
+The fundamental rules of Rx sequences described earlier only considered sources that decided when (or whether) to come to a halt. What if a subscriber unsubscribes early? There is only one rule:
+
+Once the call to `Dispose` has returned, the source will make no further calls to the relevant observer. If you call `Dispose` on the object returned by `Subscribe`, then once that call returns you can be certain that the observer you passed in will receive no further calls to any of its three methods (`OnNext`, `OnError`, or `OnComplete`).
+
+That might seem clear enough, but it leaves a grey area: what happens when you've called `Dispose` but it hasn't returned yet? The rules permit sources to continue to emit events in this case. In fact they couldn't very well require otherwise: it will invariably take some non-zero length of time for the `Dispose` implementation to make enough progress to have any effect, so in a multi-threaded world it it's always going to be possible that an event gets delivered in between the call to `Dispose` starting, and the call having any effect. The only situation in which you could depend on no further events emerging would be if your call to `Dispose` happened inside the `OnNext` handler—in this case the source will already have noted a call to `OnNext` is in progress so further calls were already blocked before the call to `Dispose` started.
+
+But assuming that your observer wasn't already in the middle of an `OnNext` call, any of the following would be legal:
 
 * stopping calls to `IObserver<T>` almost immediately after `Dispose` begins, even when it takes a relatively long time to bring any relevant underlying processes to a halt, in which case your observer will never receive an `OnCompleted` or `OnError`
 * producing notifications that reflect the process of shutting down (including calling `OnError` if an error occurs while trying to bring things to a neat halt, or `OnCompleted` if it halted without problems)
 * producing a few more notifications for some time after the call to `Dispose` begins, but cutting them off at some arbitrary point, potentially losing track even of important things like errors that occurred while trying to bring things to a halt
 
-As it happens, Rx has a preference for the first option. If you're using an `IObservable<T>` implemented by Rx (e.g., one returned by a LINQ operator) it is highly likely to have this characteristic. This is partly to avoid trick situations in which observers try to do things to their sources inside their notification callbacks—re-entrancy tends to be awkward to deal with, and Rx avoids ever having to deal with this particular form of re-entrancy by ensuring that it has already stopped delivering notifications to the observer before it begins the work of shutting down a subscription.
+As it happens, Rx has a preference for the first option. If you're using an `IObservable<T>` implemented by the `System.Reactive` library (e.g., one returned by a LINQ operator) it is highly likely to have this characteristic. This is partly to avoid tricky situations in which observers try to do things to their sources inside their notification callbacks—re-entrancy tends to be awkward to deal with, and Rx avoids ever having to deal with this particular form of re-entrancy by ensuring that it has already stopped delivering notifications to the observer before it begins the work of shutting down a subscription.
 
 This sometimes catches people out. If you need to be able to cancel some process that you are observing but you need to be able to observe everything it does up until the point that it stops, then you can't use unsubscription as the shutdown mechanism. As soon as you've called `Dispose`, the `IObservable<T>` that returned that `IDisposable` is no longer under any obligation to tell you anything. This can be frustrating, because the `IDisposable` returned by `Subscribe` can sometimes seem like such a natural and easy way to shut something down. But basic truth is this: once you've initiated unsubscription, you can't rely on getting any further notifications associated with that subscription. You _might_ receive some—the source is allowed to do that. But you can't rely on it—the source is also allowed to silence itself immediately, and that's what most Rx-implemented sources will do.
+
+In short, if you unsubscribe, then a source is not obliged to tell you when things stop, and in most cases it definitely won't tell you.
 
 ### Subscription Lifetime and Composition
 
@@ -498,7 +524,7 @@ IDisposable subscription = filtered.Subscribe(
 
 We're calling `Subscribe` on the observable returned by `Where`. When we do that, it will in turn call `Subscribe` on the  the `IObservable<int>` returned by `GetSource` (stored in the `source` variable). So there is in effect a chain of subscriptions here. (We only have access to the `IDisposable` returned by `filtered.Subscribe` but the object that returns will be storing the `IDisposable` that it received when it called `source.Subscribe`.)
 
-If the source comes to an end all by itself (by calling either `OnCompleted` or `OnError`), this cascades through the chain. So `source` will call `OnCompleted` on the `IObserver<int>` that was supplied by the `Where` operator. And that in turn will call `OnCompleted` on the `IObserver<int>` that the was supplied in the call to `filtered.Subscribe`, and that will have references to the three methods we passed, so it will call our completion handler. So you could look at this by saying that `source` completes, it tells `filtered` that it has completed, which invokes our completion handler. (In reality this is a very slight oversimplification, because `source` doesn't tell `filtered` anything; it's actually talking to the `IObserver<T>` that `filtered` supplied. This distinction matters if you have multiple subscriptions active simultaneously for the same chain of observables. But in this case, the simpler way of describing it is good enough even if it's not absolutely precise.)
+If the source comes to an end all by itself (by calling either `OnCompleted` or `OnError`), this cascades through the chain. So `source` will call `OnCompleted` on the `IObserver<int>` that was supplied by the `Where` operator. And that in turn will call `OnCompleted` on the `IObserver<int>` that was passed to `filtered.Subscribe`, and that will have references to the three methods we passed, so it will call our completion handler. So you could look at this by saying that `source` completes, it tells `filtered` that it has completed, which invokes our completion handler. (In reality this is a very slight oversimplification, because `source` doesn't tell `filtered` anything; it's actually talking to the `IObserver<T>` that `filtered` supplied. This distinction matters if you have multiple subscriptions active simultaneously for the same chain of observables. But in this case, the simpler way of describing it is good enough even if it's not absolutely precise.)
 
 In short, completion bubbles up from the source, through all the operators, and arrives at our handler.
 
@@ -508,24 +534,3 @@ Either way, everything from the source to the observer, including any operators 
 
 
 Now that we understand the relationship between an `IObservable<T>` source and the `IObserver<T>` interface that received event notifications, we can look at how we might create an `IObservable<T>` instance to represent events of interest in our application.
-
-
-
-# Spare parts
-
-## Comparison with events
-
-This was originally the opening text. I don't think it belongs there, but we probably do want to talk about it in the context of why we need `IObservable<T>` at all.
-
-<hr/>
-
-Essentially Rx is built upon the foundations of the [Observer](http://en.wikipedia.org/wiki/Observer_pattern) pattern. .NET already exposes some other ways to implement the Observer pattern such as multicast delegates or events (which are usually multicast delegates). Multicast delegates are not ideal however as they exhibit the following less desirable features;
-
-- In C#, events have a curious interface. Some find the `+=` and ` -=` operators an unnatural way to register a callback
-- Events are difficult to compose
-- Events don't offer the ability to be easily queried over time
-- Events are a common cause of accidental memory leaks
-- Events do not have a standard pattern for signaling completion
-- Events provide almost no help for concurrency or multithreaded applications. e.g. To raise an event on a separate thread requires you to do all of the plumbing
- 
-Rx looks to solve these problems. Here I will introduce you to the building blocks and some basic types that make up Rx.

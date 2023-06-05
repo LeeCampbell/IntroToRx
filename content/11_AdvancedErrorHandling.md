@@ -2,6 +2,44 @@
 title: Advanced error handling
 ---
 
+TODO: this was originally in the now-defunct Lifetime Management chapter. Do we need to re-integrate it somewhere else?
+
+In this example we attempt to catch error using standard .NET Structured Exception Handling:
+
+```csharp
+var values = new Subject<int>();
+try
+{
+    values.Subscribe(value => Console.WriteLine("1st subscription received {0}", value));
+}
+catch (Exception ex)
+{
+    Console.WriteLine("Won't catch anything here!");
+}
+    
+values.OnNext(0);
+
+//Exception will be thrown here causing the app to fail.
+values.OnError(new Exception("Dummy exception"));
+```
+
+The correct way to way to handle exceptions is to provide a delegate for `OnError` notifications as in this example.
+
+```csharp
+var values = new Subject<int>();
+    
+values.Subscribe(
+    value => Console.WriteLine("1st subscription received {0}", value),
+    ex => Console.WriteLine("Caught an exception : {0}", ex));
+
+values.OnNext(0);
+values.OnError(new Exception("Dummy exception"));
+```
+
+
+TODO end
+
+
 # Advanced error handling				
 
 Exceptions happen. Exceptions themselves are not bad or good, however the way we raise or catch them can. Some exceptions are predictable and are due to sloppy code, for example a `DivideByZeroException`. Other exceptions cannot be prevented with defensive coding, for example an I/O exception like `FileNotFoundException` or `TimeoutException`. In these cases, we need to cater for the exception gracefully. Providing some sort of error message to the user, logging the error or perhaps retrying are all potential ways to handle these exceptions.
