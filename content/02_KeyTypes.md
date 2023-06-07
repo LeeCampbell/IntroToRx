@@ -505,6 +505,10 @@ As it happens, Rx has a preference for the first option. If you're using an `IOb
 
 This sometimes catches people out. If you need to be able to cancel some process that you are observing but you need to be able to observe everything it does up until the point that it stops, then you can't use unsubscription as the shutdown mechanism. As soon as you've called `Dispose`, the `IObservable<T>` that returned that `IDisposable` is no longer under any obligation to tell you anything. This can be frustrating, because the `IDisposable` returned by `Subscribe` can sometimes seem like such a natural and easy way to shut something down. But basic truth is this: once you've initiated unsubscription, you can't rely on getting any further notifications associated with that subscription. You _might_ receive some—the source is allowed to do that. But you can't rely on it—the source is also allowed to silence itself immediately, and that's what most Rx-implemented sources will do.
 
+One subtle consequence of this is that if an observable source reports an error after a subscriber has unsubscribed, that error might be lost. A source might call `OnError` on its observer, but if that's a wrapper provided by Rx relating to a subscription that has already been disposed, it just ignores the exception. So it's best to think of early unsubscription as inherently messy, a bit like aborting a thread: it can be done but information can be lost, and there are race conditions that will disrupt normal exception handling.
+
+TODO: write a test for this. I want to check whether there any scenarios in which we get an unhandled exception report.
+
 In short, if you unsubscribe, then a source is not obliged to tell you when things stop, and in most cases it definitely won't tell you.
 
 ### Subscription Lifetime and Composition
