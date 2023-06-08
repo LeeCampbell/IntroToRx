@@ -771,58 +771,67 @@ The observable returned by `Start` may seem to have a superficial resemblance to
 
 ### From events
 
-As we discussed early in the book, .NET has a model for events that is baked into its type system. This predates Rx (not least because Rx wasn't feasible until .NET got generics in .NET 2.0) so it's common for types to support events but not Rx. To be able to integrate with the existing event model, Rx provides methods to take an event and turn it into an observable sequence. I showed this briefly in the file system watcher example earlier, but let's look in a bit more detail. There are several different varieties you can use. 
+As we discussed early in the book, .NET has a model for events that is baked into its type system. This predates Rx (not least because Rx wasn't feasible until .NET got generics in .NET 2.0) so it's common for types to support events but not Rx. To be able to integrate with the existing event model, Rx provides methods to take an event and turn it into an observable sequence. I showed this briefly in the file system watcher example earlier, but let's look in a bit more detail. There are several different varieties you can use. This show the most succinct form:
 
-TODO: done up to here. Two of these next seem to be the same thing just applied arbitrarily to two different events. And none of these looks like a good choice of example in 2023.
-
-
-Here is a selection of common event patterns.
-
-```csharp
-// Activated delegate is EventHandler
-var appActivated = Observable.FromEventPattern(
-        h => Application.Current.Activated += h,
-        h => Application.Current.Activated -= h);
-
-// PropertyChanged is PropertyChangedEventHandler
-var propChanged = Observable.FromEventPattern
-    <PropertyChangedEventHandler, PropertyChangedEventArgs>(
-        handler => handler.Invoke,
-        h => this.PropertyChanged += h,
-        h => this.PropertyChanged -= h);
-        
-// FirstChanceException is EventHandler<FirstChanceExceptionEventArgs>
-var firstChanceException = Observable.FromEventPattern<FirstChanceExceptionEventArgs>(
-        h => AppDomain.CurrentDomain.FirstChanceException += h,
-        h => AppDomain.CurrentDomain.FirstChanceException -= h);      
+```cs
+FileSystemWatcher watcher = new (@"c:\temp");
+IObservable<EventPattern<FileSystemEventArgs>> changeEvents = Observable
+    .FromEventPattern<FileSystemEventArgs>(watcher, nameof(watcher.Changed));
 ```
 
-So while the overloads can be confusing, they key is to find out what the event's signature is. If the signature is just the base `EventHandler` delegate then you can use the first example. If the delegate is a sub-class of the `EventHandler`, then you need to use the second example and provide the `EventHandler` sub-class and also its specific type of `EventArgs`. Alternatively, if the delegate is the newer generic `EventHandler<TEventArgs>`, then you need to use the third example and just specify what the generic type of the event argument is.
+If you have an object that provides an event you can use this overload of `FromEventPattern`, passing in the object and the name of the event that you'd like to use with Rx. There are a few problems with this.
 
-It is very common to want to expose property changed events as observable sequences. These events can be exposed via `INotifyPropertyChanged` interface, a `DependencyProperty` or perhaps by events named appropriately to the Property they are representing. If you are looking at writing your own wrappers to do this sort of thing, I would strongly suggest looking at the Rxx library on [https://github.com/dotnet/reactive](https://github.com/dotnet/reactive) first. Many of these have been catered for in a very elegant fashion.
+Firstly, why do I need to pass the event name as a string? Identifying members with strings is an error-prone technique—the compiler won't notice if there's a mismatch between the first and second argument (e.g., if I passed the arguments `(somethingElse, nameof(watcher.Changed))` by mistake). Couldn't I just pass `watcher.Changed` itself? Unfortunately not—this is an example of the issue I mentioned in the first chapter: .NET events are not first class citizens. We can't use them in the way we can use other objects or values. For example, we can't pass an event as an argument to a method. In fact the only thing you can do with a .NET event is attach and remove event handlers. If I want to get some other method to attach handlers to the event of my choosing (e.g., here I want Rx to handle the events), then the only way to do that is to specify the event's name so that the method (`FromEventPattern`) can then use reflection to attach its own handlers.
+
+This is a problem for some deployment scenarios. It is increasingly common in .NET to do extra work at build time to optimize runtime behaviour, and reliance on reflection can compromise these techniques. For example, instead of relying on Just In Time (JIT) compilation of code, we might use Ahead of time (AoT) mechanisms. .NET's Ready to Run (R2R) system enables you to include pre-compiled code targeting specific CPU types alongside the normal IL, avoiding having to wait for .NET to compile the IL into runnable code. This can have a significant effect on startup times, making it an important technique both in client side applications, where it can fix problems where applications are sluggish when they first start up, and also in server-side applications, especially in cloud environments where code may be moved from one compute node to another fairly frequently, making it important to minimize cold start costs. There are also scenarios where JIT compilation is not even an option, in which case AoT compilation isn't simply an optimization: it's the only means by which code can run at all.
+
+The problem with reflection is that it makes it difficult for the build tools to work out what code will execute at runtime. When they inspect this call to `FromEventPattern` they will just see arguments of type `object` and `string`. It's not self-evident that this is going to result in reflection-driven calls to the `add` and `remove` methods for `FileSystemWatcher.Changed` at runtime. There are attributes that can be used to provide hints, but there are limits to how well these can work. Sometimes the build tools will be unable to determine what code would need to be AoT compiled to enable this method to execute without relying on runtime JIT.
+
+There's another, related problem. The .NET build tools support a feature called 'trimming', in which they remove unused code. The `System.Reactive.dll` file is about 1.3MB in size, but it would be a very unusual application that used every member of every type in that component. Basic use of Rx might need only a few tens of kilobytes. The idea with trimming is to work out which bits are actually in use, and produce a copy of the DLL that contains only that code. This can dramatically reduce the volume of code that needs to be deployed for an executable to run. This can be especially important in client-side Blazor applications, where .NET components end up being downloaded by the browser. Having to download an entire 1.3MB component might make you think twice about using it. But if trimming means that basic usage requires only a few tens of KB, and that the size would increase only if you were making more extensive use of the component, that can make it reasonable to use a component that would, without trimming, have imposed too large a penalty to justify its inclusion. But as with AoT compilation, trimming can only work if the tools can determine which code is in use. If they can't do that, it's not just a case of falling back to a slower path, waiting while the relevant code gets JIT compiler—if code has been trimmed, it will be unavailable at runtime, and your application might crash with a `MissingMethodException`.
+
+So reflection-based APIs can be problematic if you're using any of these techniques. Fortunately, there's an alternative. We can use an overload that takes a couple of delegates, and Rx will invoke these when it wants to add or remove handlers for the event:
+
+```cs
+IObservable<EventPattern<FileSystemEventArgs>> changeEvents = Observable
+    .FromEventPattern<FileSystemEventHandler, FileSystemEventArgs>(
+        h => watcher.Changed += h,
+        h => watcher.Changed -= h);
+```
+
+This is code that AoT and trimming tools can understand easily. We've written methods that explicitly add and remove handlers for the `FileSystemWatcher.Changed` event, so AoT tools can pre-compile those two methods, and trimming tools know that they cannot remove the add and remove handlers for those events.
+
+The downside is that this is a pretty cumbersome bit of code to write. If you've not already bought into the idea of using Rx, this might well be enough to make you think "I'll just stick with ordinary .NET events, thanks. But the cumbersome nature is a symptom of what is wrong with .NET events. We wouldn't have had to write anything so ugly if events had been first class citizens in the first place.
+
+Not only has that second-class status meant we couldn't just pass the event itself as an argument, it has also meant that we've had to state type arguments explicitly. The relationship between an event's delegate type (`FileSystemEventHandler` in this example) and its event argument type (`FileSystemEventArgs` here) is, in general, not something that C#'s type inference can determine automatically, which is why we've had to specify both types explicitly. (Events that use the generic `EventHandler<T>` type are more amenable to type inference, and can use a slightly less verbose version of `FromEventPattern`. Unfortunately, relatively few events actually use that. Some events provide information besides the fact that something just happened, and use the base `EventHandler` type, and for those kinds of events, you can in fact omit the type arguments completely, making the code slightly less ugly. You still need to provide the add and remove callbacks though.)
+
+Notice that the return type of `FromEventPattern` in this example is `IObservable<EventPattern<FileSystemEventArgs>>`. The `EventPattern<T>` type encapsulates the information that the event passes to handlers. Most .NET events follow a common pattern in which handler methods take two arguments: an `object sender`, which just tells you which object raised the event (useful if you attach one event handler to multiple objects) and then a second argument of some type derived from `EventArgs` that provides information about the event. `EventPattern<T>` just packages these two arguments into a single object that offers `Sender` and `EventArgs` properties. In cases where you don't in fact want to attach one handler to multiple sources, you only really need that `EventArgs` property, which is why the earlier `FileSystemWatcher` examples went on to extract that just that, to get a simpler result of type `IObservable<FileSystemEventArgs>`. It did this with the `Select` operator, which we'll get to in more detail later:
+
+```cs
+IObservable<FileSystemEventArgs> changes = changeEvents.Select(ep => ep.EventArgs);
+```
+
+It is very common to want to expose property changed events as observable sequences. The .NET runtime libraries define a .NET-event-based interface for advertising property changes, `INotifyPropertyChanged`, and some user interface frameworks have more specialized systems for this, such as WPF's `DependencyProperty`. If you are contemplating writing your own wrappers to do this sort of thing, I would strongly suggest looking at the [Reactive UI libraries](https://github.com/reactiveui/ReactiveUI/) first. It has a set of [features for wrapping properties as `IObservable<T>`](https://www.reactiveui.net/docs/handbook/when-any/).
 
 ### From Task
 
-Rx provides a useful, and well named set of overloads for transforming from other existing paradigms to the Observable paradigm. The `ToObservable()` method overloads provide a simple route to make the transition.
+The `Task` and `Task<T>` types are very widely used in .NET. Widely used .NET languages have built-in support for working with them (e.g., C#'s `async` and `await` keywords). There's some conceptual overlap between tasks an `IObservable<T>`: both represent some sort of work that might take a while to complete. There is a sense in which an `IObservable<T>` is a generalization of a `Task<T>`—both represent potentially long-running work, but an `IObservable<T>` can produce multiple results whereas `Task<T>` can produce just one.
 
-As we mentioned earlier, the `AsyncSubject<T>` is similar to a `Task<T>`. They both return you a single value from an asynchronous source. They also both cache the result for any repeated or late requests for the value. The first `ToObservable()` extension method overload we look at is an extension to `Task<T>`. The implementation is simple;
+Since `IObservable<T>` is the more general abstraction, we should be able to represent a `Task<T>` as an `IObservable<T>`. And Rx defines various extension methods for `Task` and `Task<T>` to do this. These methods are all called `ToObservable()`, and it offers various overloads offering control of the details where required, and simplicity for the most common scenarios.
 
-- if the task is already in a status of `RanToCompletion` then the value is added to the sequence and then the sequence completed
-- if the task is Cancelled then the sequence will error with a `TaskCanceledException`
-- if the task is Faulted then the sequence will error with the task's inner exception
-- if the task has not yet completed, then a continuation is added to the task to perform the above actions appropriately
+Although they are conceptually similar, `Task<T>` does a few things differently in the details. For example, you can retrieve its [`Status` property](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task.status), which might report that it is in a cancelled or faulted state. `IObservable<T>` doesn't provide a way to ask a source for its state; it just tells you things. So `ToObservable` makes some decisions about how to present status in a way that makes makes sense in an Rx world:
 
-There are two reasons to use the extension method:
+- if the task is [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), `IObservable<T>` invoke a subscriber's `OnError` passing a `TaskCanceledException`
+- if the task is [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted) then the sequence will error with the task's inner exception
+- if the task is not yet in a final state (neither [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted), or [RanToCompletion](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-rantocompletion)), the `IObservable<T>` will not produce any notifications until such time as the task does enter one of these final states
 
-- From Framework 4.5, almost all I/O-bound functions return `Task<T>`
-- If `Task<T>` is a good fit, it's preferable to use it over `IObservable<T>` - because it communicates single-value result in the type system. 
+It does not matter whether the task is already in a final state at the moment that you call `ToObservable`. If it has finished, `ToObservable` will just return a sequence representing that state. (In fact, it uses either the `Return` or `Throw` creation methods you saw earlier.) If the task has not yet finished, `ToObservable` will attach a continuation to the task to detect the outcome once it does complete.
 
-In other words, a function that returns a single value in the future should return a `Task<T>`, not an `IObservable<T>`. Then if you need to combine it with other observables, use `ToObservable()`.
+Tasks come in two forms: `Task<T>`, which produces a result, and `Task`, which does not. But in Rx, there is only `IObservable<T>`—there isn't a no-result form. We've already seen this problem once before, when the `Observable.Start` method needed to be able to [adapt a delegate as an `IObservable<T>`](#from-delegates) even when the delegate was an `Action` that produced no result. The solution was to return an `IObservable<Unit>`, and that's also exactly what you get when you call `ToObservable` on a `Task`.
 
-Usage of the extension method is also simple.
+The extension method is simple to use:
 
 ```csharp
-var t = Task.Factory.StartNew(()=>"Test");
+var t = Task.Factory.StartNew(() => "Test");
 var source = t.ToObservable();
 source.Subscribe(
     Console.WriteLine,
@@ -836,15 +845,15 @@ Test
 completed
 ```
 
-There is also an overload that converts a `Task` (non generic) to an `IObservable<Unit>`.
-
 ### From IEnumerable&lt;T&gt;
 
-The final overload of `ToObservable` takes an `IEnumerable<T>`. This is semantically like a helper method for an `Observable.Create` with a `foreach` loop in it.
+Rx defines another extension method called `ToObservable`, this time for `IEnumerable<T>`. In earlier chapters I described how `IObserable<T>` was designed to represent the same basic abstraction as `IEnumerable<T>`, with the only difference being the mechanism we use to obtain the elements in the sequence: with `IEnumerable<T>`, we write code that _pulls_ values out of the collection (e.g., a `foreach` loop), whereas `IObservable<T>` _pushes_ values to us by invoking `OnNext` on our `IObserver<T>`.
+
+We could write code that bridges from _pull_ to _push_:
 
 ```csharp
-// Example code only
-public static IObservable<T> ToObservable<T>(this IEnumerable<T> source)
+// Example code only - do not use!
+public static IObservable<T> ToObservableOversimplified<T>(this IEnumerable<T> source)
 {
     return Observable.Create<T>(o =>
     {
@@ -853,121 +862,277 @@ public static IObservable<T> ToObservable<T>(this IEnumerable<T> source)
             o.OnNext(item);
         }
 
-        // Incorrect disposal pattern
+        o.OnComplete();
+
+        // Incorrectly ignoring unsubscription.
         return Disposable.Empty;
     });
 }
 ```
 
-This crude implementation however is naive. It does not allow for correct disposal, it does not handle exceptions correctly and as we will see later in the book, it does not have a very nice concurrency model. The version in Rx of course caters for all of these tricky details so you don't need to worry.
+This crude implementation conveys the basic idea, but it is naive. It does not attempt to handle unsubscription, and it's not easy to fix that when using `Observable.Create` for this particular scenario. And as we will see later in the book, it does not have a very nice concurrency model. The implementation that Rx supplies does of course cater for all of these tricky details. That makes it rather more complex, but that's Rx's problem; you can think of it as being logically equivalent to the code shown above, but without the shortcomings.
 
-When transitioning from `IEnumerable<T>` to `IObservable<T>`, you should carefully consider what you are really trying to achieve. You should also carefully test and measure the performance impacts of your decisions. Consider that the blocking synchronous (pull) nature of `IEnumerable<T>` sometimes just does not mix well with the asynchronous (push) nature of `IObservable<T>`. Remember that it is completely valid to pass `IEnumerable`, `IEnumerable<T>`, arrays or collections as the data type for an observable sequence. If the sequence can be materialized all at once, then you may want to avoid exposing it as an `IEnumerable`. If this seems like a fit for you then also consider passing immutable types like an array or a `ReadOnlyCollection<T>`. We will see the use of `IObservable<IList<T>>` later for operators that provide batching of data.
+When transitioning from `IEnumerable<T>` to `IObservable<T>`, you should carefully consider what you are really trying to achieve. Consider that the blocking synchronous (pull) nature of `IEnumerable<T>` does always not mix well with the asynchronous (push) nature of `IObservable<T>`. As soon as something subscribes to an `IObservable<T>` created in this way, it is effectively asking to iterate over the `IEnumerable<T>`, immediately producing all of the values. The call to `Subscribe` might not return until it has reached the end of the `IEnumerable<T>`, making it similar to the very simple example shown [at the start of this chapter](#a-very-basic-iobservablet-implementation). (I say "might" because as we'll see when we get to schedulers, the exact behaviour depends on the context.) `ToObservable` can't work magic—something somewhere has to execute what amounts to a `foreach` loop.
+
+So although this can be a convenient way to bring sequences of data into an Rx world, you should carefully test and measure the performance impact.
+
 
 ### From APM
 
-Finally we look at a set of overloads that take you from the [Asynchronous Programming Model](http://msdn.microsoft.com/en-us/magazine/cc163467.aspx) (APM) to an observable sequence. This is the style of programming found in .NET that can be identified with the use of two methods prefixed with `Begin...` and `End...` and the iconic `IAsyncResult` parameter type. This is commonly seen in the I/O APIs.
+Rx provides support for the ancient [.NET Asynchronous Programming Model (APM)](https://learn.microsoft.com/en-us/dotnet/standard/asynchronous-programming-patterns/asynchronous-programming-model-apm). Back in .NET 1.0, this was the only pattern for representing asynchronous operations. It was superseded in 2010 when .NET 4.0 introduced the [Task-based Asynchronous Pattern (TAP)](https://learn.microsoft.com/en-us/dotnet/standard/asynchronous-programming-patterns/task-based-asynchronous-pattern-tap). The old APM offers no benefits over the TAP. Moreover, C#'s `async` and `await` keywords (and equivalents in other .NET languages) only support the TAP, meaning that the APM is best avoided. However, the TAP was fairly new back in 2011 when Rx 1.0 was released, so it offered adapters for presenting an APM implementation as an `IObservable<T>`.
+
+
+Nobody should be using the APM today, but for completeness (and just in case you have to use an ancient library that only offers the APM) I will provide a very brief explantion.
+
+The result of the call to `Observable.FromAsyncPattern` does _not_ return an observable sequence. It returns a delegate that returns an observable sequence. (So it is essentially a factory factory) The signature for this delegate will match the generic arguments of the call to `FromAsyncPattern`, except that the return type will be wrapped in an observable sequence. The following example wraps the `Stream` class's `BeginRead`/`EndRead` methods (which are an implementation of the APM).
+
+**Note**: this is purely to illustrate how to wrap the APM. You would never do this in practice because `Stream` has supported the TAP for years.
 
 ```csharp
-class webrequest
-{    
-    public webresponse getresponse() 
-    {...}
-
-    public iasyncresult begingetresponse(
-        asynccallback callback, 
-        object state) 
-    {...}
-
-    public webresponse endgetresponse(iasyncresult asyncresult) 
-    {...}
-    ...
-}
-class stream
-{
-    public int read(
-        byte[] buffer, 
-        int offset, 
-        int count) 
-    {...}
-
-    public iasyncresult beginread(
-        byte[] buffer, 
-        int offset, 
-        int count, 
-        asynccallback callback, 
-        object state) 
-    {...}
-
-    public int endread(iasyncresult asyncresult) 
-    {...}
-    ...
-}
-```
-
-> At time of writing .NET 4.5 was still in preview release. Moving forward with .NET 4.5 the APM model will be replaced with `Task` and new `async` and `await` keywords. Rx 2.0 which is also in a beta release will integrate with these features. .NET 4.5 and Rx 2.0 are not in the scope of this book.
-
-APM, or the Async Pattern, has enabled a very powerful, yet clumsy way of for .NET programs to perform long running I/O bound work. If we were to use the synchronous access to IO, e.g. `WebRequest.GetResponse()` or `Stream.Read(...)`, we would be blocking a thread but not performing any work while we waited for the IO. This can be quite wasteful on busy servers performing a lot of concurrent work to hold a thread idle while waiting for I/O to complete. Depending on the implementation, APM can work at the hardware device driver layer and not require any threads while blocking. Information on how to follow the APM model is scarce. Of the documentation you can find it is pretty shaky, however, for more information on APM, see Jeffrey Richter's brilliant book <cite>CLR via C#</cite> or Joe Duffy's comprehensive <cite>Concurrent Programming on Windows</cite>. Most stuff on the internet is blatant plagiary of Richter's examples from his book. An in-depth examination of APM is outside of the scope of this book.
-
-To utilize the Asynchronous Programming Model but avoid its awkward API, we can use the `Observable.FromAsyncPattern` method. Jeffrey van Gogh gives a brilliant walk through of the `Observable.FromAsyncPattern` in [Part 1](http://blogs.msdn.com/b/jeffva/archive/2010/07/23/rx-on-the-server-part-1-of-n-asynchronous-system-io-stream-reading.aspx) of his <cite>Rx on the Server</cite> blog series. While the theory backing the Rx on the Server series is sound, it was written in mid 2010 and targets an old version of Rx.
-
-With 30 overloads of `Observable.FromAsyncPattern` we will look at the general concept so that you can pick the appropriate overload for yourself. First if we look at the normal pattern of APM we will see that the BeginXXX method will take zero or more data arguments followed by an `AsyncCallback` and an `Object`. The BeginXXX method will also return an `IAsyncResult` token.
-
-```csharp
-// Standard Begin signature
-IAsyncResult BeginXXX(AsyncCallback callback, Object state);
-
-// Standard Begin signature with data
-IAsyncResult BeginYYY(string someParam1, AsyncCallback callback, object state);
-```
-
-The EndXXX method will accept an `IAsyncResult` which should be the token returned from the BeginXXX method. The EndXXX can also return a value.
-
-```csharp
-// Standard EndXXX Signature
-void EndXXX(IAsyncResult asyncResult);
-
-// Standard EndXXX Signature with data
-int EndYYY(IAsyncResult asyncResult);
-```
-
-The generic arguments for the `FromAsyncPattern` method are just the BeginXXX data arguments if any, followed by the EndXXX return type if any. If we apply that to our `Stream.Read(byte[], int, int, AsyncResult, object)` example above we see that we have a `byte[]`, an `int` and another `int` as our data parameters for `BeginRead` method.
-
-```csharp
-    // IAsyncResult BeginRead(
-    //   byte[] buffer, 
-    //   int offset, 
-    //   int count, 
-    //   AsyncCallback callback, object state) {...}
-    Observable.FromAsyncPattern<byte[], int, int ...
-```
-
-Now we look at the EndXXX method and see it returns an `int`, which completes the generic signature of our `FromAsyncPattern` call.
-
-```csharp
-    // int EndRead(
-    // IAsyncResult asyncResult) {...}
-    Observable.FromAsyncPattern<byte[], int, int, int>
-```
-
-The result of the call to `Observable.FromAsyncPattern` does _not_ return an observable sequence. It returns a delegate that returns an observable sequence. The signature for this delegate will match the generic arguments of the call to `FromAsyncPattern`, except that the return type will be wrapped in an observable sequence.
-
-```csharp
+Stream stream = GetStreamFromSomewhere();
 var fileLength = (int) stream.Length;
-// read is a Func<byte[], int, int, IObservable<int>>
-var read = Observable.FromAsyncPattern<byte[], int, int, int>(
+
+Func<byte[], int, int, IObservable<int>> read = Observable.FromAsyncPattern<byte[], int, int, int>(
     stream.BeginRead, 
     stream.EndRead);
 var buffer = new byte[fileLength];
-var bytesReadStream = read(buffer, 0, fileLength);
+IObservable<int> bytesReadStream = read(buffer, 0, fileLength);
 bytesReadStream.Subscribe(byteCount =>
 {
     Console.WriteLine("Number of bytes read={0}, buffer should be populated with data now.", byteCount);
 });
 ```
 
-Note that this implementation is just an example. For a very well designed implementation that is built against the latest version of Rx you should look at the Rxx project on [https://github.com/dotnet/reactive](https://github.com/dotnet/reactive).
+## Subjects
 
-This covers the first classification of query operators: creating observable sequences. We have looked at the various eager and lazy ways to create a sequence. We have introduced the concept of corecursion and show how we can use it with the `Generate` method to unfold potentially infinite sequences. We can now produce timer based sequences using the various factory methods. We should also be familiar with ways to transition from other synchronous and asynchronous paradigms and be able to decide when it is or is not appropriate to do so. 
+So far, this chapter has explored various factory methods that return `IObservable<T>` implementations. There is another way though: `System.Reactive` defines various types that implement `IObservable<T>` that we can instantiate directly. But how do we determine what values these types produce? We're able to do that because they also implement `IObserver<T>`.
+
+Types that implement both `IObservable<T>` and `IObserver<T>` are called _subjects_ in Rx. There's an an `ISubject<T>` to represent this. (This is in the `System.Reactive` NuGet package, unlike `IObservable<T>` and `IObserver<T>`, which are both built into the .NET runtime libraries.) `ISubject<T>` looks like this:
+
+```cs
+public interface ISubject<T> : ISubject<T, T>
+{
+}
+```
+
+So it turns out there's also a two-argument `ISubject<TSource, TResult>` to accommodate the fact that something that is both an observer and an observable might transform the data that flows through it in some way, meaning that the input and output types are not necessarily the same. Here's the two-type-argument definition:
+
+```cs
+public interface ISubject<in TSource, out TResult> : IObserver<TSource>, IObservable<TResult>
+{
+}
+```
+
+As you can see the `ISubject` interfaces don't define any members of their own. They just inherit from `IObserver<T>` and `IObservable<T>`—these interfaces are nothing more than a direct expression of the fact that a subject is both an observer and an observable.
+
+But what is this for? You can think of the `IObserver<T>` and the `IObservable<T>` as the 'reader' and 'writer' or, 'consumer' and 'publisher' interfaces respectively. A subject, then is both a reader and a writer, a consumer and a publisher. Data flows both into and out of a subject.
+
+Rx offers a few subject implementations that can occasionally be useful in code that wants to make an `IObservable<T>` available. Although `Observable.Create` is usually the preferred way to do this, there's one important case where a subject might make more sense: if you have some code that discovers events of interest (e.g., by using the client API for some messaging technology) and wants to make them available through an `IObservable<T>`, subjects can sometimes provide a more convenient way to to this than wither `Observable.Create` or a custom implementation.
+
+Rx offers a few subject types. We'll start with the most straightforward one to understand.
+
+### Subject<T>
+
+The `Subject<T>` type immediately forwards any calls to `IObserver<T>` methods on to all of the observers currently subscribed to it. This example shows its basic operation:
+
+```cs
+Subject<int> s = new();
+s.Subscribe(x => Console.WriteLine($"Sub1: {x}"));
+s.Subscribe(x => Console.WriteLine($"Sub2: {x}"));
+
+s.OnNext(1);
+s.OnNext(2);
+s.OnNext(3);
+```
+
+I've created a `Subject<int>`. I've subscribed to it twice, and then called its `OnNext` method repeatedly. This produces the following output, illustrating that the `Subject<int>` forwards each `OnNext` call onto both subscribers:
+
+```
+Sub1: 1
+Sub2: 1
+Sub1: 2
+Sub2: 2
+Sub1: 3
+Sub2: 3
+```
+
+We could use this as a way to bridge between some API from which we receive data into the world of Rx. You could imagine writing something of this kind:
+
+```cs
+public class MessageQueueToRx : IDisposable
+{
+    private readonly Subject<string> messages = new();
+
+    public IObservable<string> Messages => messages;
+
+    public void Run()
+    {
+        while (true)
+        {
+            // Receive a message from some hypothetical message queuing service
+            string message = MqLibrary.ReceiveMessage();
+            messages.OnNext(message);
+        }
+    }
+
+    public void Dispose()
+    {
+        message.Dispose();
+    }
+}
+```
+
+It wouldn't be too hard to modify this to use `Observable.Create` instead. But where this approach can become easier is if you need to provide multiple different `IObservable<T>` sources. Imagine we distinguish between different message types based on their content, and publish them through different observables. That's hard to arrange with `Observable.Create` if we still want a single loop pulling messages off the queue.
+
+`Subject<T>` also distributes calls to either `OnCompleted` or `OnError` to all subscribers. Of course, the rules of Rx require that once you have called either of these methods on an `IObserver<T>` (and any `ISubject<T>` is an `IObserver<T>`, so this rule applies to `Subject<T>`) you must not call `OnNext`, `OnError`, or `OnComplete` on that observer ever again. In fact, `Subject<T>` will tolerate calls that break this rule—it just ignores them, so even if your code doesn't quite stick to these rules internally, the `IObservable<T>` you present to the outside world will behave correctly, because Rx enforces this.
+
+`Subject<T>` implements `IDisposable`. Disposing a `Subject<T>` puts it into a state where it will throw an exception if you call any of its methods. The documentation also describes it as unsubscribing all observers, but since a disposed `Subject<T>` isn't capable of producing any further notifications in any case, this doesn't really mean much. (Note that it does _not_ call `OnCompleted` on its observers when you `Dispose` it.) The one practical effect is that its internal field that keeps track of observers is reset to a special sentinel value indicating that it has been disposed, meaning that the one externally observable effect of "unsubscribing" the observers is that if, for some reason, your code held onto a reference to a `Subject<T>` after disposing it, that would no longer keep all the subscribers reachable for GC purposes. If a `Subject<T>` remains reachable indefinitely after it is no longer in use, that in itself is effectively a memory leak, but disposal would at least limit the effects: only the `Subject<T>` itself would remain reachable, and not all of its subscribers.
+
+`Subject<T>` is the most straightforward subject, but there are other, more specialized ones.
+
+## ReplaySubject<T>
+
+`Subject<T>` does not remember anything: it immediately distributes incoming values to subscribers. If new subscribers come along, they will only see events that occur after they subscribe. `ReplaySubject<T>`, on the other hand, can remember every value it has ever seen. If a new subject comes along, it will receive the complete history of events so far.
+
+This is a variation on the first example in the preceding [Subject<T> section](#subject). It creates a `ReplaySubject<int>` instead of a `Subject<int>`. And instead of immediately subscribing twice, it creates an initial subscription, and then a second one only after a couple of values have been emitted.
+
+```cs
+ReplaySubject<int> s = new();
+s.Subscribe(x => Console.WriteLine($"Sub1: {x}"));
+
+s.OnNext(1);
+s.OnNext(2);
+
+s.Subscribe(x => Console.WriteLine($"Sub2: {x}"));
+
+s.OnNext(3);
+```
+
+This produces the following output:
+
+```
+Sub1: 1
+Sub1: 2
+Sub2: 1
+Sub2: 2
+Sub1: 3
+Sub2: 3
+```
+
+As you'd expect, we initially see output only from `Sub1`. But when we make the second call to subscribe, we can see that `Sub2` also received the first two values. And then when we report the third value, both see it. If this example had used `Subject<int>` instead, we would have seen just this output:
+
+```
+Sub1: 1
+Sub1: 2
+Sub1: 3
+Sub2: 3
+```
+
+There's an obvious potential problem here: if `ReplaySubject<T>` remembers every value published to it, we mustn't use with endless event sources, because it will eventually cause us to run out of memory.
+
+`ReplaySubject<T>` offers constructors that accept simple cache expiry settings that can limit memory consumption. One option is to specify the maximum number of item to remember. This next example creates a `ReplaySubject<T>` with a buffer size of 2:
+
+```csharp    
+ReplaySubject<int> s = new(2);
+s.Subscribe(x => Console.WriteLine($"Sub1: {x}"));
+
+s.OnNext(1);
+s.OnNext(2);
+s.OnNext(3);
+
+s.Subscribe(x => Console.WriteLine($"Sub2: {x}"));
+
+s.OnNext(4);
+```
+
+Since the second subscription only comes along after we've already produced 3 values, it no longer sees all of them—it only receives the last two values published prior to subscription (but the first subscription continues to see everything of course):
+
+```
+Sub1: 1
+Sub1: 2
+Sub1: 3
+Sub2: 2
+Sub2: 3
+Sub1: 4
+Sub2: 4
+```
+
+Alternatively, you can specify a time-based limit by passing a `TimeSpan to the `ReplaySubject<T>` constructor.
+
+
+## BehaviorSubject<T>
+
+Like `ReplaySubject<T>`, `BehaviorSubject<T>` also has a memory, but it remembers exactly one value. However, it's not quite the same as a `ReplaySubject<T>` with a buffer size of 1, because a `ReplaySubject<T>` starts off in a state where it has nothing in its memory. But `BehaviorSubject<T>` always remembers _exactly_ one item. How can that work before we've made our first call to `OnNext`? `BehaviorSubject<T>` enforces this by requiring us to supply the initial value when we construct it.
+
+So you can think of `BehaviorSubject<T>` as a subject that _always_ has a value available. If you subscribe to a `BehaviorSubject<T>` it will instantly produce a single value. (It may then go on to produce more values, but it always produces one right away.) As it happens, it also makes that value available through a property called `Value`, so you don't need to subscribe an `IObserver<T>` to it just to retrieve the value.
+
+A `BehaviorSubject<T>` could be thought of an as observable property. Like a normal property, it can immediately supply a value whenever you ask it. The difference is that it can then go on to notify you every time its value changes.
+
+This analogy falls down slightly when it comes to completion. If you call `OnCompleted`, it immediately calls `OnCompleted` on all of its observers, and if any new observers subscribe, they will also immediately be completed—it does not first supply the last value. (So this is another way in which it is different from a `ReplaySubject<T>` with a buffer size of 1.)
+
+Simlarly, if you call `OnError`, all current observers will receive an `OnError` call, and any subsequent subscribers will also receive nothing but an `OnError` call.
+
+backing fields to properties.
+
+
+## AsyncSubject<T>
+
+`AsyncSubject<T>` provides all observers with the final value it receives. Since it can't know which is the final value until `OnCompleted` is called, it will not invoke any methods on any of its subscribers until either its `OnCompleted` or `OnError` method is called. (If `OnError` is called, it just forwards that to all current and future subscribers.)
+
+If no calls were made to `OnNext` before `OnCompleted` then there was no final value, so it will just complete any observers without providing a value.
+
+In this example no values will be published as the sequence never completes. 
+No values will be written to the console.
+
+```csharp
+AsyncSubject<string> subject = new();
+subject.OnNext("a");
+subject.Subscribe(x => Console.WriteLine($"Sub1: {x}"));
+subject.OnNext("b");
+subject.OnNext("c");
+```
+
+In this example we invoke the `OnCompleted` method so there will be a final value ('c') for the subject to produce:
+
+```csharp
+AsyncSubject<string> subject = new();
+
+subject.OnNext("a");
+subject.Subscribe(x => Console.WriteLine($"Sub1: {x}"));
+subject.OnNext("b");
+subject.OnNext("c");
+subject.OnCompleted();
+subject.Subscribe(x => Console.WriteLine($"Sub2: {x}"));
+```
+
+This produces the following output:
+
+```
+Sub1: c
+Sub2: c
+```
+
+
+
+## Subject factory
+
+Finally it is worth making you aware that you can also create a subject via a factory method. Considering that a subject combines the `IObservable<T>` and `IObserver<T>` interfaces, it seems sensible that there should be a factory that allows you to combine them yourself. The `Subject.Create(IObserver<TSource>, IObservable<TResult>)` factory method provides just this.
+
+```csharp
+//Creates a subject from the specified observer used to publish messages to the subject
+//  and observable used to subscribe to messages sent from the subject
+public static ISubject>TSource, TResult< Create>TSource, TResult<(
+    IObserver<TSource> observer, 
+    IObservable<TResult> observable)
+{...}
+```
+
+Subjects provide a convenient way to poke around Rx, and are occasionally useful in production scenarios, but they are not recommended for most cases. An explanation is in the [Usage Guidelines](18_UsageGuidelines.md) in the appendix. Instead of using subjects, favour the factory methods  shown earlier in this chapter..
+
+
+## Summary
+
+We have looked at the various eager and lazy ways to create a sequence. We have seen how to produce timer based sequences using the various factory methods. And we've also explored ways to transition from other synchronous and asynchronous representations. 
 
 As a quick recap:
 
@@ -978,13 +1143,13 @@ As a quick recap:
   - Observable.Throw
   - Observable.Create
 
-- Unfold methods
+- Generative methods
   - Observable.Range
   - Observable.Interval
   - Observable.Timer
   - Observable.Generate
 
-- Paradigm Transition
+- Adaptation
   - Observable.Start
   - Observable.FromEventPattern
   - Task.ToObservable
@@ -992,317 +1157,4 @@ As a quick recap:
   - IEnumerable&lt;T&gt;.ToObservable
   - Observable.FromAsyncPattern
 
-Creating an observable sequence is our first step to practical application of Rx: create the sequence and then expose it for consumption. Now that we have a firm grasp on how to create an observable sequence, we can discover the operators that allow us to query an observable sequence.
-
-
-
-## Subject<T>
-
-TODO: move this into a separate chapter? I'm not convinced all the subject types are really intro stuff. `Subject<T>` is useful, but the rest?
-    
-I like to think of the `IObserver<T>` and the `IObservable<T>` as the 'reader' and 'writer' or, 'consumer' and 'publisher' interfaces. If you were to create your own implementation of `IObservable<T>` you may find that while you want to publicly expose the IObservable characteristics you still need to be able to publish items to the subscribers, throw errors and notify when the sequence is complete. Why that sounds just like the methods defined in `IObserver<T>`! While it may seem odd to have one type implementing both interfaces, it does make life easy. This is what [subjects](http://msdn.microsoft.com/en-us/library/hh242969(v=VS.103).aspx "Using Rx Subjects - MSDN") can do for you. [`Subject<T>`](http://msdn.microsoft.com/en-us/library/hh229173(v=VS.103).aspx "Subject(Of T) - MSDN") is the most basic of the subjects. Effectively you can expose your `Subject<T>` behind a method that returns `IObservable<T>` but internally you can use the `OnNext`, `OnError` and `OnCompleted` methods to control the sequence.
-
-In this very basic example, I create a subject, subscribe to that subject and then publish values to the sequence (by calling `subject.OnNext(T)`).
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new Subject<string>();
-    WriteSequenceToConsole(subject);
-
-    subject.OnNext("a");
-    subject.OnNext("b");
-    subject.OnNext("c");
-    Console.ReadKey();
-}
-
-// Takes an IObservable<string> as its parameter. 
-// Subject<string> implements this interface.
-static void WriteSequenceToConsole(IObservable<string> sequence)
-{
-    // The next two lines are equivalent.
-    // sequence.Subscribe(value=>Console.WriteLine(value));
-    sequence.Subscribe(Console.WriteLine);
-}
-```
-
-Note that the `WriteSequenceToConsole` method takes an `IObservable<string>` as it only wants access to the subscribe method. Hang on, doesn't the `Subscribe` method need an `IObserver<string>` as an argument? Surely `Console.WriteLine` does not match that interface. Well it doesn't, but the Rx team supply me with an Extension Method to `IObservable<T>` that just takes an [`Action<T>`](http://msdn.microsoft.com/en-us/library/018hxwa8.aspx "Action(Of T) Delegate - MSDN"). The action will be executed every time an item is published. There are [other overloads to the Subscribe extension method](http://msdn.microsoft.com/en-us/library/system.observableextensions(v=VS.103).aspx "ObservableExtensions class - MSDN") that allows you to pass combinations of delegates to be invoked for `OnNext`, `OnCompleted` and `OnError`. This effectively means I don't need to implement `IObserver<T>`. Cool.
-
-As you can see, `Subject<T>` could be quite useful for getting started in Rx programming. `Subject<T>` however, is a basic implementation. There are three siblings to `Subject<T>` that offer subtly different implementations which can drastically change the way your program runs.
-
-<!--
-    TODO: ReplaySubject<T> - Rewrite second sentence. -GA
--->
-
-## ReplaySubject<T>
-
-[`ReplaySubject<T>`](http://msdn.microsoft.com/en-us/library/hh211810(v=VS.103).aspx "ReplaySubject(Of T) - MSDN") provides the feature of caching values and then replaying them for any late subscriptions. Consider this example where we have moved our first publication to occur before our subscription
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new Subject<string>();
-
-    subject.OnNext("a");
-    WriteSequenceToConsole(subject);
-
-    subject.OnNext("b");
-    subject.OnNext("c");
-    Console.ReadKey();
-}
-```
-
-The result of this would be that 'b' and 'c' would be written to the console, but 'a' ignored. 
-If we were to make the minor change to make subject a `ReplaySubject<T>` we would see all publications again.
-
-```csharp
-var subject = new ReplaySubject<string>();
-
-subject.OnNext("a");
-WriteSequenceToConsole(subject);
-
-subject.OnNext("b");
-subject.OnNext("c");
-```
-
-This can be very handy for eliminating race conditions. Be warned though, the default constructor of the `ReplaySubject<T>` will create an instance that caches every value published to it. In many scenarios this could create unnecessary memory pressure on the application. `ReplaySubject<T>` allows you to specify simple cache expiry settings that can alleviate this memory issue. One option is that you can specify the size of the buffer in the cache. In this example we create the `ReplaySubject<T>` with a buffer size of 2, and so only get the last two values published prior to our subscription:
-
-```csharp    
-public void ReplaySubjectBufferExample()
-{
-    var bufferSize = 2;
-    var subject = new ReplaySubject<string>(bufferSize);
-
-    subject.OnNext("a");
-    subject.OnNext("b");
-    subject.OnNext("c");
-    subject.Subscribe(Console.WriteLine);
-    subject.OnNext("d");
-}
-```
-
-Here the output would show that the value 'a' had been dropped from the cache, but values 'b' and 'c' were still valid. The value 'd' was published after we subscribed so it is also written to the console.
-
-```
-Output:
-b
-c
-d
-```
-
-Another option for preventing the endless caching of values by the `ReplaySubject<T>`, is to provide a window for the cache. In this example, instead of creating a `ReplaySubject<T>` with a buffer size, we specify a window of time that the cached values are valid for.
-
-```csharp
-public void ReplaySubjectWindowExample()
-{
-    var window = TimeSpan.FromMilliseconds(150);
-    var subject = new ReplaySubject<string>(window);
-
-    subject.OnNext("w");
-    Thread.Sleep(TimeSpan.FromMilliseconds(100));
-    subject.OnNext("x");
-    Thread.Sleep(TimeSpan.FromMilliseconds(100));
-    subject.OnNext("y");
-    subject.Subscribe(Console.WriteLine);
-    subject.OnNext("z");
-}
-```
-
-In the above example the window was specified as 150 milliseconds. Values are published 100 milliseconds apart. Once we have subscribed to the subject, the first value is 200ms old and as such has expired and been removed from the cache.
-
-```
-Output:
-x
-y
-z
-```
-
-## BehaviorSubject<T>
-
-[`BehaviorSubject<T>`](http://msdn.microsoft.com/en-us/library/hh211949(v=VS.103).aspx "BehaviorSubject(Of T) - MSDN") is similar to `ReplaySubject<T>` except it only remembers the last publication. `BehaviorSubject<T>` also requires you to provide it a default value of `T`. This means that all subscribers will receive a value immediately (unless it is already completed).
-
-In this example the value 'a' is written to the console:
-
-```csharp
-public void BehaviorSubjectExample()
-{
-    //Need to provide a default value.
-    var subject = new BehaviorSubject<string>("a");
-    subject.Subscribe(Console.WriteLine);
-}
-```
-
-In this example the value 'b' is written to the console, but not 'a'.
-
-```csharp
-public void BehaviorSubjectExample2()
-{
-    var subject = new BehaviorSubject<string>("a");
-    subject.OnNext("b");
-    subject.Subscribe(Console.WriteLine);
-}
-```
-
-In this example the values 'b', 'c' &amp; 'd' are all written to the console, but again not 'a'
-
-```csharp
-public void BehaviorSubjectExample3()
-{
-    var subject = new BehaviorSubject<string>("a");
-
-    subject.OnNext("b");
-    subject.Subscribe(Console.WriteLine);
-    subject.OnNext("c");
-    subject.OnNext("d");
-}
-```
-
-Finally in this example, no values will be published as the sequence has completed. Nothing is written to the console.
-
-```csharp
-public void BehaviorSubjectCompletedExample()
-{
-    var subject = new BehaviorSubject<string>("a");
-    subject.OnNext("b");
-    subject.OnNext("c");
-    subject.OnCompleted();
-    subject.Subscribe(Console.WriteLine);
-}
-```
-
-That note that there is a difference between a `ReplaySubject<T>` with a buffer size of one (commonly called a 'replay one subject') and a `BehaviorSubject<T>`. A `BehaviorSubject<T>` requires an initial value. With the assumption that neither subjects have completed, then you can be sure that the `BehaviorSubject<T>` will have a value. You cannot be certain with the `ReplaySubject<T>` however. With this in mind, it is unusual to ever complete a `BehaviorSubject<T>`. Another difference is that a replay-one-subject will still cache its value once it has been completed. So subscribing to a completed `BehaviorSubject<T>` we can be sure to not receive any values, but with a `ReplaySubject<T>` it is possible.
-
-`BehaviorSubject<T>`s are often associated with class [properties](http://msdn.microsoft.com/en-us/library/65zdfbdt(v=vs.71).aspx). 
-As they always have a value and can provide change notifications, they could be candidates for backing fields to properties.
-
-## AsyncSubject<T>
-
-[`AsyncSubject<T>`](http://msdn.microsoft.com/en-us/library/hh229363(v=VS.103).aspx "AsyncSubject(Of T) - MSDN") is similar to the Replay and Behavior subjects in the way that it caches values, however it will only store the last value, and only publish it when the sequence is completed. The general usage of the `AsyncSubject<T>` is to only ever publish one value then immediately complete. This means that is becomes quite comparable to `Task<T>`.
-
-In this example no values will be published as the sequence never completes. 
-No values will be written to the console.
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new AsyncSubject<string>();
-    subject.OnNext("a");
-    WriteSequenceToConsole(subject);
-    subject.OnNext("b");
-    subject.OnNext("c");
-    Console.ReadKey();
-}
-```
-
-In this example we invoke the `OnCompleted` method so the last value 'c' is written to the console:
-
-```csharp
-static void Main(string[] args)
-{
-    var subject = new AsyncSubject<string>();
-
-    subject.OnNext("a");
-    WriteSequenceToConsole(subject);
-    subject.OnNext("b");
-    subject.OnNext("c");
-    subject.OnCompleted();
-    Console.ReadKey();
-}
-```
-
-
-
-## Implicit contracts
-
-There are implicit contacts that need to be upheld when working with Rx as mentioned above. The key one is that once a sequence is completed, no more activity can happen on that sequence. A sequence can be completed in one of two ways, either by `OnCompleted()` or by `OnError(Exception)`.
-
-The four subjects described in this chapter all cater for this implicit contract by ignoring any attempts to publish values, errors or completions once the sequence has already terminated.
-
-Here we see an attempt to publish the value 'c' on a completed sequence. Only values 'a' and 'b' are written to the console.
-
-```csharp
-public void SubjectInvalidUsageExample()
-{
-    var subject = new Subject<string>();
-
-    subject.Subscribe(Console.WriteLine);
-
-    subject.OnNext("a");
-    subject.OnNext("b");
-    subject.OnCompleted();
-    subject.OnNext("c");
-}
-```
-
-## ISubject interfaces
-
-While each of the four subjects described in this chapter implement the `IObservable<T>` and `IObserver<T>` interfaces, they do so via another set of interfaces:
-
-```csharp
-//Represents an object that is both an observable sequence as well as an observer.
-public interface ISubject<in TSource, out TResult> 
-    : IObserver<TSource>, IObservable<TResult>
-{
-}
-```
-
-As all the subjects mentioned here have the same type for both `TSource` and `TResult`, they implement this interface which is the superset of all the previous interfaces:
-
-```csharp
-//Represents an object that is both an observable sequence as well as an observer.
-public interface ISubject<T> : ISubject<T, T>, IObserver<T>, IObservable<T>
-{
-}
-```
-
-These interfaces are not widely used, but prove useful as the subjects do not share a common base class. We will see the subject interfaces used later when we discover [Hot and cold observables](14_HotAndColdObservables.html).
-
-## Subject factory
-
-Finally it is worth making you aware that you can also create a subject via a factory method. Considering that a subject combines the `IObservable<T>` and `IObserver<T>` interfaces, it seems sensible that there should be a factory that allows you to combine them yourself. The `Subject.Create(IObserver<TSource>, IObservable<TResult>)` factory method provides just this.
-
-```csharp
-//Creates a subject from the specified observer used to publish messages to the subject
-//  and observable used to subscribe to messages sent from the subject
-public static ISubject>TSource, TResult< Create>TSource, TResult<(
-    IObserver>TSource< observer, 
-    IObservable>TResult< observable)
-{...}
-```
-
-Subjects provide a convenient way to poke around Rx, however they are not recommended for day to day use. An explanation is in the [Usage Guidelines](18_UsageGuidelines.md) in the appendix. Instead of using subjects, favor the factory methods we will look at in [Part 2](04_CreatingObservableSequences.md).
-
-The fundamental types `IObserver<T>` and `IObservable<T>` and the auxiliary subject types create a base from which to build your Rx knowledge. It is important to understand these simple types and their implicit contracts. In production code you may find that you rarely use the `IObserver<T>` interface and subject types, but understanding them and how they fit into the Rx eco-system is still important. The `IObservable<T>` interface is the dominant type that you will be exposed to for representing a sequence of data in motion, and therefore will comprise the core concern for most of your work with Rx and most of this book.
-
-
-
-...
-
-weird bit from Observable.Return
-
-```csharp
-var singleValue = Observable.Return<string>("Value");
-
-// which could have also been simulated with a replay subject
-var subject = new ReplaySubject<string>();
-subject.OnNext("Value");
-subject.OnCompleted();
-```
-
-Note that in the example above that we could use the factory method or get the same effect by using the replay subject. The obvious difference is that the factory method is only one line and it allows for declarative over imperative programming style. In the example above we specified the type parameter as `string`, this is not necessary as it can be inferred from the argument provided.
-
-```csharp
-singleValue = Observable.Return<string>("Value");
-// Can be reduced to the following
-singleValue = Observable.Return("Value");
-```
-
-...
-
-From Observable.Create:
-
-The usage of subjects should largely remain in the realms of samples and testing. Subjects are a great way to get started with Rx. They reduce the learning curve for new developers, however they pose several concerns that the `Create` method eliminates. Rx is effectively a functional programming paradigm. Using subjects means we are now managing state, which is potentially mutating. Mutating state and asynchronous programming are very hard to get right. Furthermore many of the operators (extension methods) have been carefully written to ensure correct and consistent lifetime of subscriptions and sequences are maintained. When you introduce subjects you can break this. Future releases may also see significant performance degradation if you explicitly use subjects.
-
-
-..
-A significant benefit that the `Create` method has over subjects is that the sequence will be lazily evaluated. Lazy evaluation is a very important part of Rx. It opens doors to other powerful features such as scheduling and combination of sequences that we will see later. The delegate will only be invoked when a subscription is made.
+Creating an observable sequence is our first step to practical application of Rx: create the sequence and then expose it for consumption. Now that we have a firm grasp on how to create an observable sequence, we can look in more detail at the operators that allow us to describe processing to be applied, to build up more complex observable sequences.
