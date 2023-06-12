@@ -1,12 +1,14 @@
 ---
-title : Reducing a sequence
+title : Transforming Simple Sequences into Valuable Insights
 ---
 
-# Reducing a sequence				
+TODO: this feels more like a "PART" heading and introduction, because it's not just this chapter that covers this ground. The next four chapters are really all connected with this.
 
-We live in the information age. Data is being created, stored and distributed at a phenomenal rate. Consuming this data can be overwhelming, like trying to drink directly from the fire hose. We need the ability to pick out the data we need, choose what is and is not relevant, and roll up groups of data to make it relevant. Users, customers and managers need you do this with more data than ever before, while still delivering higher performance and tighter deadlines.
+# Transforming Simple Sequences into Valuable Insights
 
-Given that we know how to create an observable sequence, we will now look at the various methods that can reduce an observable sequence. 
+
+TODO: this categorization feels a bit arbitrary. For one thing, aggregation and folding are the same thing. `Aggregate` is just LINQ's name for `fold`. The distinction being made here is a minor technical distinction: is the fold result emitted from an `IObservable<T>` or returned directly as a `T`. That's really an operational distinction—it just provides two slightly different technical modes of consuming the same basic capability.
+
 We can categorize operators that reduce a sequence to the following:
 
 <dl>
@@ -20,6 +22,66 @@ We can categorize operators that reduce a sequence to the following:
     <dd>
         Reduce the source sequence to a single element as a scalar value</dd>
 </dl>
+
+TODO contd...: so how do I want to categorise it? Maybe:
+
+* testing/discrimination/scrutinisation/picking
+    * where, ignoreelements (segue by pointing out that Where might filter out everything but will still forward end/error)
+    * OfType
+    * Skip/Take[While/Until]
+    * distinct
+    * First(OrDefault), Last(OrDefault), Single(OrDefault)
+    * DefaultIfEmpty
+    * ElementAt
+
+* transformation
+    * Select
+    * Cast
+    * SelectMany
+    * Materialize/Dematerialize
+* aggregation
+    * to Boolean
+        * Any
+        * All
+        * Contains
+        * SequenceEqual
+    * To numeric
+        * Count
+        * Sum, Average
+        * Min(By), Max(By)
+    * Custom
+        * Aggregate
+        * Scan
+* partitioning
+    * GroupBy
+    * Buffer
+    * Window
+* combination
+    * Concat
+    * Repeat
+    * Zip
+    * CombineLatest
+    * StartWith (prepend)
+    * Append?
+    * merge
+    * join
+    * Amb
+    * Switch
+    * And/Then/When
+* Error Handling
+    * Catch
+    * Finally
+    * Using
+    * Retry
+    * OnErrorResumeNext
+* Timing
+    * TimeStamp TimeInterval
+    * Delay
+    * Sample
+    * Throttle
+    * Timeout
+    * (Buffer/Window again?)
+
 
 We discovered that the creation of an observable sequence from a scalar value is defined as _anamorphism_ or described as an _'unfold'_. We can think of the anamorphism from `T` to `IObservable<T>` as an 'unfold'. This could also be referred to as "entering the monad" where in this case (and for most cases in this book) the monad is `IObservable<T>`. What we will now start looking at are methods that eventually get us to the inverse which is defined as _catamorphism_ or a `fold`. Other popular names for fold are 'reduce', 'accumulate' and 'inject'.
 
