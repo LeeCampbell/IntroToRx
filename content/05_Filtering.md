@@ -1,103 +1,31 @@
 ---
-title : Transforming Simple Sequences into Valuable Insights
+title : Filtering
 ---
 
-TODO: this feels more like a "PART" heading and introduction, because it's not just this chapter that covers this ground. The next four chapters are really all connected with this.
+# Filtering
 
-# Transforming Simple Sequences into Valuable Insights
+Rx provides us with tools to take potentially vast quantities of events and process these to produce higher level insights. This can often involve a reduction in volume—a small number of events may be more useful than a large number if the individual events in that lower-volume stream are, on average, more informative. The simplest mechanisms for achieving this involve simply filtering out events we don't want. Rx defines several operators that can do this.
 
+## Where
 
-TODO: this categorization feels a bit arbitrary. For one thing, aggregation and folding are the same thing. `Aggregate` is just LINQ's name for `fold`. The distinction being made here is a minor technical distinction: is the fold result emitted from an `IObservable<T>` or returned directly as a `T`. That's really an operational distinction—it just provides two slightly different technical modes of consuming the same basic capability.
+Applying a filter to a sequence is an extremely common exercise and the most straightforward filter in LINQ is the `Where` operator. As usual with LINQ, Rx provides its operators in the form of extension methods. If you are already familiar with LINQ, the signature of Rx's `Where` method will come as no surprise:
 
-We can categorize operators that reduce a sequence to the following:
+```cs
+IObservable<T> Where<T>(this IObservable<T> source, Func<T, bool> predicate)
+```
 
-<dl>
-    <dt>Filter and partition operators</dt>
-    <dd>
-        Reduce the source sequence to a sequence with at most the same number of elements</dd>
-    <dt>Aggregation operators</dt>
-    <dd>
-        Reduce the source sequence to a sequence with a single element</dd>
-    <dt>Fold operators</dt>
-    <dd>
-        Reduce the source sequence to a single element as a scalar value</dd>
-</dl>
+Note that the element type is the same for the `source` parameter as it is for the return type. This is because `Where` doesn't modify elements—it can filter some out, but those that it does not remove are passed through unaltered.
 
-TODO contd...: so how do I want to categorise it? Maybe:
-
-* testing/discrimination/scrutinisation/picking
-    * where, ignoreelements (segue by pointing out that Where might filter out everything but will still forward end/error)
-    * OfType
-    * Skip/Take[While/Until]
-    * distinct
-    * First(OrDefault), Last(OrDefault), Single(OrDefault)
-    * DefaultIfEmpty
-    * ElementAt
-
-* transformation
-    * Select
-    * Cast
-    * SelectMany
-    * Materialize/Dematerialize
-* aggregation
-    * to Boolean
-        * Any
-        * All
-        * Contains
-        * SequenceEqual
-    * To numeric
-        * Count
-        * Sum, Average
-        * Min(By), Max(By)
-    * Custom
-        * Aggregate
-        * Scan
-* partitioning
-    * GroupBy
-    * Buffer
-    * Window
-* combination
-    * Concat
-    * Repeat
-    * Zip
-    * CombineLatest
-    * StartWith (prepend)
-    * Append?
-    * merge
-    * join
-    * Amb
-    * Switch
-    * And/Then/When
-* Error Handling
-    * Catch
-    * Finally
-    * Using
-    * Retry
-    * OnErrorResumeNext
-* Timing
-    * TimeStamp TimeInterval
-    * Delay
-    * Sample
-    * Throttle
-    * Timeout
-    * (Buffer/Window again?)
-
-
-We discovered that the creation of an observable sequence from a scalar value is defined as _anamorphism_ or described as an _'unfold'_. We can think of the anamorphism from `T` to `IObservable<T>` as an 'unfold'. This could also be referred to as "entering the monad" where in this case (and for most cases in this book) the monad is `IObservable<T>`. What we will now start looking at are methods that eventually get us to the inverse which is defined as _catamorphism_ or a `fold`. Other popular names for fold are 'reduce', 'accumulate' and 'inject'.
-
-## Where								
-Applying a filter to a sequence is an extremely common exercise and the most common filter is the `Where` clause. In Rx you can apply a where clause with the `Where` extension method. For those that are unfamiliar, the signature of the `Where` method is as follows:
-
-    IObservable<T> Where(this IObservable<T> source, Fun<T, bool> predicate)
-
-Note that both the source parameter and the return type are the same. This allows for a fluent interface, which is used heavily throughout Rx and other LINQ code. In this example we will use the `Where` to filter out all even values produced from a `Range` sequence.
+This example uses `Where` to filter out all even values produced from a `Range` sequence.
 
 ```csharp
-var oddNumbers = Observable.Range(0, 10)
-    .Where(i => i % 2 == 0)
-    .Subscribe(
-        Console.WriteLine, 
-        () => Console.WriteLine("Completed"));
+IObservable<int> xs = Observable.Range(0, 10); // The numbers 0-9
+
+IObservable<int> oddNumbers = xs.Where(i => i % 2 == 0);
+
+oddNumbers.Subscribe(
+    Console.WriteLine, 
+    () => Console.WriteLine("Completed"));
 ```
 
 Output:
@@ -111,221 +39,276 @@ Output:
 Completed
 ```
 
-The `Where` operator is one of the many standard LINQ operators. This and other LINQ operators are common use in the various implementations of query operators, most notably the `IEnumerable<T>` implementation. In most cases the operators behave just as they do in the `IEnumerable<T>` implementations, but there are some exceptions. We will discuss each implementation and explain any variation as we go. By implementing these common operators Rx also gets language support for free via C# query comprehension syntax. For the examples in this book however, we will keep with using extension methods for consistency.
+The `Where` operator is one of the many standard LINQ operators. This and other LINQ operators are common use in the various implementations of query operators, most notably the `IEnumerable<T>` implementation. In most cases the operators behave just as they do in the `IEnumerable<T>` implementations, although there are some exceptions as we'll see later. We will discuss each implementation and explain any variation as we go. By implementing these common operators Rx also gets language support for free via C# query comprehension syntax. For example, we could have written the first statement this way, and it would have compiled to effectively identical code:
 
-## Distinct and DistinctUntilChanged	
-As I am sure most readers are familiar with the `Where` extension method for `IEnumerable<T>`, some will also know the `Distinct` method. In Rx, the `Distinct` method has been made available for observable sequences too. For those that are unfamiliar with `Distinct`, and as a recap for those that are, `Distinct` will only pass on values from the source that it has not seen before.
-
-```csharp
-var subject = new Subject<int>();
-var distinct = subject.Distinct();
-    
-subject.Subscribe(
-    i => Console.WriteLine("{0}", i),
-    () => Console.WriteLine("subject.OnCompleted()"));
-
-distinct.Subscribe(
-    i => Console.WriteLine("distinct.OnNext({0})", i),
-    () => Console.WriteLine("distinct.OnCompleted()"));
-
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(3);
-subject.OnNext(1);
-subject.OnNext(1);
-subject.OnNext(4);
-subject.OnCompleted();
+```cs
+IObservable<int> oddNumbers =
+    from i in xs
+    where i % 2 == 0
+    select i;
 ```
 
-Output:
+For the examples in this book however, we will keep with using extension methods, partly because Rx implements some operators for which there is no corresponding query syntax, and partly because the method call approach can sometimes make it easier to see what is happening.
 
-```
-1
-distinct.OnNext(1)
-2
-distinct.OnNext(2)
-3
-distinct.OnNext(3)
-1
-1
-4
-distinct.OnNext(4)
-subject.OnCompleted()
-distinct.OnCompleted()
+As with most Rx operators, `Where` does not subscribe immediately to its source. (Rx LINQ operators are much like those in LINQ to Objects: the `IEnumerable<T>` version of `Where` returns without attempting to enumerate its source. It's only when something attempts to enumerate the `IEnumerable<T>` that `Where` returns that it will in turn start enumerating the source.) Only when something calls `Susbcribe on the `IObservable<T>` returned by `Where` will it call `Subscribe` on its source. And it will do so once for each such call to `Subscribe`. More generally, when you chain LINQ operators together, each `Subscribe` call on the resulting `IObservable<T>` results in a cascading series of calls to `Subscribe` all the way down the chain.
+
+A side effect of this cascading `Subscribe` is that `Where` (and most other LINQ operators) is neither inherently _hot_ or _cold_: since it just subscribes to its source, then it will be hot if its source is hot, and cold if its source is cold.
+
+The `Where` operator passes on all elements for which its `predicate` callback returns `true`. To be more precise, `Where` will create its own `IObserver<T>` which it passes as the argument to `source.Subscribe`, and this observer invokes the `predicate` for each call to `OnNext`. If that predicate returns `true`, then and only then will the observer created by `Where` call `OnNext` on the observer that was passed to `Where`.
+
+`Where` always passes the final call to either `OnComplete` or `OnError` through. That means that if you were to write this:
+
+```cs
+IObservable<int> dropEverything = xs.Where(_ => false);
 ```
 
-Take special note that the value 1 is pushed 3 times but only passed through the first time. There are overloads to `Distinct` that allow you to specialize the way an item is determined to be distinct or not. One way is to provide a function that returns a different value to use for comparison. Here we look at an example that uses a property from a custom class to define if a value is distinct.
+then although this would filter out all elements (because the predicate ignores its argument and always returns `false`, instructing `Where` to drop everything), this won't filter out error or completion.
 
-```csharp
-public class Account
-{
-    public int AccountId { get; set; }
-    //... etc
-}
+In fact if that's what you want—an operator that drops all the elements and just tells you when a source completes or fails—there's a simpler way.
 
-public void Distinct_with_KeySelector()
-{
-    var subject = new Subject<Account>();
-    var distinct = subject.Distinct(acc => acc.AccountId);
-}
+
+## IgnoreElements
+
+The `IgnoreElements` extension method allows you to receive just the `OnCompleted` or `OnError` notifications. It is equivalent to using the `Where` operator with a predicate that always returns false, as this example illustrates:
+
+```cs
+IObservable<int> xs = Observable.Range(1, 3);
+IObservable<int> dropEverything = xs.IgnoreElements();
+
+Console.WriteLine("Unfiltered:");
+xs.Subscribe(
+    i => Console.WriteLine("xs.OnNext({0})", i),
+    () => Console.WriteLine("xs.OnCompleted()"));
+
+Console.WriteLine();
+Console.WriteLine("IgnoreElements:");
+dropEverything.Subscribe(
+    i=>Console.WriteLine("dropEverything.OnNext({0})", i),
+    () => Console.WriteLine("dropEverything.OnCompleted()"));
 ```
 
-In addition to the `keySelector` function that can be provided, there is an overload that takes an `IEqualityComparer<T>` instance. This is useful if you have a custom implementation that you can reuse to compare instances of your type `T`. Lastly there is an overload that takes a `keySelector` and an instance of `IEqualityComparer<TKey>`. Note that the equality comparer in this case is aimed at the selected key type (`TKey`), not the type `T`.
-
-A variation of `Distinct`, that is peculiar to Rx, is `DistinctUntilChanged`. This method will surface values only if they are different from the previous value. Reusing our first `Distinct` example, note the change in output.
-
-```csharp
-var subject = new Subject<int>();
-var distinct = subject.DistinctUntilChanged();
-    
-subject.Subscribe(
-    i => Console.WriteLine("{0}", i),
-    () => Console.WriteLine("subject.OnCompleted()"));
-
-distinct.Subscribe(
-    i => Console.WriteLine("distinct.OnNext({0})", i),
-    () => Console.WriteLine("distinct.OnCompleted()"));
-
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(3);
-subject.OnNext(1);
-subject.OnNext(1);
-subject.OnNext(4);
-subject.OnCompleted();
-```
-
-Output:
+As the output shows, the `xs` source produces the numbers 1 to 3 then completes, but if we run that through `IgnoreElements`, all we see is the `OnCompleted`.
 
 ```
-1
-distinct.OnNext(1)
-2
-distinct.OnNext(2)
-3
-distinct.OnNext(3)
-1
-distinct.OnNext(1)
-1
-4
-distinct.OnNext(4)
-subject.OnCompleted()
-distinct.OnCompleted()
+Unfiltered:
+xs.OnNext(1)
+xs.OnNext(2)
+xs.OnNext(3)
+xs.OnCompleted()
 
+IgnoreElements:
+dropEverything.OnCompleted()
 ```
 
-The difference between the two examples is that the value 1 is pushed twice. However the third time that the source pushes the value 1, it is immediately after the second time value 1 is pushed. In this case it is ignored. Teams I have worked with have found this method to be extremely useful in reducing any noise that a sequence may provide.
+## OfType
 
-## IgnoreElements					
+Some observable sequence produce items of various types. For example, consider an application that wants to keep track of ships as they move. This is possible with an AIS receiver. AIS is the Automatic Identification System, which most ocean-going ships use to report their location, heading, speed, and other information. There are numerous kinds of AIS message—some report a ship's location and speed, but its name is reported in a different kind of message. (This is because most ships move more often than they change their names, so they broadcast these two types of information at quite different frequencies.)
 
-The `IgnoreElements` extension method is a quirky little tool that allows you to receive the `OnCompleted` or `OnError` notifications. We could effectively recreate it by using a `Where` method with a predicate that always returns false.
+Imagine how this might look in Rx. Actually you don't have to imagine it. The open source [Ais.Net project](https://github.com/ais-dotnet) includes a [`ReceiverHost` class](https://github.com/ais-dotnet/Ais.Net.Receiver/blob/15de7b2908c3bd67cf421545578cfca59b24ed2c/Solutions/Ais.Net.Receiver/Ais/Net/Receiver/Receiver/ReceiverHost.cs) that makes AIS messages available through Rx. The `ReceiverHost` defines a `Messages` property of type `IObservable<IAisMessage>`. Since AIS defines numerous message types, this observable source can produce many different kinds of objects. Everything it emits will implement the [`IAisMessage` interface](https://github.com/ais-dotnet/Ais.Net.Receiver/blob/15de7b2908c3bd67cf421545578cfca59b24ed2c/Solutions/Ais.Net.Models/Ais/Net/Models/Abstractions/IAisMessage.cs), which reports the ship's unique identifier, but not much else. But the [`Ais.Net.Models` library](https://www.nuget.org/packages/Ais.Net.Models/) defines numerous other interfaces, including [`IVesselNavigation`](https://github.com/ais-dotnet/Ais.Net.Receiver/blob/15de7b2908c3bd67cf421545578cfca59b24ed2c/Solutions/Ais.Net.Models/Ais/Net/Models/Abstractions/IVesselNavigation.cs), which reports location, speed, and heading, and [`IVesselName`](https://github.com/ais-dotnet/Ais.Net.Receiver/blob/15de7b2908c3bd67cf421545578cfca59b24ed2c/Solutions/Ais.Net.Models/Ais/Net/Models/Abstractions/IVesselName.cs), which tells you the vessel's name.
 
-```csharp
-var subject = new Subject<int>();
+Suppose you are interested only in the locations of vessels in the water, and you don't care about the vessels' names. You will want to see all messages that implement the `IVesselNavigation` interface, and to ignore all those that don't. You could try to achieve this with the `Where` operator:
 
-// Could use subject.Where(_=>false);
-var noElements = subject.IgnoreElements();
-
-subject.Subscribe(
-    i=>Console.WriteLine("subject.OnNext({0})", i),
-    () => Console.WriteLine("subject.OnCompleted()"));
-
-noElements.Subscribe(
-    i=>Console.WriteLine("noElements.OnNext({0})", i),
-    () => Console.WriteLine("noElements.OnCompleted()"));
-
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(3);
-subject.OnCompleted();
+```cs
+// Won't compile!
+IObservable<IVesselNavigation> vesselMovements = receiverHost.Messages
+    .Where(m => m is IVesselNavigation);
 ```
 
-Output:
+However, that won't compile. You will get this error:
 
 ```
-subject.OnNext(1)
-subject.OnNext(2)
-subject.OnNext(3)
-subject.OnCompleted()
-noElements.OnCompleted()
-
+Cannot implicitly convert type 'System.IObservable<Ais.Net.Models.Abstractions.IAisMessage>' to 'System.IObservable<Ais.Net.Models.Abstractions.IVesselNavigation>'
 ```
 
-As suggested earlier we could use a `Where` to produce the same result
+Remember that the return type of `Where` is always the same as its input. Since `receiverHost.Messages` is of type `IObservable<IAisMessage>`, that's is also the type that `Where` will return. It so happens that our predicate ensures that only those messages that implement `IVesselNavigation` make it through, but there's no way for the C# compiler to understand the relationship between the predicate and the output. (For all it knows, `Where` might do the exact opposite, including only those elements for which the predicate returns `false`. In fact the compiler can't guess anything about how `Where` might use its predicate.)
 
-```csharp
-subject.IgnoreElements();
-// Equivalent to 
-subject.Where(value=>false);
-// Or functional style that implies that the value is ignored.
-subject.Where(_=>false);
+Fortunately, Rx provides an operator specialized for this case. `OfType` filters items down to just those that are of a particular type—items must be either the exact type specified, or if it's an interface they must implement it, or otherwise they must inherit from it. This enables us to fix the last example:
+
+```cs
+IObservable<IVesselNavigation> vesselMovements = receiverHost.Messages
+    .OfType<IVesselNavigation>();
 ```
 
-Just before we leave `Where` and `IgnoreElements`, I wanted to just quickly look at the last line of code. Until recently, I personally was not aware that '`_`' was a valid variable name; however it is commonly used by functional programmers to indicate an ignored parameter. This is perfect for the above example; for each value we receive, we ignore it and always return false. The intention is to improve the readability of the code via convention.
 
-## Skip and Take						
+
+
+## Positional Filtering
+
+Sometimes, we don't care about what an element is, so much as where it is in the sequence.
+
+
+### FirstAsync and FirstOrDefaultAsync
+
+LINQ providers typically implement a `First` operator that provides the first element of a sequence. Rx is no exception, but the nature of Rx means we typically need this to work slightly differently. With providers for data at rest (such as LINQ to Objects or Entity Framework Core) the source elements already exist, so retrieving the first item is just a matter of reading it. But with Rx, sources produce data when they choose, so there's no way of knowing when the first item will become available.
+
+So with Rx, we typically use `FirstAsync`. This returns an `IObservable<T>` that will produce the first value that emerges from the source sequence and will then complete. (There is also a `First` method, but it can be problematic. See the [**Blocking Versions of First/Last/Single[OrDefault]** section later](#blocking-versions-of-firstlastsingleordefault) for details.)
+
+For example, this code uses the AIS.NET source introduced earlier to report the first time a particular boat (the aptly named HMS Example, as it happens) reports that it is moving:
+
+```cs
+uint exampleMmsi = 235009890;
+IObservable<IVesselNavigation> moving = receiverHost.Messages
+    .Where(v => v.Mmsi == exampleMmsi)
+    .OfType<IVesselNavigation>()
+    .Where(vn => vn.SpeedOverGround > 1f)
+    .FirstAsync();
+```
+
+As well as using `FirstAsync`, this also uses a couple of the other filter elements already described. It starts with a [`Where`](#where) step that filters message down to those from the one boat we happen to be interested in. (Specifically, we filter based on that boat's [Maritime Mobile Service Identity, or MMSI](https://en.wikipedia.org/wiki/Maritime_Mobile_Service_Identity).) Then we use [`OfType`](#oftype) so that we are looking only at those messages that report movement. Then we use another `Where` clause so that we can ignore messages indicating that the boat is not actually moving, finally, we use `FirstAsync` so that we get only the first message indicating movement. As soon as the boat moves, this `moving` source will emit a single `IVesselNavigation` event and will then immediately complete.
+
+We can simplify that query slightly, because `FirstAsync` optionally takes a predicate. This enables us to collapse the final `Where` and `FirstAsync` into a single operator:
+
+```cs
+IObservable<IVesselNavigation> moving = receiverHost.Messages
+    .Where(v => v.Mmsi == exampleMmsi)
+    .OfType<IVesselNavigation>()
+    .FirstAsync(vn => vn.SpeedOverGround > 1f);
+```
+
+What if the input to `FirstAsync` is empty? If its completes without ever producing an item, `FirstAsync` invokes its subscriber's `OnError` with an `InvalidOperationException` with an error message reporting that the sequence contains no elements. The same is true if we're using the form that takes a predicate (as in this second example), and no elements matching the predicate emerged. This is consistent with the LINQ to Objects `First` operator. (Note that we wouldn't expect this to happen with the examples just shown, because the source will continue to report AIS messages for as long as the application is running, meaning there's no reason for it ever to complete.)
+
+Sometimes, we might want to tolerate this kind of absence of events. Most LINQ providers offer not just `First` but `FirstOrDefault`. We can use this by modify the preceding example. This uses the [`TakeUntil` operator](#skipuntil-and-takeuntil) to introduce a cut-off time: this example is prepared to wait for 5 minutes, but gives up after that. (So although the AIS receiver can produce messages endlessly, this example has decided it won't wait forever.) And since that means we might complete without ever seeing the boat move, we've replaced `FirstAsync` with `FirstOrDefaultAsync`:
+
+```cs
+IObservable<IVesselNavigation?> moving = receiverHost.Messages
+    .Where(v => v.Mmsi == exampleMmsi)
+    .OfType<IVesselNavigation>()
+    .TakeUntil(DateTimeOffset.Now.AddMinutes(5))
+    .FirstOrDefaultAsync(vn => vn.SpeedOverGround > 1f);
+```
+
+If, after 5 minutes, we've not seen a message from the boat indicating that it's moving at 1 knot or faster, `TakeUntil` will unsubscribe from its upstream source and will call `OnCompleted` on the observer supplied by `FirstOrDefaultAsync`. Whereas `FirstAsync` would treat this as an error, `FirstOrDefaultAsync` will produce the default value for its element type (`IVesselNavigation` in this case; the default value for an interface type is `null`), pass that to its subscriber's `OnNext` and then call `OnCompleted`.
+
+In short, this `moving` observable will always produce exactly one item. Either it will produce an `IVesselNavigation` indicating that the boat has moved, or it will produce `null` to indicate that this didn't happen in the 5 minutes that this code has allowed.
+
+This production of a `null` might be an OK way to indicate that something didn't happen, but there's something slightly clunky about it: anything consuming this `moving` source now has to work out whether a notification signifies the event of interest, or the absence of any such event. If that happens to be convenient for your code, then great, but Rx provides a more direct way to represent the absence of an event: an empty sequence.
+
+You could imagine a _first or empty_ operator that worked this way. This wouldn't make sense for LINQ providers that return an actual value. For example, as LINQ to Objects' `First` returns `T`, not `IEnumerable<T>`, so there's no way for it to return an empty sequence. But because Rx's offers `First`-like operators that return `IObservable<T>`, it would be technically possible to have an operator that returns either the first item or no items at all. There is no such operator built into Rx, but we can get exactly the same effect by using a more generalised operator, `Take`.
+
+### Take
+
+`Take` is a standard LINQ operator that takes the first few items from a sequence and then discards the rest.
+
+In a sense, `Take` is a generalization of `First`: `Take(1)` returns only the first item, so you could think of LINQ's `First` as being a special case of `Take`. That's not strictly correct because these operators respond differently to missing elements: as we've just seen, `First` (and Rx's `FirstAsync`) insists on receiving at least one element, producing an `InvalidOperationException` if you supply it with an empty sequence. Even the more existentially relaxed `FirstOrDefault` still insists on producing something. `Take` works slightly differently.
+
+If the input to `Take` completes before producing as many elements as have been specified, `Take` does not complain—it just forwards whatever the source has provided. If the source did nothing other than call `OnCompleted`, then `Take` just calls `OnCompleted` on its observer. If we used `Take(5)`, but the source produced three items and then completed, `Take(5)` will forward those three items to its subscriber, and will then complete. This means we could use `Take` to implement the hypothetical `FirstOrEmpty` discussed in the preceding section:
+
+```cs
+public static IObservable<T> FirstOrEmpty<T>(this IObservable<T> src) => src.Take(1);
+```
+
+Now would be a good time to remind you that most Rx operators (and all the ones in this chapter) are not intrinsically either hot or cold. They defer to their source. Given some hot `source`, `source.Take(1)` is also hot. The AIS.NET `receiverHost.Messages` source I've been using in these examples is hot (because it reports live message broadcasts from ships), so observable sequences derived from it are also hot. Why is now a good time to discuss this? Because it enables me to make the following absolutely dreadful pun:
+
+```cs
+IObservable<IAisMessage> hotTake = receiverHost.Messages.Take(1);
+```
+
+Thank you. I'm here all week.
+
+The `FirstAsync` and `Take` operators work from the start of the sequence. What if we're interested only in the tail end?
+
+### LastAsync and LastOrDefaultAsync
+
+LINQ providers typically provide `Last` and `LastOrDefault`. These do almost exactly the same thing as `First` or `FirstOrDefault` except, as the name suggests, they return the final element instead of the first one. As with `First`, the nature of Rx means that unlike with LINQ providers working with data at rest, the final element might not be just sitting there waiting to be fetched. So just as Rx offers `FirstAsync` and `FirstOrDefault`, it offers `LastAsync` and `LastOrDefaultAsync`. (It does also offer `Last`, but again, as the [Blocking Versions of First/Last/Single[OrDefault]](#blocking-versions-of-firstlastsingleordefault) section discusses, this can be problematic.)
+
+The distinction between these two operators is the same as with `FirstAsync` and `FirstOrDefaultAsync`. If the source completes having produced nothing, `LastAsync` reports an error, whereas `LastOrDefaultAsync` emits the default value for its element type and then completes.
+
+Reporting the final element of a sequence entails a challenge that `First` does not face. It's very easy to know when you've received the first element from a source: if the source produces an element, and it hasn't previously produced an element, then that's the first element right there. This means that operators such as `FirstAsync` can report the first element immediately. But `LastAsync` and `LastOrDefaultAsync` don't have that luxury.
+
+If you receive an element from a source, how do you know that it is the last element? In general, you can't know this at the instant that you receive it. You will only know that you have received the last element when the source goes on to invoke your `OnCompleted` method. This won't necessarily happen immediately. An earlier example used `TakeUntil(DateTimeOffset.Now.AddMinutes(5))` to bring a sequence to an end after 5 minutes, and if you do that, it's entirely possible that a significant amount of time might elapse between the final element being emitted, and `TakeUntil` shutting things down. In the AIS scenario, boats might only emit messages once every few minutes, so it's quite plausible that we could end up with `TakeUntil` forwarding a message, and then discovering a few minutes later that the cutoff time has been reached without any further messages coming in. Several minutes could have elapsed between the final `OnNext` and the `OnComplete`.
+
+Because of this. `LastAsync` and `LastOrDefaultAsync` emit nothing at all until their source completes.
+
+**This has an important consequence:** there might be a significant delay between `LastAsync` receiving the final element from the source, and it forwarding that element to its subscriber.
+
+### TakeLast
+
+Earlier we saw that Rx implements the standard `Take` operator, which forwards up to a specified number of elements from the start of a sequence and then stops. `TakeLast` forwards the elements at the end of a sequence. For example, `TakeLast(3)` asks for the final 3 elements of the source sequence. As with `Take`, `TakeLast` is tolerant of sources that produce too few items—if a source produces fewer than 3 items, `TaskLast(3)` will just forward the entire sequence.
+
+`TaskLast` faces the same challenge as `Last`: it doesn't know when it is near the end of the sequence. It therefore has to hold onto copies of the most recently seen values. Note that it will need enough memory to hold onto however many values you've specified. If you write `TakeLast(1_000_000)`, it will need to allocate a buffer large enough to store 1,000,000 values. It doesn't know if the first element it receives will be one of the final million. It can't know that until either the source completes, or the source has emitted more than 1,000,000 items. When the source finally does complete, `TakeLast` will now know what the final million elements were and will need to pass all of them to its subscriber's `OnNext` method one after another.
+
+
+### SingleAsync and SingleOrDefaultAsync
+
+LINQ operators typically provide a `Single` operator, for use when a source should provide exactly one item, and it would be an error for it to contain more, or for it to be empty. The same Rx considerations apply here as for `First` and `Last`, so you will probably be unsurprised to learn that Rx offers a `SingleAsync` method that returns an `IObservable<T>` that will either call its observer's `OnNext` exactly once, or will call its `OnError` to indicate either that the source reported an error, or that the source did not produce exactly one item.
+
+With `SingleAsync`, you will get an error if the source is empty, just like with `FirstAsync` and `LastAsync`, but you will also get an error if the source contains multiple items. There is a `SingleOrDefault` which, like its first/last counterparts, tolerates an empty input sequence, generating a single element with the element type's default value in that case.
+
+`Single` and `SingleAsync` share with `Last` and `LastAsync` the characteristic that they know when they receive an item from the source whether it should be the output. That may seem odd: since `Single` requires the source stream to provide just one item, surely it must know that the item it will deliver to its subscriber will be the first item it receives. This is true, but the thing it doesn't yet know when it receives the first item is whether the source is going to produce a second one. It can't forward the first item unless and until the source completes. We could say that `SingleAsync`'s job is to first verify that the source contains exactly one item, and then to forward that item if it does, but to report an error if it does not. In the error case, `SingleAsync` will know it has gone wrong if it ever receives a second item, so it can immediately call `OnError` on its subscriber at that point. But in the success scenario, it can't know that all is well until the source confirms that nothing more is coming by completing. Only then will `SingleAsync` emit the result.
+
+### Skip and SkipLast
+
+What if we want the exact opposite of the `Take` or `TakeLast` operators? Instead of taking the first 5 items from a source, maybe I want to discard the first 5 items instead? Perhaps I have some `IObservable<float>` taking readings from a sensor, and I have discovered that the sensor produces garbage values for its first few readings, so I'd like to ignore those, and only start listening once it has settled down. I can achieve this with `Skip(5)`.
+
+`SkipLast` does the same thing at the end of the sequence—it omits the specified number of elements at the tail end. As with some of the other operators we've just been looking at, this has to deal with the problem that it can't tell when it's near the end of the sequence. It only gets to discover which were the last (say) 4 elements after the source has emitted all of them, followed by an `OnComplete`. So `SkipLast` will introduce a delay. If you use `SkipLast(4)`, it won't forward the first element that the source produces until the source produces a 5th element. So it doesn't need to wait for `OnCompleted` or `OnError` before it can start doing things, it just has to wait until its certain that an element is not one of the ones we want to discard.
 
 The other key methods to filtering are so similar I think we can look at them as one big group. First we will look at `Skip` and `Take`. These act just like they do for the `IEnumerable<T>` implementations. These are the most simple and probably the most used of the Skip/Take methods. Both methods just have the one parameter; the number of values to skip or to take.
 
-If we first look at `Skip`, in this example we have a range sequence of 10 items and we apply a `Skip(3)` to it.
 
-```csharp
-Observable.Range(0, 10)
-    .Skip(3)
-    .Subscribe(Console.WriteLine, () => Console.WriteLine("Completed"));
+### Blocking Versions of First/Last/Single[OrDefault]
+
+Several of the operators described in the preceding sections end in the name `Async`. This is a little strange because normally, .NET methods that end in `Async` return a `Task` or `Task<T>`, and yet these all return an `IObservable<T>`. Also, as already discussed, each of these methods corresponds to a standard LINQ operator which does not generally end in `Async`. (And to further add to the confusion, some LINQ providers such as Entity Framework Core do include `Async` versions of some of these operators, but they are different. Unlike Rx, these do in fact return a `Task<T>`, so they still produce a single value, and not an `IQueryable<T>` or `IEnumerable<T>`.) This naming arises from an unfortunate choice early in Rx's design.
+
+If Rx were being designed from scratch today, the relevant operators in the preceding section would just have the normal names: `First`, and `FirstOrDefault`, and so on. The reason they all end with `Async` is that these were added in Rx 2.0, and Rx 1.0 had already defined operators with those names. This example shows the `First` operator:
+
+```cs
+int v = Observable.Range(1, 10).First();
+Console.WriteLine(v);
 ```
 
-Output:
+This prints out the value `1`, which is the first item returned by `Range` here. But look at the type of that variable `v`. It's not an `IObservable<int>`, it's just an `int`. What would happen if we used this on an Rx operator that didn't immediately produce values upon subscription? Here's one example:
 
-```
-3
-4
-5
-6
-7
-8
-9
-Completed
 
+```cs
+long v = Observable.Timer(TimeSpan.FromSeconds(2)).First();
+Console.WriteLine(v);
 ```
 
-Note the first three values (0, 1 &amp; 2) were all ignored from the output. Alternatively, if we used `Take(3)` we would get the opposite result; i.e. we would only get the first 3 values and then the Take operator would complete the sequence.
+If you run this, you'll find that the call to `First` doesn't return until a value is produced. It is a _blocking_ operator. We typically avoid blocking operators in Rx, because it's easy to create deadlocks with them. The whole point of Rx is that we can create code that reacts to events, so to just sit and wait until a specific observable source produces a value is not really in the spirit of things. If you find yourself wanting to do that, there are often better ways to achieve the results you're looking for. (Or perhaps Rx isn't good model for whatever you're doing.)
 
-```csharp
-Observable.Range(0, 10)
-    .Take(3)
-    .Subscribe(Console.WriteLine, () => Console.WriteLine("Completed"));
+If you really do need to wait for a value like this, it might be better to use the `Async` forms in conjunction with Rx's integrated support for C#'s `async`/`await`:
+
+```cs
+long v = await Observable.Timer(TimeSpan.FromSeconds(2)).FirstAsync();
+Console.WriteLine(v);
 ```
 
-Output:
+This logically has the same effect, but because we're using `await`, this won't block the calling thread while it waits for the observable source to produce a value. This might reduce the chances of deadlock.
 
-```
-0
-1
-2
-Completed
+The fact that we're able to use `await` makes some sense of the fact that these methods end with `Async`, but you might be wondering what's going on here. We've seen that these methods all return `IObservable<T>`, not `Task<T>`, so how are we able to use `await`?
 
-```
+Although `await` is most often used with `Task`, `Task<T>`, or `ValueTask<T>`, it is actually an extensible language feature. It's possible to make `await` work for more or less any type by defining some suitable extension methods and some supporting types. And that's precisely what Rx does. If your source file includes a `using System.Reactive.Linq;` directive, a suitable extension method will be available, so you can `await` any task. (The way this actually works is that the relevant `GetAwaiter` extension method wraps the `IObservable<T>` in an `AsyncSubject<T>`, which provides everything that C# requires to support `await`. And as you may recall from the [`AsyncSubject<T>` section of chapter 3](./03_CreatingObservableSequences.md#asyncsubject), `AsyncSubject<T>` reports only the final value to emerge from its source. So if you `await` a sequence that reports multiple items, all but the final item will be ignored.)
 
-Just in case that slipped past any readers, it is the `Take` operator that completes once it has received its count. We can prove this by applying it to an infinite sequence.
+Note that there are occasionally situations in which values are available immediately. For example, the [`BehaviourSubject<T>` section in chapter 3](./03_CreatingObservableSequences.md#behaviorsubject), showed that the defining feature of `BehaviourSubject<T>` is that it always has a current value. That means that Rx's `First` method won't actually block—it will subscribe to the `BehaviourSubject<T>`, and `BehaviourSubject<T>.Subscribe` calls `OnNext` on its subscriber's observable before returning. That enables `First` to return a value immediately without blocking. (Of course, if you use the overload of `First` that accepts a predicate, and if the `BehaviourSubject<T>`'s value doesn't satisfy the predicate, `First` will then block.)
 
-```csharp
-Observable.Interval(TimeSpan.FromMilliseconds(100))
-    .Take(3)
-    .Subscribe(Console.WriteLine, () => Console.WriteLine("Completed"));
-```
 
-Output:
+### ElementAt
 
-```
-0
-1
-2
-Completed
+There is yet another standard LINQ operator for selecting one particular element from the source: `ElementAt`. You provide this with a number indicating the position in the sequence of the element you require. In data-at-rest LINQ providers, this is logically equivalent to accessing an array element by index. Rx implements this operator, but whereas most LINQ providers' `ElementAt<T>` implementation returns a `T`, Rx's returns an `IObservable<T>`. Unlike with `First`, `Last`, and `Single`, Rx does not provide a blocking form of `ElementAt<T>`. But since you can await any `IObservable<T>`, you can always do this:
 
+```cs
+IAisMessage fourth = await recieverHost.Message.ElementAt(4);
 ```
 
-### SkipWhile and TakeWhile			
+## Temporal Filtering
+
+The `Take` and `TakeLast` operators let us filter out everything except elements either at the very start or very end (and `Skip` and `SkipLast` let see everything but those), but these all require us to know the exact number of elements. What if we want to specify the cut-off not in terms of an element count, but in terms of a particular instant in time?
+
+In fact you've already seen one example: earlier I used `TakeUntil` to convert an endless `IObservable<T>` into one that would complete after five minutes. This is one of a family of operators.
+
+### SkipWhile and TakeWhile
+
+In the [`Skip` and `SkipLast` section](#skip-and-skiplast), I described a sensor that produces garbage values for its first few readings. This is quite common. For example, gas monitoring sensors often need to get some component up to a correct operator temperature before they can produce accurate readings. In the example in that section, I used `Skip(5)` to ignore the first few readings, but that is a crude solution. How do we know that 5 is enough? Or might it be ready sooner, in which case 5 is too few.
+
+What we really want to do is discard readings until we know the readings will be valid. And that's exactly the kind of scenario that `SkipWhile` can be useful for. Suppose we have a gas sensor that reports concentrations of some particular gas, but which also reports the temperature of the sensor plate that is performing the detection. Instead of hoping that 5 readings is a sensible number to skip, we could express the actual requirement:
+
+```cs
+const int MinimumSensorTemperature = 74;
+IObservable<SensorReading> readings = sensor.RawReadings
+    .SkipUntil(r => r.SensorTemperature >= MinimumSensorTemperature);
+```
+
+This directly expresses the logic we require: this will discard readings until the device is up to its minimum operating temperature.
 
 The next set of methods allows you to skip or take values from a sequence while a predicate evaluates to true. For a `SkipWhile` operation this will filter out all values until a value fails the predicate, then the remaining sequence can be returned.
 
@@ -387,138 +370,59 @@ Completed
 
 ```
 
-### SkipLast and TakeLast			
+### SkipUntil and TakeUntil
 
-These methods become quite self explanatory now that we understand Skip/Take and SkipWhile/TakeWhile. Both methods require a number of elements at the end of a sequence to either skip or take. The implementation of the `SkipLast` could cache all values, wait for the source sequence to complete, and then replay all the values except for the last number of elements. The Rx team however, has been a bit smarter than that. The real implementation will queue the specified number of notifications and once the queue size exceeds the value, it can be sure that it may drain a value from the queue.
+In addition to `SkipWhile` and `TakeWhile`, Rx defines `SkipUntil` and `TakeUntil`. These may sound like nothing more than an alternate expression of the same idea: you might expect `SkipUntil` to do almost exactly the same thing as `SkipWhile`, with the only difference being that `SkipWhile` runs for as long as its predicate returns `true`, whereas `SkipUntil` runs for as long as its predicate returns `false`. And there is an overload of `SkipUntil` that does exactly that (and a corresponding one for `TakeUntil`). If that's all these were they wouldn't be interesting. However, there are overloads of `SkipUtil` and `TakeUntil` that enable us to do things we can't do with `SkipWhile` and `TakeWhile`.
 
-```csharp
-var subject = new Subject<int>();
-subject
-    .SkipLast(2)
-    .Subscribe(Console.WriteLine, () => Console.WriteLine("Completed"));
-Console.WriteLine("Pushing 1");
-subject.OnNext(1);
-Console.WriteLine("Pushing 2");
-subject.OnNext(2);
-Console.WriteLine("Pushing 3");
-subject.OnNext(3);
-Console.WriteLine("Pushing 4");
-subject.OnNext(4);
-subject.OnCompleted();
+You've already seen one example. The [`FirstAsync` and `FirstOrDefaultAsync`](#firstasync-and-firstordefaultasync) included an example that used an overload of `TakeUntil` that accepted a `DateTimeOffset`. This wraps any `IObservable<T>`, returning an `IObservable<T>` that will forward everything from the source until the specified time, at which point it will immediately complete (and will unsubscribe from the underlying source).
+
+We couldn't have achieved this with `TakeWhile`, because that consults its predicate only when the source produces an item. If we want the source to complete at a specific time, the only way we could do that with `TakeWhile` is if its source happens to produce an item at the exact moment we wanted to finish. `TakeWhile` will only ever complete as a result of its source producing an item. `TakeUntil` can complete asynchronously—if we specified a time 5 minutes into the future, it doesn't matter if the source is completely idle when that time arrives. `TakeUntil` will complete anyway. (It relies on Schedulers to be able to do this.)
+
+We don't have to use a time, `TakeUntil` offers an overload that accept a second `IObservable<T>`. This enables us to tell it to stop when something interesting happens, without needing to know in advance exactly when that will occur. This overload of `TakeUntil` forwards items from the source until that second `IObservable<T>` produces a value. `SkipUntil` offers a similar overload in which the second `IObservable<T>` determines when it should start forwarding items from the source.
+
+**Note**: these overloads require the second observable to produce a value in order to trigger the start or end. If that second observable completes without producing a single notification, then it has no effect—`TakeUntil` will continue to take items indefinitely; `SkipUntil` will never produce anything. In other words, these operators would treat `Observable.Empty<T>()` as being effectively equivalent to `Observable.Never<T>()`.
+
+
+### Distinct and DistinctUntilChanged
+
+`Distinct` is yet another standard LINQ operator. It removes duplicates from a sequence. To do this, it needs to remember all the values that its source has ever product, so that it can filter out any items that it has seen before. Rx includes an implementation of `Distinct`, and this example uses it to display the unique identifier of vessels generating AIS messages, but ensuring that we only display each such identifier the first time we see it:
+
+```cs
+IObservable<uint> newIds = receiverHost.Messages
+    .Select(m => m.Mmsi)
+    .Distinct();
+
+newIds.Subscribe(id => Console.WriteLine($"New vessel: {id}"));
 ```
 
-Output:
+(This is leaping ahead a little—it uses `Select`, which we'll get to in Chapter XXX. However, this is a very widely used LINQ operator, so you are probably already familiar with it. I'm using it here to extract just the MMSI—the vessel identifier—from the message.)
 
-```
-Pushing 1
-Pushing 2
-Pushing 3
-1
-Pushing 4
-2
-Completed
+This example is fine if we are only interested in vessels' identifiers. But what if we want to inspect the detail of these messages? How can we retain the ability to see messages only for vessels we've never previously heard of, but still be able to look at the information in those message? The use of `Select` to extract the id stops us from doing this. Fortunately, `Distinct` provides an overload enabling us to change how it determines uniqueness. Instead of getting `Distinct` to look at the values it is processing, we can provide it with a function that lets us pick whatever characteristics we like. So instead of filtering the stream down to values that have never been seen before, we can instead filter the stream down to values that have some particular property of combination of properties we've never seen before. Here's a simple example:
 
+```cs
+IObservable<IAisMessage> newVesselMessages = receiverHost.Messages
+    .Distinct(m => m.Mmsi);
 ```
 
-Unlike `SkipLast`, `TakeLast` does have to wait for the source sequence to complete to be able to push its results. As per the example above, there are `Console.WriteLine` calls to indicate what the program is doing at each stage.
+Here, the input to `Distinct` is now an `IObservable<IAisMessage>`. (In the preceding example it was actually `IObservable<uint>`, because the `Select` clause picked out just the MMSI.) So `Distinct` now receives the entire `IAisMessage` each time the source emits one. But because we've supplied a callback, it's not going try and compare entire `IAisMessage` messages with one another. Instead, each time it receives one, it passes that to our callback, and then looks at the value our callback returns, and compares that with the values the callback returned for all previously seen messages, and lets the message through only if that's new.
 
-```csharp
-var subject = new Subject<int>();
-subject
-    .TakeLast(2)
-    .Subscribe(Console.WriteLine, () => Console.WriteLine("Completed"));
-Console.WriteLine("Pushing 1");
-subject.OnNext(1);
-Console.WriteLine("Pushing 2");
-subject.OnNext(2);
-Console.WriteLine("Pushing 3");
-subject.OnNext(3);
-Console.WriteLine("Pushing 4");
-subject.OnNext(4);
-Console.WriteLine("Completing");
-subject.OnCompleted();
+So the effect is similar to before—messages will be allowed through only if they have an MMSI not previously seen. But the difference is that the `Distinct` operator's output here is `IObservable<IAisMessage>`, so when `Distinct` lets an item through, the entire original message remains available.
+
+In addition to the standard LINQ `Distinct` operator, Rx also provides `DistinctUntilChanged`. This only lets through notifications when something has changed, which it achieved by filtering out only adjacent duplicates. For example, given the sequence `1,2,2,3,4,4,5,4,3,3,2,1,1` it would produce `1,2,3,4,5,4,3,2,1`. Whereas `Distinct` remembers every value ever produced, `DistinctUntilChanged` remembers only the most recently emitted value, and filters out new values if and only if they match that most recent value.
+
+This example uses `DistinctUntilChanged` to detect when a particular vessel reports a change in `NavigationStatus`.
+
+```cs
+uint exampleMmsi = 235009890;
+IObservable<IAisMessageType1to3> newIds = receiverHost.Messages
+    .Where(v => v.Mmsi == exampleMmsi)
+    .OfType<IAisMessageType1to3>()
+    .DistinctUntilChanged(m => m.NavigationStatus);
 ```
 
-Output:
+For example, if the vessel had repeatedly been reporting a status of `AtAnchor`, `DistinctUntilChanged` would drop each such message because the status was the same as it had previously been. But if the status were to change to `UnderwayUsingEngine`, that would cause `DistinctUntilChanged` to let the first message reporting that status through. It would then not allow any further messages through until there was another change in value, either back to `AtAnchor`, or to something else such as `Moored`.
 
-```
-Pushing 1
-Pushing 2
-Pushing 3
-Pushing 4
-Completing
-3
-4
-Completed
 
-```
+That was our quick run through of the filtering methods available in Rx. While they are relatively simple, as we have already begun to see, the power in Rx is down to the composability of its operators.
 
-### SkipUntil and TakeUntil			
-
-Our last two methods make an exciting change to the methods we have previously looked. These will be the first two methods that we have discovered together that require two observable sequences.
-
-`SkipUntil` will skip all values until any value is produced by a secondary observable sequence.
-
-```csharp
-var subject = new Subject<int>();
-var otherSubject = new Subject<Unit>();
-subject
-    .SkipUntil(otherSubject)
-    .Subscribe(Console.WriteLine, () => Console.WriteLine("Completed"));
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(3);
-otherSubject.OnNext(Unit.Default);
-subject.OnNext(4);
-subject.OnNext(5);
-subject.OnNext(6);
-subject.OnNext(7);
-subject.OnNext(8);
-
-subject.OnCompleted();
-```
-
-Output:
-
-```
-4
-5
-6
-7
-Completed
-
-```
-
-Obviously, the converse is true for `TakeWhile`. When the secondary sequence produces a value, then the `TakeWhile` operator will complete the output sequence.
-
-```csharp
-var subject = new Subject<int>();
-var otherSubject = new Subject<Unit>();
-subject
-    .TakeUntil(otherSubject)
-    .Subscribe(Console.WriteLine, () => Console.WriteLine("Completed"));
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(3);
-otherSubject.OnNext(Unit.Default);
-subject.OnNext(4);
-subject.OnNext(5);
-subject.OnNext(6);
-subject.OnNext(7);
-subject.OnNext(8);
-
-subject.OnCompleted();
-```
-
-Output:
-
-```
-1
-2
-3
-Completed
-```
-
-That was our quick run through of the filtering methods available in Rx. While they are pretty simple, as we will see, the power in Rx is down to the composability of its operators.
-
-These operators provide a good introduction to the filtering in Rx. The filter operators are your first stop for managing the potential deluge of data we can face in the information age. We now know how to remove unmatched data, duplicate data or excess data. Next, we will move on to the other two sub classifications of the reduction operators, inspection and aggregation.
+The filter operators are your first stop for managing the potential deluge of data we can face in the information age. We now know how to remove unmatched data, duplicate data or excess data. Next, we will move on to operators that can transform data.

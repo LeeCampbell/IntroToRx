@@ -1,0 +1,9 @@
+
+
+TODO: I had originally written this to explain why there's no `FirstOrEmpty`, but ultimately felt it was a distraction, and that it was better to use the opportunity to segue into `Take` (which is effectively a generalization of `First` that is flexible enough to do what `FirstOrEmpty` would do).
+
+But I think this is an important point, and I'd like to make it somewhere.
+
+`First` and its variants are all examples of a group of operators that take a collection-like input and reduce it to a single value. This makes it structurally similar to some other operators we'll see later such as `Max`, `Average`, and `Sum`—they all reduce their entire input example to a single output value. (A function of this type is sometimes referred to as a _fold_, or if you like fancy but mathematically precise language, a [_catamorphism_](https://bartoszmilewski.com/2013/06/10/understanding-f-algebras/).) A hypothetical `FirstOrEmpty` would not fit the mould—sometimes its result would produce a single element and sometimes it would produce nothing.
+
+This might seem like an unnecessarily academic argument. However, this underestimates the extent to which LINQ in general and Rx in particular benefit from academic research. Composition is fundamental to how we use Rx—any real Rx program will tend to plug multiple operators together. This generally just works, but the fact that it does work is not an accident. Rx's design is heavily informed by research on how abstract algebra can be applied to software to ensure that such composition is sound. Rx does not make a big song and dance about this—you don't need to know what Monads or anamorphisms are to use it successfully. It just quietly relies on solid underlying theory to ensure that everything works smoothly.

@@ -88,34 +88,8 @@ Caution should be prescribed whenever using any of these fold methods on an obse
 
 > It is worth noting that in the soon to be released .NET 4.5 and Rx 2.0 will provide support for avoiding these concurrency problems. The new `async`/`await` keywords and related features in Rx 2.0 can help exit the monad in a safer way.
 
-### First							
+TODO: this was where First, Last, and Single were. (That was an odd choice. They are technically catamorphisms, but they are degenerate cases. `Aggregate` is the canonical example but that wasn't in this section! `Sum`, `Average`, `Min`, and `Max` are also all good examples (more specialized than Aggregate, but at least they look at every input), but they're also not in here. To be fair, the Rx source code puts FirstAsync and SingleAsync in Observable.Aggregates.cs. But it's the fact that this section _only_ contained these, and none of the other more obviously aggregating catamorphisms.) I've moved those out into filtering, because they feel more akin to Take and Last. From a structural algebra perspective these are different kinds of things, but in terms of what they actually do, they are positional filters, so they seem to fit better in the filtering chapter than Aggregation because they don't aggregate.
 
-The `First()` extension method simply returns the first value from a sequence.
-
-```csharp
-var interval = Observable.Interval(TimeSpan.FromSeconds(3));
-
-// Will block for 3s before returning
-Console.WriteLine(interval.First());
-```
-
-If the source sequence does not have any values (i.e. is an empty sequence) then the `First` method will throw an exception. You can cater for this in three ways:
-
-- Use a try/catch blocks around the `First()` call
-- Use `Take(1)` instead. However, this will be asynchronous, not blocking.
-- Use `FirstOrDefault` extension method instead
-
-The `FirstOrDefault` will still block until the source produces any notification. If the notification is an `OnError` then it will be thrown. If the notification is an `OnNext` then that value will be returned, otherwise if it is an `OnCompleted` the default will be returned. As we have seen in earlier methods, we can either choose to use the parameterless method in which the default value will be `default(T)` (i.e. null for reference types or the zero value for value types), alternatively we can provide our own default value to use.
-
-A special mention should be made for the unique relationship that `BehaviorSubject` and the `First()` extension method has. The reason behind this is that the `BehaviorSubject` is guaranteed to have a notification, be it a value, an error or a completion. This effectively removes the blocking nature of the `First` extension method when used with a `BehaviorSubject`. This can be used to make behavior subjects act like properties.
-
-### Last								
-
-The `Last` and `LastOrDefault` will block until the source completes and then return the last value. Just like the `First()` method any `OnError` notifications will be thrown. If the sequence is empty then `Last()` will throw an `InvalidOperationException`, but you can use `LastOrDefault` to avoid this.
-
-### Single							
-
-The `Single` extension method is for getting the single value from a sequence. The difference between this and `First()` or `Last()` is that it helps to assert your assumption that the sequence will only contain a single value. The method will block until the source produces a value and then completes. If the sequence produces any other combination of notifications then the method will throw. This method works especially well with `AsyncSubject` instances as they only produce a single value sequences.
 
 ## Build your own aggregations		
 
