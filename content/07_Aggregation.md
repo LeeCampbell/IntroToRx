@@ -8,21 +8,6 @@ Data is not always valuable is its raw form. Sometimes we need to consolidate, c
 
 Continuing with the theme of reducing an observable sequence, we will look at the aggregation functions that are available to us in Rx. Our first set of methods continues on from our last chapter, as they take an observable sequence and reduce it to a sequence with a single value. We then move on to find operators that can transition a sequence back to a scalar value, a functional fold.
 
-Just before we move on to introducing the new operators, we will quickly create our own extension method. We will use this 'Dump' extension method to help build our samples.
-
-```csharp
-public static class SampleExtentions
-{
-    public static void Dump<T>(this IObservable<T> source, string name)
-    {
-        source.Subscribe(
-            i=>Console.WriteLine("{0}-->{1}", name, i), 
-            ex=>Console.WriteLine("{0} failed-->{1}", name, ex.Message),
-            ()=>Console.WriteLine("{0} completed", name));
-    }
-}
-```
-
 Those who use [LINQPad](http://www.linqpad.net/) will recognize that this is the source of inspiration. For those who have not used LINQPad, I highly recommend it. It is perfect for whipping up quick samples to validate a snippet of code. LINQPad also fully supports the `IObservable<T>` type.
 
 ## Count					
@@ -402,3 +387,254 @@ When working with nested observables, it can be handy to adopt the convention th
 In this chapter we are starting to uncover the power of LINQ and how it applies to Rx. We chained methods together to recreate the effect that other methods already provide. While this is academically nice, it also allows us to starting thinking in terms of functional composition. We have also seen that some methods work nicely with certain types: `First()` + `BehaviorSubject<T>`, `Single()` + `AsyncSubject<T>`, `Single()` + `Aggregate()` etc. We have covered the second of our three classifications of operators, _catamorphism_. Next we will discover more methods to add to our functional composition tool belt and also find how Rx deals with our third functional concept, _bind_.
 
 Consolidating data into groups and aggregates enables sensible consumption of mass data. Fast moving data can be too overwhelming for batch processing systems and human consumption. Rx provides the ability to aggregate and partition on the fly, enabling real-time reporting without the need for expensive CEP or OLAP products.
+
+
+
+TODO: integrate these, which were previously in the vaguely titled Inspection chapter
+
+
+## Any								
+
+First we can look at the parameterless overload for the extension method `Any`. This will simply return an observable sequence that has the single value of `false` if the source completes without any values. If the source does produce a value however, then when the first value is produced, the result sequence will immediately push `true` and then complete. If the first notification it gets is an error, then it will pass that error on.
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(Console.WriteLine, () => Console.WriteLine("Subject completed"));
+var any = subject.Any();
+
+any.Subscribe(b => Console.WriteLine("The subject has any values? {0}", b));
+
+subject.OnNext(1);
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+The subject has any values? True
+subject completed
+```
+
+If we now remove the OnNext(1), the output will change to the following
+
+```
+subject completed
+The subject has any values? False
+```
+
+If the source errors it would only be interesting if it was the first notification, otherwise the `Any` method will have already pushed true. If the first notification is an error then `Any` will just pass it along as an `OnError` notification.
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(Console.WriteLine,
+    ex => Console.WriteLine("subject OnError : {0}", ex),
+    () => Console.WriteLine("Subject completed"));
+var any = subject.Any();
+
+any.Subscribe(b => Console.WriteLine("The subject has any values? {0}", b),
+    ex => Console.WriteLine(".Any() OnError : {0}", ex),
+    () => Console.WriteLine(".Any() completed"));
+
+subject.OnError(new Exception());
+```
+
+Output:
+
+```
+subject OnError : System.Exception: Fail
+.Any() OnError : System.Exception: Fail
+```
+
+The `Any` method also has an overload that takes a predicate. This effectively makes it a `Where` with an `Any` appended to it.
+
+```csharp
+subject.Any(i => i > 2);
+// Functionally equivalent to 
+subject.Where(i => i > 2).Any();
+```
+
+As an exercise, write your own version of the two `Any` extension method overloads. While the answer may not be immediately obvious, we have covered enough material for you to create this using the methods you know...
+
+Example of the `Any` extension methods written with `Observable.Create`:
+
+```csharp
+public static IObservable<bool> MyAny<T>(this IObservable<T> source)
+{
+    return Observable.Create<bool>(
+        o =>
+        {
+            var hasValues = false;
+            return source
+                .Take(1)
+                .Subscribe(
+                    _ => hasValues = true,
+                    o.OnError,
+                    () =>
+                    {
+                        o.OnNext(hasValues);
+                        o.OnCompleted();
+                    });
+        });
+}
+
+public static IObservable<bool> MyAny<T>(
+    this IObservable<T> source, 
+    Func<T, bool> predicate)
+{
+    return source
+        .Where(predicate)
+        .MyAny();
+}
+```
+
+## All								
+
+The `All`() extension method works just like the `Any` method, except that all values must meet the predicate. As soon as a value does not meet the predicate a `false` value is returned then the output sequence completed. If the source is empty, then `All` will push `true` as its value. As per the `Any` method, and errors will be passed along to the subscriber of the `All` method.
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(Console.WriteLine, () => Console.WriteLine("Subject completed"));
+var all = subject.All(i => i < 5);
+all.Subscribe(b => Console.WriteLine("All values less than 5? {0}", b));
+
+subject.OnNext(1);
+subject.OnNext(2);
+subject.OnNext(6);
+subject.OnNext(2);
+subject.OnNext(1);
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+2
+6
+All values less than 5? False
+all completed
+2
+1
+subject completed
+```
+
+Early adopters of Rx may notice that the `IsEmpty` extension method is missing. You can easily replicate the missing method using the `All` extension method.
+
+```csharp
+// IsEmpty() is deprecated now.
+// var isEmpty = subject.IsEmpty();
+var isEmpty = subject.All(_ => false);
+```
+
+## Contains							
+
+The `Contains` extension method overloads could sensibly be overloads to the `Any` extension method. The `Contains` extension method has the same behavior as `Any`, however it specifically targets the use of `IComparable` instead of the usage of predicates and is designed to seek a specific value instead of a value that fits the predicate. I believe that these are not overloads of `Any` for consistency with `IEnumerable`.
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(
+    Console.WriteLine, 
+    () => Console.WriteLine("Subject completed"));
+
+var contains = subject.Contains(2);
+
+contains.Subscribe(
+    b => Console.WriteLine("Contains the value 2? {0}", b),
+    () => Console.WriteLine("contains completed"));
+
+subject.OnNext(1);
+subject.OnNext(2);
+subject.OnNext(3);
+    
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+2
+Contains the value 2? True
+contains completed
+3
+Subject completed
+```
+
+There is also an overload to `Contains` that allows you to specify an implementation of `IEqualityComparer<T>` other than the default for the type. This can be useful if you have a sequence of custom types that may have some special rules for equality depending on the use case.
+    
+
+
+
+## DefaultIfEmpty					
+
+The `DefaultIfEmpty` extension method will return a single value if the source sequence is empty. Depending on the overload used, it will either be the value provided as the default, or `Default(T)`. `Default(T)` will be the zero value for _struct_ types and will be `null` for classes. If the source is not empty then all values will be passed straight on through.
+
+In this example the source produces values, so the result of `DefaultIfEmpty` is just the source.
+
+```csharp
+var subject = new Subject<int>();
+
+subject.Subscribe(
+    Console.WriteLine,
+    () => Console.WriteLine("Subject completed"));
+
+var defaultIfEmpty = subject.DefaultIfEmpty();
+
+defaultIfEmpty.Subscribe(
+    b => Console.WriteLine("defaultIfEmpty value: {0}", b),
+    () => Console.WriteLine("defaultIfEmpty completed"));
+
+subject.OnNext(1);
+subject.OnNext(2);
+subject.OnNext(3);
+
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+defaultIfEmpty value: 1
+2
+defaultIfEmpty value: 2
+3
+defaultIfEmpty value: 3
+Subject completed
+defaultIfEmpty completed
+```
+
+If the source is empty, we can use either the default value for the type (i.e. 0 for int) or provide our own value in this case 42.
+
+```csharp
+var subject = new Subject<int>();
+
+subject.Subscribe(
+    Console.WriteLine,
+    () => Console.WriteLine("Subject completed"));
+
+var defaultIfEmpty = subject.DefaultIfEmpty();
+
+defaultIfEmpty.Subscribe(
+    b => Console.WriteLine("defaultIfEmpty value: {0}", b),
+    () => Console.WriteLine("defaultIfEmpty completed"));
+
+var default42IfEmpty = subject.DefaultIfEmpty(42);
+
+default42IfEmpty.Subscribe(
+    b => Console.WriteLine("default42IfEmpty value: {0}", b),
+    () => Console.WriteLine("default42IfEmpty completed"));
+
+subject.OnCompleted();
+```
+
+Output:
+
+```
+Subject completed
+defaultIfEmpty value: 0
+defaultIfEmpty completed
+default42IfEmpty value: 42
+default42IfEmpty completed
+```

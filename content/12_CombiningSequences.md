@@ -733,3 +733,60 @@ zippedSequence.Subscribe(
 The `And`/`Then`/`When` trio has more overloads that enable you to group an even greater number of sequences. They also allow you to provide more than one 'plan' (the output of the `Then` method). This gives you the `Merge` feature but on the collection of 'plans'. I would suggest playing around with them if this functionality is of interest to you. The verbosity of enumerating all of the combinations of these methods would be of low value. You will get far more value out of using them and discovering for yourself.
 
 As we delve deeper into the depths of what the Rx libraries provide us, we can see more practical usages for it. Composing sequences with Rx allows us to easily make sense of the multiple data sources a problem domain is exposed to. We can concatenate values or sequences together sequentially with `StartWith`, `Concat` and `Repeat`. We can process multiple sequences concurrently with `Merge`, or process a single sequence at a time with `Amb` and `Switch`. Pairing values with `CombineLatest`, `Zip` and the `And`/`Then`/`When` operators can simplify otherwise fiddly operations like our drag-and-drop examples and monitoring system status.
+
+
+TODO: Was in Inspection but I think this might go more naturally after Zip
+
+    
+## SequenceEqual						
+
+Finally `SequenceEqual` extension method is perhaps a stretch to put in a chapter that starts off talking about catamorphism and fold, but it does serve well for the theme of inspection. This method allows us to compare two observable sequences. As each source sequence produces values, they are compared to a cache of the other sequence to ensure that each sequence has the same values in the same order and that the sequences are the same length. This means that the result sequence can return `false` as soon as the source sequences produce diverging values, or `true` when both sources complete with the same values.
+
+```csharp
+var subject1 = new Subject<int>();
+
+subject1.Subscribe(
+    i=>Console.WriteLine("subject1.OnNext({0})", i),
+    () => Console.WriteLine("subject1 completed"));
+
+var subject2 = new Subject<int>();
+
+subject2.Subscribe(
+    i=>Console.WriteLine("subject2.OnNext({0})", i),
+    () => Console.WriteLine("subject2 completed"));
+
+var areEqual = subject1.SequenceEqual(subject2);
+
+areEqual.Subscribe(
+    i => Console.WriteLine("areEqual.OnNext({0})", i),
+    () => Console.WriteLine("areEqual completed"));
+
+subject1.OnNext(1);
+subject1.OnNext(2);
+
+subject2.OnNext(1);
+subject2.OnNext(2);
+subject2.OnNext(3);
+
+subject1.OnNext(3);
+
+subject1.OnCompleted();
+subject2.OnCompleted();
+```
+
+Output:
+
+```
+subject1.OnNext(1)
+subject1.OnNext(2)
+subject2.OnNext(1)
+subject2.OnNext(2)
+subject2.OnNext(3)
+subject1.OnNext(3)
+subject1 completed
+subject2 completed
+areEqual.OnNext(True)
+areEqual completed
+```
+
+This chapter covered a set of methods that allow us to inspect observable sequences. The result of each, generally, returns a sequence with a single value. We will continue to look at methods to reduce our sequence until we discover the elusive functional fold feature.

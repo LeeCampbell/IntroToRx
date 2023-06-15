@@ -6,25 +6,26 @@ title: Transformation of sequences
 
 The values from the sequences we consume are not always in the format we need. Sometimes there is too much noise in the data so we strip the values down. Sometimes each value needs to be expanded either into a richer object or into more values. By composing operators, Rx allows you to control the quality as well as the quantity of values in the observable sequences you consume.
 
-Up until now, we have looked at creation of sequences, transition into sequences, and, the reduction of sequences by filtering, aggregating or folding. In this chapter we will look at _transforming_ sequences. This allows us to introduce our third category of functional methods, _bind_. A bind function in Rx will take a sequence and apply some set of transformations on each element to produce a new sequence.
+Up until now, we have looked at creation of sequences, transition into sequences, and, the reduction of sequences by filtering. In this chapter we will look at _transforming_ sequences.
 
-To review:
+TODO: should we move this one chapter earlier? Would it be handy to have this in Filtering?
 
+Just before we move on to introducing the new operators, we will quickly create our own extension method. We will use this 'Dump' extension method to help build our samples.
+
+```csharp
+public static class SampleExtentions
+{
+    public static void Dump<T>(this IObservable<T> source, string name)
+    {
+        source.Subscribe(
+            i=>Console.WriteLine("{0}-->{1}", name, i), 
+            ex=>Console.WriteLine("{0} failed-->{1}", name, ex.Message),
+            ()=>Console.WriteLine("{0} completed", name));
+    }
+}
 ```
-Ana(morphism) T --> IObservable<T>
-Cata(morphism) IObservable<T> --> T
-Bind IObservable<T1> --> IObservable<T2>
-```
 
-Now that we have been introduced to all three of our higher order functions, you may find that you already know them. Bind and Cata(morphism) were made famous by [MapReduce](http://en.wikipedia.org/wiki/MapReduce) framework from Google. Here Google refer to Bind and Cata by their perhaps more common aliases; Map and Reduce.
 
-It may help to remember our terms as the `ABCs` of higher order functions.
-
-```
-Ana enters the sequence. T --> IObservable<T>
-Bind modifies the sequence. IObservable<T1> --> IObservable<T2>
-Cata leaves the sequence. IObservable<T> --> T
-```
 
 ## Select							
 
@@ -104,185 +105,98 @@ query.Dump("anon");
 
 In Rx, `Select` has another overload. The second overload provides two values to the `selector` function. The additional argument is the element's index in the sequence. Use this method if the index of the element in the sequence is important to your selector function.
 
-## Cast and OfType					
-
-If you were to get a sequence of objects i.e. `IObservable<object>`, you may find it less than useful. There is a method specifically for `IObservable<object>` that will cast each element to a given type, and logically it is called `Cast<T>()`.
-
-```csharp
-var objects = new Subject<object>();
-objects.Cast<int>().Dump("cast");
-objects.OnNext(1);
-objects.OnNext(2);
-objects.OnNext(3);
-objects.OnCompleted();
-```
-
-Output:
-
-```
-cast --> 1
-cast --> 2
-cast --> 3
-cast completed
-```
-
-If however we were to add a value that could not be cast into the sequence then we get errors.
-
-```csharp
-var objects = new Subject<object>();
-objects.Cast<int>().Dump("cast");
-objects.OnNext(1);
-objects.OnNext(2);
-objects.OnNext("3");//Fail
-```
-
-Output:
-
-```
-cast --> 1
-cast --> 2
-cast failed --> Specified cast is not valid.
-```
-
-Thankfully, if this is not what we want, we could use the alternative extension method `OfType<T>()`.
-
-```csharp
-var objects = new Subject<object>();
-objects.OfType<int>().Dump("OfType");
-objects.OnNext(1);
-objects.OnNext(2);
-objects.OnNext("3");//Ignored
-objects.OnNext(4);
-objects.OnCompleted();
-```
-
-Output:
-
-```
-OfType --> 1
-OfType --> 2
-OfType --> 4
-OfType completed
-```
-
-It is fair to say that while these are convenient methods to have, we could have created them with the operators we already know about.
-
-```csharp
-// source.Cast<int>(); is equivalent to
-source.Select(i=>(int)i);
-
-// source.OfType<int>();
-source.Where(i=>i is int).Select(i=>(int)i);
-```
-
-## Timestamp and TimeInterval		
-
-As observable sequences are asynchronous it can be convenient to know timings for when elements are received. The `Timestamp` extension method is a handy convenience method that wraps elements of a sequence in a light weight `Timestamped<T>` structure. The `Timestamped<T>` type is a struct that exposes the value of the element it wraps, and the timestamp it was created with as a `DateTimeOffset`.
-
-In this example we create a sequence of three values, one second apart, and then transform it to a time stamped sequence. The handy implementation of `ToString()` on `Timestamped<T>` gives us a readable output.
-
-```csharp
-Observable.Interval(TimeSpan.FromSeconds(1))
-          .Take(3)
-          .Timestamp()
-          .Dump("TimeStamp");
-```
-
-Output
-
-```
-TimeStamp --> 0@01/01/2012 12:00:01 a.m. +00:00
-TimeStamp --> 1@01/01/2012 12:00:02 a.m. +00:00
-TimeStamp --> 2@01/01/2012 12:00:03 a.m. +00:00
-TimeStamp completed
-```
-
-We can see that the values 0, 1 &amp; 2 were each produced one second apart. An alternative to getting an absolute timestamp is to just get the interval since the last element. The `TimeInterval` extension method provides this. As per the `Timestamp` method, elements are wrapped in a light weight structure. This time the structure is the `TimeInterval<T>` type.
-
-```csharp
-Observable.Interval(TimeSpan.FromSeconds(1))
-          .Take(3)
-          .TimeInterval()
-          .Dump("TimeInterval");
-```
-
-Output:
-
-```
-TimeInterval --> 0@00:00:01.0180000
-TimeInterval --> 1@00:00:01.0010000
-TimeInterval --> 2@00:00:00.9980000
-TimeInterval completed
-```
-
-As you can see from the output, the timings are not exactly one second but are pretty close.
-
-## Materialize and Dematerialize			
-
-The `Timestamp` and `TimeInterval` transform operators can prove useful for logging and debugging sequences, so too can the `Materialize` operator. `Materialize` transitions a sequence into a metadata representation of the sequence, taking an `IObservable<T>` to an `IObservable<Notification<T>>`. The `Notification` type provides meta data for the events of the sequence.
-
-If we materialize a sequence, we can see the wrapped values being returned.
-
-```csharp
-Observable.Range(1, 3)
-          .Materialize()
-          .Dump("Materialize");
-```
-
-Output:
-
-```
-Materialize --> OnNext(1)
-Materialize --> OnNext(2)
-Materialize --> OnNext(3)
-Materialize --> OnCompleted()
-Materialize completed
-```
-
-Note that when the source sequence completes, the materialized sequence produces an 'OnCompleted' notification value and then completes. `Notification<T>` is an abstract class with three implementations:
-
- * OnNextNotification
- * OnErrorNotification
- * OnCompletedNotification
-
-`Notification<T>` exposes four public properties to help you discover it: `Kind`, `HasValue`, `Value` and `Exception`. Obviously only `OnNextNotification` will return true for `HasValue` and have a useful implementation of `Value`. It should also be obvious that `OnErrorNotification` is the only implementation that will have a value for `Exception`. The `Kind` property returns an `enum` which should allow you to know which methods are appropriate to use.
-
-```csharp
-public enum NotificationKind
-{
-    OnNext,
-    OnError,
-    OnCompleted,
-}
-```
-
-In this next example we produce a faulted sequence. Note that the final value of the materialized sequence is an `OnErrorNotification`. Also that the materialized sequence does not error, it completes successfully.
-
-```csharp
-var source = new Subject<int>();
-source.Materialize()
-      .Dump("Materialize");
-
-source.OnNext(1);
-source.OnNext(2);
-source.OnNext(3);
-
-source.OnError(new Exception("Fail?"));
-```
-
-Output:
-
-```
-Materialize --> OnNext(1)
-Materialize --> OnNext(2)
-Materialize --> OnNext(3)
-Materialize --> OnError(System.Exception)
-Materialize completed
-```
-
-Materializing a sequence can be very handy for performing analysis or logging of a sequence. You can unwrap a materialized sequence by applying the `Dematerialize` extension method. The `Dematerialize` will only work on `IObservable<Notification<TSource>>`.
-
 ## SelectMany						
+
+Whereas `Select` produces one output for each input, `SelectMany` enables each input element to be transformed into any number of outputs. To see how this can work, let's first look at an example that uses just `Select`:
+
+```cs
+Observable
+    .Range(1, 5)
+    .Select(i => new string((char)(i+64), i))
+    .Dump("strings");
+```
+
+which produces this output:
+
+```
+strings-->A
+strings-->BB
+strings-->CCC
+strings-->DDDD
+strings-->EEEEE
+strings completed
+```
+
+As you can see, for each of the numbers produced by `Range`, our output contains a string whose length is that many characters. What if, instead of transforming each number into a string, we transformed it into an `IObservable<char>`. We can do that just by adding `.ToObservable()` after constructing the string:
+
+```cs
+Observable
+    .Range(1, 5)
+    .Select(i => new string((char)(i+64), i).ToObservable())
+    .Dump("sequences");
+```
+
+(Alternatively, we could have replaced the selection expression with `i => Observable.Repeat((char)(i+64), i)`. Either has exactly the same effect.) The output isn't terribly useful:
+
+```
+strings-->System.Reactive.Linq.ObservableImpl.ToObservableRecursive`1[System.Char]
+strings-->System.Reactive.Linq.ObservableImpl.ToObservableRecursive`1[System.Char]
+strings-->System.Reactive.Linq.ObservableImpl.ToObservableRecursive`1[System.Char]
+strings-->System.Reactive.Linq.ObservableImpl.ToObservableRecursive`1[System.Char]
+strings-->System.Reactive.Linq.ObservableImpl.ToObservableRecursive`1[System.Char]
+strings completed
+```
+
+We have an observable sequence of observable sequences. But look at what happens if we now replace that `Select` with a `SelectMany`:
+
+```cs
+Observable
+    .Range(1, 5)
+    .SelectMany(i => new string((char)(i+64), i).ToObservable())
+    .Dump("chars");
+```
+
+This gives us an `IObservable<char>`, with this output:
+
+```
+chars-->A
+chars-->B
+chars-->B
+chars-->C
+chars-->C
+chars-->D
+chars-->C
+chars-->D
+chars-->E
+chars-->D
+chars-->E
+chars-->D
+chars-->E
+chars-->E
+chars-->E
+chars completed
+```
+
+The order has become a little scrambled, but if you look carefully you'll see that the number of occurrences of each letter is the same as when we were emitting strings. There is just one `A`, for example, but `C` appears three times, and `E` five times.
+
+`SelectMany` expects the transformation function to return an `IObservable<T>` for each input, and it then combines the result of those back into a single result. The LINQ to Objects equivalent is a little less chaotic. If you were to run this:
+
+```cs
+Enumerable
+    .Range(1, 5)
+    .SelectMany(i => new string((char)(i+64), i))
+    .ToList()
+```
+
+it would produce a list with these elements:
+
+```
+[ A, B, B, C, C, C, D, D, D, D, E, E, E, E, E ]
+```
+
+there, the order is less odd.
+
+TBD: from here.
 
 Of the transformation operators above, we can see that `Select` is the most useful. It allows very broad flexibility in its transformation output and can even be used to reproduce some of the other transformation operators. The `SelectMany` operator however is even more powerful. In LINQ and therefore Rx, the _bind_ method is `SelectMany`. Most other transformation operators can be built with `SelectMany`. Considering this, it is a shame to think that `SelectMany` may be one of the most misunderstood methods in LINQ.
 
@@ -682,3 +596,125 @@ On deeper analysis of the operators we find that most of the operators are actua
   - Inject
 
 Now you should feel that you have a strong understanding of how a sequence can be manipulated. What we have learnt up to this point however can all largely be applied to `IEnumerable` sequences too. Rx can be much more complex than what many people will have dealt with in `IEnumerable` world, as we have seen with the `SelectMany` operator. In the next part of the book we will uncover features specific to the asynchronous nature of Rx. With the foundation we have built so far we should be able to tackle the far more challenging and interesting features of Rx.
+
+
+
+## Cast
+
+If you were to get a sequence of objects i.e. `IObservable<object>`, you may find it less than useful. There is a method specifically for `IObservable<object>` that will cast each element to a given type, and logically it is called `Cast<T>()`.
+
+```csharp
+var objects = new Subject<object>();
+objects.Cast<int>().Dump("cast");
+objects.OnNext(1);
+objects.OnNext(2);
+objects.OnNext(3);
+objects.OnCompleted();
+```
+
+Output:
+
+```
+cast --> 1
+cast --> 2
+cast --> 3
+cast completed
+```
+
+If however we were to add a value that could not be cast into the sequence then we get errors.
+
+```csharp
+var objects = new Subject<object>();
+objects.Cast<int>().Dump("cast");
+objects.OnNext(1);
+objects.OnNext(2);
+objects.OnNext("3");//Fail
+```
+
+Output:
+
+```
+cast --> 1
+cast --> 2
+cast failed --> Specified cast is not valid.
+```
+
+That is the difference between `Cast` and the [`OfType` operator shown in Chapter 5](./05_Filtering.md#oftype). `OfType` is a filtering operator, and it removes any items that are not of the specified type. `Cast` doesn't remove anything—it is more like `Select` in that it applies a transformation (specifically a cast) to every input. If the cast fails, we get an error.
+
+This distinction might be easier to see if we recreate the functionality of `Cast` and `OfType` using other more fundamental operators.
+
+```csharp
+// source.Cast<int>(); is equivalent to
+source.Select(i=>(int)i);
+
+// source.OfType<int>();
+source.Where(i=>i is int).Select(i=>(int)i);
+```
+
+
+
+## Materialize and Dematerialize			
+
+The `Timestamp` and `TimeInterval` transform operators can prove useful for logging and debugging sequences, so too can the `Materialize` operator. `Materialize` transitions a sequence into a metadata representation of the sequence, taking an `IObservable<T>` to an `IObservable<Notification<T>>`. The `Notification` type provides meta data for the events of the sequence.
+
+If we materialize a sequence, we can see the wrapped values being returned.
+
+```csharp
+Observable.Range(1, 3)
+          .Materialize()
+          .Dump("Materialize");
+```
+
+Output:
+
+```
+Materialize --> OnNext(1)
+Materialize --> OnNext(2)
+Materialize --> OnNext(3)
+Materialize --> OnCompleted()
+Materialize completed
+```
+
+Note that when the source sequence completes, the materialized sequence produces an 'OnCompleted' notification value and then completes. `Notification<T>` is an abstract class with three implementations:
+
+ * OnNextNotification
+ * OnErrorNotification
+ * OnCompletedNotification
+
+`Notification<T>` exposes four public properties to help you discover it: `Kind`, `HasValue`, `Value` and `Exception`. Obviously only `OnNextNotification` will return true for `HasValue` and have a useful implementation of `Value`. It should also be obvious that `OnErrorNotification` is the only implementation that will have a value for `Exception`. The `Kind` property returns an `enum` which should allow you to know which methods are appropriate to use.
+
+```csharp
+public enum NotificationKind
+{
+    OnNext,
+    OnError,
+    OnCompleted,
+}
+```
+
+In this next example we produce a faulted sequence. Note that the final value of the materialized sequence is an `OnErrorNotification`. Also that the materialized sequence does not error, it completes successfully.
+
+```csharp
+var source = new Subject<int>();
+source.Materialize()
+      .Dump("Materialize");
+
+source.OnNext(1);
+source.OnNext(2);
+source.OnNext(3);
+
+source.OnError(new Exception("Fail?"));
+```
+
+Output:
+
+```
+Materialize --> OnNext(1)
+Materialize --> OnNext(2)
+Materialize --> OnNext(3)
+Materialize --> OnError(System.Exception)
+Materialize completed
+```
+
+Materializing a sequence can be very handy for performing analysis or logging of a sequence. You can unwrap a materialized sequence by applying the `Dematerialize` extension method. The `Dematerialize` will only work on `IObservable<Notification<TSource>>`.
+

@@ -290,6 +290,15 @@ There is yet another standard LINQ operator for selecting one particular element
 IAisMessage fourth = await recieverHost.Message.ElementAt(4);
 ```
 
+If your source sequence only produces five values and we ask for `ElementAt(5)`, the sequence that `ElementAt` returns will report an `ArgumentOutOfRangeException` error to its subscriber when the source completes. There are three ways we can deal with this:
+
+- Handle the OnError gracefully
+- Use `.Skip(5).Take(1);` This will ignore the first 5 values and the only take the 6th value. 
+If the sequence has less than 6 elements we just get an empty sequence, but no errors.
+- Use ElementAtOrDefault
+
+`ElementAtOrDefault` extension method will protect us in case the index is out of range, by pushing the `default(T)` value. Currently there is not an option to provide your own default value.
+
 ## Temporal Filtering
 
 The `Take` and `TakeLast` operators let us filter out everything except elements either at the very start or very end (and `Skip` and `SkipLast` let see everything but those), but these all require us to know the exact number of elements. What if we want to specify the cut-off not in terms of an element count, but in terms of a particular instant in time?

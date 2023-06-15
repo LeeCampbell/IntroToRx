@@ -519,3 +519,48 @@ public static IObservable<TSource> Timeout<TSource>(
 -->
 
 Rx provides features to tame the unpredictable element of time in a reactive paradigm. Data can be buffered, throttled, sampled or delayed to meet your needs. Entire sequences can be shifted in time with the delay feature, and timeliness of data can be asserted with the `Timeout` operator. These simple yet powerful features further extend the developer's tool belt for querying data in motion.
+
+
+TODO: this is about timing but not timeshifting. Decide whether to rename this chapter, or split it, so that we can accommodate these (which were in the Transformation chapter):
+
+## Timestamp and TimeInterval		
+
+As observable sequences are asynchronous it can be convenient to know timings for when elements are received. The `Timestamp` extension method is a handy convenience method that wraps elements of a sequence in a light weight `Timestamped<T>` structure. The `Timestamped<T>` type is a struct that exposes the value of the element it wraps, and the timestamp it was created with as a `DateTimeOffset`.
+
+In this example we create a sequence of three values, one second apart, and then transform it to a time stamped sequence. The handy implementation of `ToString()` on `Timestamped<T>` gives us a readable output.
+
+```csharp
+Observable.Interval(TimeSpan.FromSeconds(1))
+          .Take(3)
+          .Timestamp()
+          .Dump("TimeStamp");
+```
+
+Output
+
+```
+TimeStamp --> 0@01/01/2012 12:00:01 a.m. +00:00
+TimeStamp --> 1@01/01/2012 12:00:02 a.m. +00:00
+TimeStamp --> 2@01/01/2012 12:00:03 a.m. +00:00
+TimeStamp completed
+```
+
+We can see that the values 0, 1 &amp; 2 were each produced one second apart. An alternative to getting an absolute timestamp is to just get the interval since the last element. The `TimeInterval` extension method provides this. As per the `Timestamp` method, elements are wrapped in a light weight structure. This time the structure is the `TimeInterval<T>` type.
+
+```csharp
+Observable.Interval(TimeSpan.FromSeconds(1))
+          .Take(3)
+          .TimeInterval()
+          .Dump("TimeInterval");
+```
+
+Output:
+
+```
+TimeInterval --> 0@00:00:01.0180000
+TimeInterval --> 1@00:00:01.0010000
+TimeInterval --> 2@00:00:00.9980000
+TimeInterval completed
+```
+
+As you can see from the output, the timings are not exactly one second but are pretty close.
