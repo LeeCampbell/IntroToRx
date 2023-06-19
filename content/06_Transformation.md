@@ -207,10 +207,10 @@ Rx is not like that. First, consumers don't get to tell sources when to produce 
 
 The Rx version of the example we're currently examining is in fact one of these unusual cases where each of the sequences emits items as soon as it can. Logically speaking, all of the nested `IObservable<char>` sequences are in progress concurrently. The result is a mess because each of the observable sources here attempts to produce every element as quickly as the source can consume them. The fact that they end up being interleaved has to do with the way these kinds of observable sources use Rx's _scheduler_ system, which we will describe in chapter XXX. Schedulers ensure that even when we are modelling logically concurrent processes, the rules of Rx are maintained, and observers of the output of `SelectMany` will only be given one item at a time. The following marble diagram shows the events that lead to the scrambled output we see:
 
-![An Rx marble diagram illustrating two observables. The first is labelled 'source', and it shows six events, labelled numerically. These fall into three groups: events 1 and 2 occur close together, and are followed by a gap. Then events 3, 4, and 5 are close together. And then after another gap event 6 occurs, not close to any. The second observable is labelled 'source.Quiescent(TimeSpan.FromSeconds(2), Scheduler.Default). It shows three events. The first is labelled '[1, 2], and its horizontal position shows that it occurs a little bit after the '2' event on the 'source' observable. The second event on the second observable is labelled '[3,4,5]' and occurs a bit after the '5' event on the 'source' observable. The third event from on the second observable is labelled '[6]', and occurs a bit after the '6' event on the 'source' observable. The image conveys the idea that each time the source produces some events and then stops, the second observable will produce an event shortly after the source stops, which will contain a list with all of the events from the source's most recent burst of activity.](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles.svg)
+![An Rx marble diagram showing 7 observables. The first illustrates the Range operator producing the values 1 through 5. These are colour coded as follows: green, blue, yellow, red, and pink. These colour correspond to observables further down in the diagram, as will be described shortly. The items in this first observable are not evenly spaced—the 2nd value immediately follows the 1st, but there are gaps before the 3rd, 4th, and 5th items. These gaps correspond with activity shown further down in the diagram. Beneath the first observable is code invoking the SelectMany operator, passing this lamba: "i => new string((char)(i+64),i).ToObservable()". Beneath this are 6 more observables. The first 5 show the individual observables that the lambda produces for each of the inputs. These are colour coded to show how they correspond—the first observable's item is green, to indicate that this observable corresponds to the first item emitted by Range, the second observable's items are blue showing that it corresponds to the second item emitted by Range, and so on with the same colour sequence as described earlier for Range. Each observable's first item is aligned horizontally with the corresponding item from Range, signifying the fact that each one of these observables starts when the Range observable emits a value. These 5 observables show the values produced by the observable returned by the lambda for each of the 5 values from Range. The first of these child observables shows a single item with value 'A', vertically aligned with the value 1 from the Range observable to indicate that this item is produced immediately when Range produces its first value. This child observable then immediately ends, indicating that only one item was produced. The second child observable contains two 'B' values, the third three 'C' values, the fourth four 'D' values and the fifth give 'E' values. The horizontal positioning of these items indicates that all of first 6 observables in the diagram (the Range observable, and the 5 observables produced by the lambda) overlap to some extent. Initially this overlap is minimal: the first of the lambda-produced observables starts at the same time the Range produces its first value so these two observables overlap, but since this first child completes immediately it overlaps with nothing else. The second child starts when Range produces its second value, and manages to produce two values and then completes before anything else happens, so thus far, the child observables produced by the lambda overlap only with the Range one, and not with each other. However, when Range produces its third value, the resulting child observable produces two 'C' values, but the next thing that happens (as denoted by the horizontal position of the items) is that Range manages to produce its 4th value and its corresponding child observable produces the first of its 'D' values next. After this, the third child observable produces its third and final 'C'—so this third child overlaps not just with the Range observable, but also with the fourth child. Then the fourth observable produces its second 'D'. Then the Range produces its fifth and final value, and the corresponding child observable produces its first 'E'. Then the fourth and fifth child observable alternate, producing 'D', 'E' and 'D', at which point the fourth child observable is complete, and now the fifth child observable produces its final three 'E' values without interruption, because by this time it is the only observable still running. At the bottom of the diagram is the 7th observable representing the output of the SelectMany. This shows all the of the values from each of the 5 child observables each with the exact same horizontal position (signifying that the observable returned by SelectMany produces a value whenever any of its child observables produces a value). So we can see that this output observable produces the sequence 'ABBCCDCDEDEDEEE', which is exactly what we saw in the example output earlier.](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles.svg)
 
 
-We can make a small tweak to prevent the child sequences all from trying to run at the same time:
+We can make a small tweak to prevent the child sequences all from trying to run at the same time. (This also uses `Observable.Repeat` instead of the rather indirect route of constructing a `string` and then calling `ToObserable` on that. I did that in earlier examples to emphasize the similarity with the LINQ to Objects example, but you wouldn't really do it that way in Rx.)
 
 ```cs
 Observable
@@ -240,209 +240,24 @@ chars-->E
 chars completed
 ```
 
-This clarifies that `SelectMany` lets you produce a sequence for each item that the source produces, and to have all of the items from all of those new sequences flattened back out into one sequence that contains everything.
+This clarifies that `SelectMany` lets you produce a sequence for each item that the source produces, and to have all of the items from all of those new sequences flattened back out into one sequence that contains everything. While that might make it easier to understand, you wouldn't want to introduce this sort of delay in reality purely for the goal of making it easier to understand. These delays mean it will take about a second and a half for all the elements to emerge. This marble diagram shows that the code above produces a sensible-looking ordering by making each child observable produce a little bunch of items, and we've just introduced dead time to get the separation:
 
-However, we probably won't want production code to introduce delays just to make it easier to see what's going. Rx's ability to model concurrent process is one of the big reasons for using it. So we need to be able to think about this style of concurrency, so it can be helpful to visualize this kind of asynchronous operation.
+![](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles-Delay.svg)
 
-### Visualizing sequences			
+I introduced these gaps purely to provide a slightly less confusing example, but if you really wanted this sort of strictly-in-order handling, you wouldn't use `SelectMany` in this way in practice. For one thing, it's not completely guaranteed to work. (If you try this example, but modify it to use shorter and shorter timespans, eventually you reach a point where the items start getting jumbled up again. And since .NET is not a real-time programming system, there's actually no safe timespan you can specific here that absolutely guarantees the ordering.)  If you absolutely need all the items from the first child sequence before seeing any from the second, there's actually a robust way to ask for that:
 
-Let's divert quickly and talk about a technique we will use to help communicate the concepts relating to sequences. Marble diagrams are a way of visualizing sequences. Marble diagrams are great for sharing Rx concepts and describing composition of sequences. When using marble diagrams there are only a few things you need to know
-
-1. a sequence is represented by a horizontal line 
-2. time moves to the right (i.e. things on the left happened before things on the right)
-3. notifications are represented by symbols:
- *. '0' for OnNext 
- *. 'X' for an OnError 
- *. '|' for OnCompleted 
-1. many concurrent sequences can be visualized by creating rows of sequences
-
-This is a sample of a sequence of three values that completes:
-
-<div class="marble">
-    <pre class="line">--0--0--0-|</pre>
-</div>
-
-This is a sample of a sequence of four values then an error:
-
-<div class="marble">
-    <pre class="line">--0--0--0--0--X</pre>
-</div>
-
-Now going back to our `SelectMany` example, we can visualize our input sequence by using values in instead of the 0 marker. This is the marble diagram representation of the sequence [1,2,3] spaced three seconds apart (note each character represents one second).
-
-<div class="marble">
-    <pre class="line">--1--2--3|</pre>
-</div>
-
-Now we can leverage the power of marble diagrams by introducing the concept of time and space. Here we see the visualization of the sequence produced by the first value 1 which gives us the sequence [10,11,12]. These values were spaced four seconds apart, but the initial value is produce immediately.
-
-<div class="marble">
-    <pre class="line">1---1---1|</pre>
-    <pre class="line">0   1   2|</pre>
-</div>
-
-As the values are double digit they cover two rows, so the value of 10 is not confused with the value 1 immediately followed by the value 0. We add a row for each sequence produced by the `selector` function.
-
-<div class="marble">
-    <pre class="line">--1--2--3|</pre>
-    <pre class="line"> </pre>
-    <pre class="line" style="color: blue">  1---1---1|</pre>
-    <pre class="line" style="color: blue">  0   1   2|</pre>
-    <pre class="line"> </pre>
-    <pre class="line" style="color: red">     2---2---2|</pre>
-    <pre class="line" style="color: red">     0   1   2|</pre>
-    <pre class="line"></pre>
-    <pre class="line" style="color: green">        3---3---3|</pre>
-    <pre class="line" style="color: green">        0   1   2|</pre>
-</div>
-
-Now that we can visualize the source sequence and its child sequences, we should be able to deduce the expected output of the `SelectMany` operator. To create a result row for our marble diagram, we simple allow the values from each child sequence to 'fall' into the new result row.
-
-<div class="marble">
-    <pre class="line">--1--2--3|</pre>
-    <pre class="line"> </pre>
-    <pre class="line" style="color: blue">  1---1---1|</pre>
-    <pre class="line" style="color: blue">  0   1   2|</pre>
-    <pre class="line"> </pre>
-    <pre class="line" style="color: red">     2---2---2|</pre>
-    <pre class="line" style="color: red">     0   1   2|</pre>
-    <pre class="line"></pre>
-    <pre class="line" style="color: green">        3---3---3|</pre>
-    <pre class="line" style="color: green">        0   1   2|</pre>
-    <pre class="line"></pre>
-    <pre class="line">--<span style="color: blue">1</span>--<span style="color: red">2</span><span
-        style="color: blue">1</span>-<span style="color: green">3</span><span style="color: red">2</span><span
-            style="color: blue">1</span>-<span style="color: green">3</span><span style="color: red">2</span>--<span
-                style="color: green">3</span>|</pre>
-    <pre class="line">&nbsp;&nbsp;<span style="color: blue">0</span>&nbsp;&nbsp;<span
-        style="color: red">0</span><span style="color: blue">1</span>&nbsp;<span style="color: green">0</span><span
-            style="color: red">1</span><span style="color: blue">2</span>&nbsp;<span style="color: green">1</span><span
-                style="color: red">2</span>&nbsp;&nbsp;<span style="color: green">2</span>|</pre>
-    <pre class="line"></pre>
-</div>
-
-If we take this exercise and now apply it to code, we can validate our marble diagram. First our method that will produce our child sequences:
-
-```csharp
-private IObservable<long> GetSubValues(long offset)
-{
-    //Produce values [x*10, (x*10)+1, (x*10)+2] 4 seconds apart, but starting immediately.
-    return Observable.Timer(TimeSpan.Zero, TimeSpan.FromSeconds(4))
-                     .Select(x => (offset*10) + x)
-                     .Take(3);
-}
+```cs
+Observable
+    .Range(1, 5)
+    .Select(i => Observable.Repeat((char)(i+64), i))
+    .Concat())
+    .Dump("chars");
 ```
 
-This is the code that takes the source sequence to produce our final output:
-
-```csharp
-// Values [1,2,3] 3 seconds apart.
-Observable.Interval(TimeSpan.FromSeconds(3))
-          .Select(i => i + 1) //Values start at 0, so add 1.
-          .Take(3)            //We only want 3 values
-          .SelectMany(GetSubValues) //project into child sequences
-          .Dump("SelectMany");
-```
-
-The output produced matches our expectations from the marble diagram.
-
-```
-SelectMany --> 10
-SelectMany --> 20
-SelectMany --> 11
-SelectMany --> 30
-SelectMany --> 21
-SelectMany --> 12
-SelectMany --> 31
-SelectMany --> 22
-SelectMany --> 32
-SelectMany completed
-```
-
-We have previously looked at the `Select` operator when it is used in Query Comprehension Syntax, so it is worth noting how you use the `SelectMany` operator. The `Select` extension method maps quite obviously to query comprehension syntax, `SelectMany` is not so obvious. As we saw in the earlier example, the simple implementation of just suing select is as follows:
-
-```csharp
-var query = from i in Observable.Range(1, 5)
-            select i;
-```
-
-If we wanted to add a simple `where` clause we can do so like this:
-
-```csharp
-var query = from i in Observable.Range(1, 5)
-            where i%2==0
-            select i;
-```
-
-To add a `SelectMany` to the query, we actually add an extra `from` clause.
-
-```csharp
-var query = from i in Observable.Range(1, 5)
-            where i%2==0
-            from j in GetSubValues(i)
-            select j;
-
-// Equivalent to 
-var query = Observable.Range(1, 5)
-                      .Where(i=>i%2==0)
-                      .SelectMany(GetSubValues);
-```
-
-An advantage of using the query comprehension syntax is that you can easily access other variables in the scope of the query. In this example we select into an anon type both the value from the source and the child value.
-
-```csharp
-var query = from i in Observable.Range(1, 5)
-            where i%2==0
-            from j in GetSubValues(i)
-            select new {i, j};
-
-query.Dump("SelectMany");
-```
-
-Output
-
-```
-SelectMany --> { i = 2, j = 20 }
-SelectMany --> { i = 4, j = 40 }
-SelectMany --> { i = 2, j = 21 }
-SelectMany --> { i = 4, j = 41 }
-SelectMany --> { i = 2, j = 22 }
-SelectMany --> { i = 4, j = 42 }
-SelectMany completed
-```
-
-This brings us to a close on Part 2. The key takeaways from this were to allow you the reader to understand a key principal to Rx: functional composition. As we move through Part 2, examples became progressively more complex. We were leveraging the power of LINQ to chain extension methods together to compose complex queries.
-
-We didn't try to tackle all of the operators at once, we approached them in groups.
-
-- Creation
-- Reduction
-- Inspection
-- Aggregation
-- Transformation
-
-On deeper analysis of the operators we find that most of the operators are actually	specialization of the higher order functional concepts. We named them the ABC's of functional programming:
-
-- Anamorphism, aka:
-  - Ana
-  - Unfold
-  - Generate
-- Bind, aka:
-  - Map
-  - SelectMany
-  - Projection
-  - Transform
-- Catamorphism, aka:
-  - Cata
-  - Fold
-  - Reduce
-  - Accumulate
-  - Inject
-
-Now you should feel that you have a strong understanding of how a sequence can be manipulated. What we have learnt up to this point however can all largely be applied to `IEnumerable` sequences too. Rx can be much more complex than what many people will have dealt with in `IEnumerable` world, as we have seen with the `SelectMany` operator. In the next part of the book we will uncover features specific to the asynchronous nature of Rx. With the foundation we have built so far we should be able to tackle the far more challenging and interesting features of Rx.
+However, that would not have been a good way to show what `SelectMany` does, since this no longer uses it. (It uses `Concat`, which will be discussed in Chapter XXX.) We use `SelectMany` either when we know we're unwrapping a single-valued sequence, or when we don't have specific ordering requirements, and want to take elements as and when they emerge from child observables.
 
 
-### The Significant of SelectMany
+### The Significance of SelectMany
 
 If you've been reading this book's chapters in order, you had already seen two examples of `SelectMany` in earlier chapters. The first example in the [**LINQ Operators and Composition** section of Chapter 2](./02_KeyTypes.md#linq-operators-and-composition) used it. Here's the relevant code:
 
@@ -463,66 +278,35 @@ These two cases—fanning out then back in, and removing or avoiding a layer of 
 
 As it happens, `SelectMany` is also a particularly important operator in the mathematical theory that Rx is based on. It is a fundamental operator, in the sense that it is possible to build many other Rx operators with it. [Section XXX in Appendix C](./C_AlgebraicUnderpinnings) shows how you can implement `Select` and `Where` using `SelectMany`.
 
-
-
-
 ## Cast
 
-If you were to get a sequence of objects i.e. `IObservable<object>`, you may find it less than useful. There is a method specifically for `IObservable<object>` that will cast each element to a given type, and logically it is called `Cast<T>()`.
+C#'s type system is not omniscient. Sometimes we might know something about the type of the values emerging from an observable source that is not reflected in that source's type. This might be based on domain-specific knowledge. For example, with the AIS message broadcast by ships, we might know that if the message type is 3, it will contain navigation information. That means we could write this:
 
-```csharp
-var objects = new Subject<object>();
-objects.Cast<int>().Dump("cast");
-objects.OnNext(1);
-objects.OnNext(2);
-objects.OnNext(3);
-objects.OnCompleted();
+```cs
+IObservable<IVesselNavigation> type3 = receiverHost.Messages
+    .Where(v => v.MessageType == 3)
+    .Cast<IVesselNavigation>();
 ```
 
-Output:
+This uses `Cast`, a standard LINQ operator that we can use whenever we know that the items in some collection are of some more specific type than the type system ahs been able to deduce.
 
-```
-cast --> 1
-cast --> 2
-cast --> 3
-cast completed
-```
-
-If however we were to add a value that could not be cast into the sequence then we get errors.
-
-```csharp
-var objects = new Subject<object>();
-objects.Cast<int>().Dump("cast");
-objects.OnNext(1);
-objects.OnNext(2);
-objects.OnNext("3");//Fail
-```
-
-Output:
-
-```
-cast --> 1
-cast --> 2
-cast failed --> Specified cast is not valid.
-```
-
-That is the difference between `Cast` and the [`OfType` operator shown in Chapter 5](./05_Filtering.md#oftype). `OfType` is a filtering operator, and it removes any items that are not of the specified type. `Cast` doesn't remove anything—it is more like `Select` in that it applies a transformation (specifically a cast) to every input. If the cast fails, we get an error.
+The difference between `Cast` and the [`OfType` operator shown in Chapter 5](./05_Filtering.md#oftype) is the way in which they handle items that are not of the specified type. `OfType` is a filtering operator, so it just filters out any items that are not of the specified type. But with `Cast` (as with a normal C# cast expression) we are asserting that we expect the source items to be of the specified type, so the observable returned by `Cast` will invoke its subscriber's `OnError` if its source produces an item that is not compatible with the specified type.
 
 This distinction might be easier to see if we recreate the functionality of `Cast` and `OfType` using other more fundamental operators.
 
 ```csharp
 // source.Cast<int>(); is equivalent to
-source.Select(i=>(int)i);
+source.Select(i => (int)i);
 
 // source.OfType<int>();
-source.Where(i=>i is int).Select(i=>(int)i);
+source.Where(i=> i is int).Select(i=>(int)i);
 ```
-
-
 
 ## Materialize and Dematerialize			
 
-The `Timestamp` and `TimeInterval` transform operators can prove useful for logging and debugging sequences, so too can the `Materialize` operator. `Materialize` transitions a sequence into a metadata representation of the sequence, taking an `IObservable<T>` to an `IObservable<Notification<T>>`. The `Notification` type provides meta data for the events of the sequence.
+The `Materialize` operator transforms a source of `IObservable<T>` into one of type `IObservable<Notification<T>>`. It will provide one `Notification<T>` for each item the source produces, and, if the sourced terminates, it will produce one final `Notification<T>` indicating whether it completed successfully or with an error.
+
+This can be useful because it produces objects that describe a whole sequence. If you wanted to record the output of an observable in a way that could later be replayed...well you'd probably use a `ReplaySubject<T>` because it is designed for precisely that job. But if you wanted to be able to inspect or modify the items in the sequence once they had been collectors, you might want to write your own code to store items. `Notification<T>` can be helpful because it enables you to represent everything a source does in a uniform way. You don't need to store information about whether or how the sequence terminates separately—this information is just the final `Notification<T>`.
 
 If we materialize a sequence, we can see the wrapped values being returned.
 
@@ -585,3 +369,4 @@ Materialize completed
 
 Materializing a sequence can be very handy for performing analysis or logging of a sequence. You can unwrap a materialized sequence by applying the `Dematerialize` extension method. The `Dematerialize` will only work on `IObservable<Notification<TSource>>`.
 
+This completes our tour of the transformation operators. Their common characteristic is that they produce an output (or, in the case of `SelectMany`, a set of outputs) for each input item. Next we will look at the operators that can combine information from multiple items in their source.

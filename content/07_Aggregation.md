@@ -638,3 +638,37 @@ defaultIfEmpty completed
 default42IfEmpty value: 42
 default42IfEmpty completed
 ```
+
+
+
+
+
+This brings us to a close on Part 2. The key takeaways from this were to allow you the reader to understand a key principal to Rx: functional composition. As we move through Part 2, examples became progressively more complex. We were leveraging the power of LINQ to chain extension methods together to compose complex queries.
+
+We didn't try to tackle all of the operators at once, we approached them in groups.
+
+- Creation
+- Reduction
+- Inspection
+- Aggregation
+- Transformation
+
+On deeper analysis of the operators we find that most of the operators are actually	specialization of the higher order functional concepts. We named them the ABC's of functional programming:
+
+- Anamorphism, aka:
+  - Ana
+  - Unfold
+  - Generate
+- Bind, aka:
+  - Map
+  - SelectMany
+  - Projection
+  - Transform
+- Catamorphism, aka:
+  - Cata
+  - Fold
+  - Reduce
+  - Accumulate
+  - Inject
+
+Now you should feel that you have a strong understanding of how a sequence can be manipulated. What we have learnt up to this point however can all largely be applied to `IEnumerable` sequences too. Rx can be much more complex than what many people will have dealt with in `IEnumerable` world, as we have seen with the `SelectMany` operator. In the next part of the book we will uncover features specific to the asynchronous nature of Rx. With the foundation we have built so far we should be able to tackle the far more challenging and interesting features of Rx.
