@@ -32,3 +32,105 @@ Ana enters the sequence. T --> IObservable<T>
 Bind modifies the sequence. IObservable<T1> --> IObservable<T2>
 Cata leaves the sequence. IObservable<T> --> T
 ```
+
+
+Add a section on how `SelectMany` is the monadic bind operator.
+
+This excerpt originally in chapter 4 illustrates that `Select` and `Where` can be built from `SelectMany`:
+
+---begin
+
+Extending the source sequence to have many values, will give us a result with many values.
+
+```csharp
+Func<int, char> letter = i => (char)(i + 64);
+Observable.Range(1,3)
+          .SelectMany(i => Observable.Return(letter(i)))
+          .Dump("SelectMany");
+```
+
+Now the input of [1,2,3] produces [[A], [B], [C]] which is flattened to just [A,B,C].
+
+```
+SelectMany --> A
+SelectMany --> B
+SelectMany --> C
+```
+
+Note that we have effectively recreated the `Select` operator.
+
+
+
+The last example maps a number to a letter. As there are only 26 letters, it would be nice to ignore values greater than 26. This is easy to do. While we must return a sequence for each element of the source, there aren't any rules that prevent it from being an empty sequence. In this case if the element value is a number outside of the range 1-26 we return an empty sequence.
+
+```csharp
+Func<int, char> letter = i => (char)(i + 64);
+Observable.Range(1, 30)
+          .SelectMany(
+              i =>
+              {
+                if (0 < i &amp;&amp; i < 27)
+                {
+                    return Observable.Return(letter(i));
+                }
+                else
+                {
+                    return Observable.Empty<char>();
+                }
+            })
+            .Dump("SelectMany");
+```
+
+Output:
+
+```
+A
+B
+C
+...
+X
+Y
+Z
+Completed
+```
+
+To be clear, for the source sequence [1..30], the value 1 produced a sequence [A], the value 2 produced a sequence [B] and so on until value 26 produced a sequence [Z]. When the source produced value 27, the `selector` function returned the empty sequence []. Values 28, 29 and 30 also produced empty sequences. Once all the sequences from the calls to the selector had been fattened to produce the final result, we end up with the sequence [A..Z].
+
+Now that we have covered the third of our three higher order functions, let us take time to reflect on some of the methods we have already learnt. First we can consider the `Where` extension method. We first looked at this method in the chapter on [Reducing a sequence](05_Filtering.html#Where). While this method does reduce a sequence, it is not a fit for a functional _fold_ as the result is still a sequence. Taking this into account, we find that `Where` is actually a fit for _bind_. As an exercise, try to write your own extension method version of `Where` using the `SelectMany` operator. Review the last example for some help...
+
+An example of a `Where` extension method written using `SelectMany`:
+
+```csharp
+public static IObservable<T> Where<T>(this IObservable<T> source, Func<T, bool> predicate)
+{
+    return source.SelectMany(item =>
+    {
+        if (predicate(item))
+        {
+            return Observable.Return(item);
+        }
+        else
+        {
+            return Observable.Empty<T>();
+        }
+    });
+}
+```
+
+Now that we know we can use `SelectMany` to produce `Where`, it should be a natural progression for you the reader to be able to extend this to reproduce other filters like `Skip` and `Take`.
+
+As another exercise, try to write your own version of the `Select` extension method using `SelectMany`. Refer to our example where we use `SelectMany` to convert `int` values into `char` values if you need some help...
+
+An example of a `Select` extension method written using `SelectMany`:
+
+```csharp
+public static IObservable<TResult> MySelect<TSource, TResult>(
+    this IObservable<TSource> source, 
+    Func<TSource, TResult> selector)
+{
+    return source.SelectMany(value => Observable.Return(selector(value)));
+}
+```
+
+
+---end

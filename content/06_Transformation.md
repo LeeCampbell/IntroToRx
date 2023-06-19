@@ -194,211 +194,55 @@ it would produce a list with these elements:
 [ A, B, B, C, C, C, D, D, D, D, E, E, E, E, E ]
 ```
 
-there, the order is less odd.
+The order is less odd. It's worth exploring the reasons for this in a little more detail.
 
-TBD: from here.
-
-Of the transformation operators above, we can see that `Select` is the most useful. It allows very broad flexibility in its transformation output and can even be used to reproduce some of the other transformation operators. The `SelectMany` operator however is even more powerful. In LINQ and therefore Rx, the _bind_ method is `SelectMany`. Most other transformation operators can be built with `SelectMany`. Considering this, it is a shame to think that `SelectMany` may be one of the most misunderstood methods in LINQ.
-
-In my personal discovery of Rx, I struggled to grasp the `SelectMany` extension method. One of my colleagues helped me understand `SelectMany` better by suggesting I think of it as <q>from one, select many</q>. An even better definition is <q>From one, select zero or more</q>. If we look at the signature for `SelectMany` we see that it takes a source sequence and a function as its parameters.
-
-```csharp
-IObservable<TResult> SelectMany<TSource, TResult>(
-    this IObservable<TSource> source, 
-    Func<TSource, IObservable<TResult>> selector)
-```
-
-The `selector` parameter is a function that takes a single value of `T` and returns a sequence. Note that the sequence the `selector` returns does not have to be of the same type as the `source`. Finally, the `SelectMany` return type is the same as the `selector` return type.
-
-This method is very important to understand if you wish to work with Rx effectively, so let's step through this slowly. It is also important to note its subtle differences to `IEnumerable<T>`'s `SelectMany` operator, which we will look	at soon.
-
-Our first example will take a sequence with the single value '3' in it. The selector function we provide will produce a further sequence of numbers. This result sequence will be a range of numbers from 1 to the value provided i.e. 3. So we take the sequence [3] and return the sequence [1,2,3] from our `selector` function.
-
-```csharp
-Observable.Return(3)
-          .SelectMany(i => Observable.Range(1, i))
-          .Dump("SelectMany");
-```
-
-Output:
-
-```
-SelectMany --> 1
-SelectMany --> 2
-SelectMany --> 3
-SelectMany completed
-```
-
-If we modify our source to be a sequence of [1,2,3] like this...
-
-```csharp
-Observable.Range(1,3)
-          .SelectMany(i => Observable.Range(1, i))
-          .Dump("SelectMany");
-```
-
-...we will now get an output with the result of each sequence ([1], [1,2] and [1,2,3]) flattened to produce [1,1,2,1,2,3].
-
-```
-SelectMany --> 1
-SelectMany --> 1
-SelectMany --> 2
-SelectMany --> 1
-SelectMany --> 2
-SelectMany --> 3
-SelectMany completed
-```
-
-This last example better illustrates how `SelectMany` can take a `single` value and expand it to many values. When we then apply this to a `sequence` of values, the result is each of the child sequences combined to produce the final sequence. In both examples, we have returned a sequence that is the same type as the source. This is not a restriction however, so in this next example we return a different type. We will reuse the `Select` example of transforming an integer to an ASCII character. To do this, the `selector` function just returns a char sequence with a single value.
-
-```csharp
-Func<int, char> letter = i => (char)(i + 64);
-Observable.Return(1)
-          .SelectMany(i => Observable.Return(letter(i)));
-          .Dump("SelectMany");
-```
-
-So with the input of [1] we return a sequence of [A].
-
-```
-SelectMany --> A
-SelectMany completed
-```
-
-Extending the source sequence to have many values, will give us a result with many values.
-
-```csharp
-Func<int, char> letter = i => (char)(i + 64);
-Observable.Range(1,3)
-          .SelectMany(i => Observable.Return(letter(i)))
-          .Dump("SelectMany");
-```
-
-Now the input of [1,2,3] produces [[A], [B], [C]] which is flattened to just [A,B,C].
-
-```
-SelectMany --> A
-SelectMany --> B
-SelectMany --> C
-```
-
-Note that we have effectively recreated the `Select` operator.
-
-The last example maps a number to a letter. As there are only 26 letters, it would be nice to ignore values greater than 26. This is easy to do. While we must return a sequence for each element of the source, there aren't any rules that prevent it from being an empty sequence. In this case if the element value is a number outside of the range 1-26 we return an empty sequence.
-
-```csharp
-Func<int, char> letter = i => (char)(i + 64);
-Observable.Range(1, 30)
-          .SelectMany(
-              i =>
-              {
-                if (0 < i &amp;&amp; i < 27)
-                {
-                    return Observable.Return(letter(i));
-                }
-                else
-                {
-                    return Observable.Empty<char>();
-                }
-            })
-            .Dump("SelectMany");
-```
-
-Output:
-
-```
-A
-B
-C
-...
-X
-Y
-Z
-Completed
-```
-
-To be clear, for the source sequence [1..30], the value 1 produced a sequence [A], the value 2 produced a sequence [B] and so on until value 26 produced a sequence [Z]. When the source produced value 27, the `selector` function returned the empty sequence []. Values 28, 29 and 30 also produced empty sequences. Once all the sequences from the calls to the selector had been fattened to produce the final result, we end up with the sequence [A..Z].
-
-Now that we have covered the third of our three higher order functions, let us take time to reflect on some of the methods we have already learnt. First we can consider the `Where` extension method. We first looked at this method in the chapter on [Reducing a sequence](05_Filtering.html#Where). While this method does reduce a sequence, it is not a fit for a functional _fold_ as the result is still a sequence. Taking this into account, we find that `Where` is actually a fit for _bind_. As an exercise, try to write your own extension method version of `Where` using the `SelectMany` operator. Review the last example for some help...
-
-An example of a `Where` extension method written using `SelectMany`:
-
-```csharp
-public static IObservable<T> Where<T>(this IObservable<T> source, Func<T, bool> predicate)
-{
-    return source.SelectMany(item =>
-    {
-        if (predicate(item))
-        {
-            return Observable.Return(item);
-        }
-        else
-        {
-            return Observable.Empty<T>();
-        }
-    });
-}
-```
-
-Now that we know we can use `SelectMany` to produce `Where`, it should be a natural progression for you the reader to be able to extend this to reproduce other filters like `Skip` and `Take`.
-
-As another exercise, try to write your own version of the `Select` extension method using `SelectMany`. Refer to our example where we use `SelectMany` to convert `int` values into `char` values if you need some help...
-
-An example of a `Select` extension method written using `SelectMany`:
-
-```csharp
-public static IObservable<TResult> MySelect<TSource, TResult>(
-    this IObservable<TSource> source, 
-    Func<TSource, TResult> selector)
-{
-    return source.SelectMany(value => Observable.Return(selector(value)));
-}
-```
 
 ### IEnumerable<T> vs. IObservable<T> SelectMany	
 
-It is worth noting the difference between the implementations of `IEnumerable<T>` `SelectMany` and `IObservable<T>` `SelectMany`. Consider that `IEnumerable<T>` sequences are pull based and blocking. This means that when an `IEnumerable<T>` is processed with a `SelectMany` it will pass one item at a time to the `selector` function and wait until it has processed all of the values from the `selector` before requesting (pulling) the next value from the source.
+`IEnumerable<T>` is pull based—sequences produce elements only when asked. `Enumerable.SelectMany` pulls items from its sources in a very particular order. It begins by asking its source `IEnumerable<int>` (the one returned by `Range` in the preceding example), and then retrieves the first value. `SelectMany` then invokes our callback, passing this first item, and then enumerates everything in the `IEnumerable<char>` our callback returns. Only when it has exhausted this does it ask the source (`Range`) for a second item. Again, it passes that second item to our callback and then fully enumerates the `IEnumerable<char>`, we return, and so on. So we get everything from the first nested sequence first, then everything from the second, etc.
 
-Consider an `IEnumerable<T>` source sequence of `[1,2,3]`. If we process that with a `SelectMany` operator that returns a sequence of `[x*10, (x*10)+1, (x*10)+2]`, we would get the `[[10,11,12]`, `[20,21,22]`, `[30,31,32]]`.
+`Enumerable.SelectMany` is able to proceed in this way for two reasons. First, the pull-based nature of `IEnumerable<T>` enables it to decide on the order in which it processes things. Second, with `IEnumerable<T>` it is normal for operations to block, i.e., not to return until they have something for us. When the preceding example calls `ToList`, it won't return until it has fully populated a `List<T>` with all of the results.
 
-```csharp
-private IEnumerable<int> GetSubValues(int offset)
-{
-    yield return offset * 10;
-    yield return (offset * 10) + 1;
-    yield return (offset * 10) + 2;
-}
+Rx is not like that. First, consumers don't get to tell sources when to produce each item—sources emit items when they are ready to. Second, Rx typically models ongoing processes, so we don't expect method calls to block until they are done. There are some cases where Rx sequences will naturally produce all of their items very quickly and complete as soon as they can, but kinds of information sources that we tend to want model with Rx typically don't behave that way. So most operations in Rx do not block—they immediately return something (such as an `IObservable<T>`, or an `IDisposable` representing a subscription) and will then produce values later.
+
+The Rx version of the example we're currently examining is in fact one of these unusual cases where each of the sequences emits items as soon as it can. Logically speaking, all of the nested `IObservable<char>` sequences are in progress concurrently. The result is a mess because each of the observable sources here attempts to produce every element as quickly as the source can consume them. The fact that they end up being interleaved has to do with the way these kinds of observable sources use Rx's _scheduler_ system, which we will describe in chapter XXX. Schedulers ensure that even when we are modelling logically concurrent processes, the rules of Rx are maintained, and observers of the output of `SelectMany` will only be given one item at a time. The following marble diagram shows the events that lead to the scrambled output we see:
+
+![An Rx marble diagram illustrating two observables. The first is labelled 'source', and it shows six events, labelled numerically. These fall into three groups: events 1 and 2 occur close together, and are followed by a gap. Then events 3, 4, and 5 are close together. And then after another gap event 6 occurs, not close to any. The second observable is labelled 'source.Quiescent(TimeSpan.FromSeconds(2), Scheduler.Default). It shows three events. The first is labelled '[1, 2], and its horizontal position shows that it occurs a little bit after the '2' event on the 'source' observable. The second event on the second observable is labelled '[3,4,5]' and occurs a bit after the '5' event on the 'source' observable. The third event from on the second observable is labelled '[6]', and occurs a bit after the '6' event on the 'source' observable. The image conveys the idea that each time the source produces some events and then stops, the second observable will produce an event shortly after the source stops, which will contain a list with all of the events from the source's most recent burst of activity.](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles.svg)
+
+
+We can make a small tweak to prevent the child sequences all from trying to run at the same time:
+
+```cs
+Observable
+    .Range(1, 5)
+    .SelectMany(i => Observable.Repeat((char)(i+64), i).Delay(TimeSpan.FromMilliseconds(i * 100)))
+    .Dump("chars");
 ```
 
-We then apply the `GetSubValues` method with the following code:
-
-```csharp
-var enumerableSource = new [] {1, 2, 3};
-var enumerableResult = enumerableSource.SelectMany(GetSubValues);
-
-foreach (var value in enumerableResult)
-{
-    Console.WriteLine(value);
-}
-```
-
-The resulting child sequences are flattened into [10,11,12,20,21,22,30,31,32].
+Now we get output consistent with the `IEnumerable<T>` version:
 
 ```
-10
-11
-12
-20
-21
-22
-30
-31
-32
+chars-->A
+chars-->B
+chars-->B
+chars-->C
+chars-->C
+chars-->C
+chars-->D
+chars-->D
+chars-->D
+chars-->D
+chars-->E
+chars-->E
+chars-->E
+chars-->E
+chars-->E
+chars completed
 ```
 
-The difference with `IObservable<T>` sequences is that the call to the `SelectMany`'s `selector` function is not blocking and the result sequence can produce values over time. This means that subsequent 'child' sequences can overlap. Let us consider again a sequence of [1,2,3], but this time values are produced three second apart. The `selector` function will also produce sequence of [x*10, (x*10)+1, (x*10)+2] as per the example above, however these values will be four seconds apart.
+This clarifies that `SelectMany` lets you produce a sequence for each item that the source produces, and to have all of the items from all of those new sequences flattened back out into one sequence that contains everything.
 
-To visualize this kind of asynchronous data we need to represent space and time.
+However, we probably won't want production code to introduce delays just to make it easier to see what's going. Rx's ability to model concurrent process is one of the big reasons for using it. So we need to be able to think about this style of concurrency, so it can be helpful to visualize this kind of asynchronous operation.
 
 ### Visualizing sequences			
 
@@ -596,6 +440,29 @@ On deeper analysis of the operators we find that most of the operators are actua
   - Inject
 
 Now you should feel that you have a strong understanding of how a sequence can be manipulated. What we have learnt up to this point however can all largely be applied to `IEnumerable` sequences too. Rx can be much more complex than what many people will have dealt with in `IEnumerable` world, as we have seen with the `SelectMany` operator. In the next part of the book we will uncover features specific to the asynchronous nature of Rx. With the foundation we have built so far we should be able to tackle the far more challenging and interesting features of Rx.
+
+
+### The Significant of SelectMany
+
+If you've been reading this book's chapters in order, you had already seen two examples of `SelectMany` in earlier chapters. The first example in the [**LINQ Operators and Composition** section of Chapter 2](./02_KeyTypes.md#linq-operators-and-composition) used it. Here's the relevant code:
+
+```cs
+IObservable<int> onoffs =
+    from _ in src
+    from delta in Observable.Return(1, scheduler).Concat(Observable.Return(-1, scheduler).Delay(minimumInactivityPeriod, scheduler))
+    select delta;
+```
+
+(If you're wondering where the call to `SelectMany` is in that, remember that if a Query Expression contains two `from` clauses, the C# compiler turns those into a call to `SelectMany`.) This illustrates a common pattern in Rx, which might be described as fanning out, and then back in again.
+
+As you may recall, this example worked by creating a new, short-lived `IObservable<int>` for each item produced by `src`. (These child sequences, represented by the `delta` range variable in the example, produce the value `1`, and then after the specified `minimumActivityPeriod`, they produce `-1`. This enabled us to keep count of the number of recent events emitted.) This is the _fanning out_ part, where items in a source sequence produce new observable sequences. `SelectMany` is crucial in these scenarios because it enables all of those new sequences to be flattened back out into a single output sequence.
+
+The second place I used `SelectMany` was slightly different: it was the final example of the [**Representing Filesystem Events in Rx** section in Chapter 3](./03_CreatingObservableSequences.md#representing-filesystem-events-in-rx). Although that example also combined multiple observable sources into a single observable, that list of observables was fixed: there was one for each of the different events from `FileSystemWatcher`. It used a different operator `Merge` (which we'll get to in XXX), which was simpler to use in that scenario because you just pass it the list of all the observables you'd like to combine. However, because of a few other things this code wanted to do (including deferred startup, automated disposal, and sharing a single source when multiple subscribers were active), the particular combination of operators used to achieve this meant our merging code that returned an `IObservable<FileSystemEventArgs>`, needed to be invoked as a transforming step. If we'd just used `Select`, the result would have been an `IObservable<IObservable<FileSystemEventArgs>>`. The structure of the code meant that it would only ever produce a single `IObservable<FileSystemEventArgs>`, so the double-wrapped type would be rather inconvenient. `SelectMany` is very useful in these scenarios—if composition of operators has introduced an extra layer of observables-in-observables that you don't want, `SelectMany` can unwrap one layer for you.
+
+These two cases—fanning out then back in, and removing or avoiding a layer of observables of observables—come up quite often, which makes `SelectMany` an important method. (It's not surprising that I was unable to avoid using it in earlier examples.)
+
+As it happens, `SelectMany` is also a particularly important operator in the mathematical theory that Rx is based on. It is a fundamental operator, in the sense that it is possible to build many other Rx operators with it. [Section XXX in Appendix C](./C_AlgebraicUnderpinnings) shows how you can implement `Select` and `Where` using `SelectMany`.
+
 
 
 
