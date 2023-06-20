@@ -137,6 +137,88 @@ rs-----1---2-3|
 
 You should note that the second sequence is only yielded once the first sequence has completed. To prove this, we explicitly put in a 500ms delay on producing a value and completing. Once that happens, the second sequence is then subscribed to. When that sequence completes, then the third sequence is processed in the same fashion.
 
+TODO: this has moved, and it needs some work to integrate. It's a bit of an odd one, because it doesn't really neatly fit into any of the categories. But this chapter feels less inappropriate than the rest. (It's kind of similar to thins like Concat or StartWith and Append because it generally emits everything that comes into it, but it may add something.)
+
+
+
+
+## DefaultIfEmpty
+
+The `DefaultIfEmpty` extension method will return a single value if the source sequence is empty. Depending on the overload used, it will either be the value provided as the default, or `Default(T)`. `Default(T)` will be the zero value for _struct_ types and will be `null` for classes. If the source is not empty then all values will be passed straight on through.
+
+In this example the source produces values, so the result of `DefaultIfEmpty` is just the source.
+
+```csharp
+var subject = new Subject<int>();
+
+subject.Subscribe(
+    Console.WriteLine,
+    () => Console.WriteLine("Subject completed"));
+
+var defaultIfEmpty = subject.DefaultIfEmpty();
+
+defaultIfEmpty.Subscribe(
+    b => Console.WriteLine("defaultIfEmpty value: {0}", b),
+    () => Console.WriteLine("defaultIfEmpty completed"));
+
+subject.OnNext(1);
+subject.OnNext(2);
+subject.OnNext(3);
+
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+defaultIfEmpty value: 1
+2
+defaultIfEmpty value: 2
+3
+defaultIfEmpty value: 3
+Subject completed
+defaultIfEmpty completed
+```
+
+If the source is empty, we can use either the default value for the type (i.e. 0 for int) or provide our own value in this case 42.
+
+```csharp
+var subject = new Subject<int>();
+
+subject.Subscribe(
+    Console.WriteLine,
+    () => Console.WriteLine("Subject completed"));
+
+var defaultIfEmpty = subject.DefaultIfEmpty();
+
+defaultIfEmpty.Subscribe(
+    b => Console.WriteLine("defaultIfEmpty value: {0}", b),
+    () => Console.WriteLine("defaultIfEmpty completed"));
+
+var default42IfEmpty = subject.DefaultIfEmpty(42);
+
+default42IfEmpty.Subscribe(
+    b => Console.WriteLine("default42IfEmpty value: {0}", b),
+    () => Console.WriteLine("default42IfEmpty completed"));
+
+subject.OnCompleted();
+```
+
+Output:
+
+```
+Subject completed
+defaultIfEmpty value: 0
+defaultIfEmpty completed
+default42IfEmpty value: 42
+default42IfEmpty completed
+```
+
+
+
+
+
 ### Repeat							
 
 Another simple extension method is `Repeat`. It allows you to simply repeat a sequence, either a specified or an infinite number of times.

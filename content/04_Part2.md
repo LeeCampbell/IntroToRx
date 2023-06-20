@@ -26,7 +26,6 @@ Notes:
     * Skip/Take[While/Until]
     * distinct
     * First(OrDefault), Last(OrDefault), Single(OrDefault)
-    * DefaultIfEmpty
     * ElementAt
 
 * transformation
@@ -53,6 +52,7 @@ Notes:
     * Window
 * combination
     * Concat
+    * DefaultIfEmpty
     * Repeat
     * Zip
     * CombineLatest

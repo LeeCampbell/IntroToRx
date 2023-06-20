@@ -2,20 +2,27 @@
 title: Aggregation
 ---
 
-# Aggregation						
+# Aggregation
 
-Data is not always valuable is its raw form. Sometimes we need to consolidate, collate, combine or condense the mountains of data we receive into more consumable bite sized chunks. Consider fast moving data from domains like instrumentation, finance, signal processing and operational intelligence. This kind of data can change at a rate of over ten values per second. Can a person actually consume this? Perhaps for human consumption, aggregate values like averages, minimums and maximums can be of more use.
+Data is not always tractable is its raw form. Sometimes we need to consolidate, collate, combine or condense the mountains of data we receive. This might just be a case of reducing the volume of data to a manageable level. For example, consider fast moving data from domains like instrumentation, finance, signal processing and operational intelligence. This kind of data can change at a rate of over ten values per second for individual sources, and much higher rates if we're observing multiple sources. Can a person actually consume this? For human consumption, aggregate values like averages, minimums and maximums can be of more use.
 
-Continuing with the theme of reducing an observable sequence, we will look at the aggregation functions that are available to us in Rx. Our first set of methods continues on from our last chapter, as they take an observable sequence and reduce it to a sequence with a single value. We then move on to find operators that can transition a sequence back to a scalar value, a functional fold.
+We can often achieve more than this. The way in which we combine and correlate may enable us to reveal patterns, providing insights that would not be available from any individual message, or from simple reduction to a single statistical measure. Rx's composability enables us to express complex and subtle computations over streams of data enabling us not just to reduce the volume of messages that users have to deal with, but to increase the amount of value in each message a human receives.
 
-Those who use [LINQPad](http://www.linqpad.net/) will recognize that this is the source of inspiration. For those who have not used LINQPad, I highly recommend it. It is perfect for whipping up quick samples to validate a snippet of code. LINQPad also fully supports the `IObservable<T>` type.
+We will start with the simplest aggregation functions, which reduce an observable sequence to a sequence with a single value in some specific way. We then move on to more general-purpose operators that enable you to define your own aggregation mechanisms.
 
-## Count					
+## Simple Numeric Aggregation
 
-`Count` is a very familiar extension method for those that use LINQ on `IEnumerable<T>`. Like all good method names, it "does what it says on the tin". The Rx version deviates from the `IEnumerable<T>` version as Rx will return an observable sequence, not a scalar value. The return sequence will have a single value being the count of the values in the source sequence. Obviously we cannot provide the count until the source sequence completes.
+Rx supports various standard LINQ operators that reduce all of the values in a sequence down to a single numeric result.
+
+
+### Count
+
+`Count` tells you how many elements a sequence contains. Although this is a standard LINQ operator, Rx's version deviates from the `IEnumerable<T>` version as Rx will return an observable sequence, not a scalar value. As usual, this is because of the push-related nature of Rx. Rx's `Count` can't demand that its source supply all elements immediately, so it just has to wait until the source says that it has finished.
+
+The sequence that `Count` returns will always be of type `IObservable<int>`, regardless of the source's element type. This will produce nothing until the source completes, at which point it will produce a single value reporting how many elements the source produced, and then it will in turn immediately complete. This example uses `Count` with `Range`, because `Range` produces all of its values as quickly as possible and then completes, meaning we get a result from `Count` immediately:
 
 ```csharp
-var numbers = Observable.Range(0,3);
+IObservable<int> numbers = Observable.Range(0,3);
 numbers.Dump("numbers");
 numbers.Count().Dump("count");
 ```
@@ -31,56 +38,273 @@ count-->3
 count Completed
 ```
 
-If you are expecting your sequence to have more values than a 32 bit integer can hold, there is the option to use the `LongCount` extension method. This is just the same as `Count` except it returns an `IObservable<long>`.
+If you are expecting your sequence to have more values than a 32-bit signed integer can count, you can use the `LongCount` operator instead. This is just the same as `Count` except it returns an `IObservable<long>`.
 
-## Min, Max, Sum and Average			
+### Sum
 
-Other common aggregations are `Min`, `Max`, `Sum` and `Average`. Just like `Count`, these all return a sequence with a single value. Once the source completes the result sequence will produce its value and then complete.
+The `Sum` operator adds together all the values in its source, producing the total as its only output. As with `Count`, Rx's `Sum` differs from most other LINQ providers in that it does not produce a scalar as its output—it produces an observable sequence that does nothing until its source completes. When the source completes, the observable returned by `Sum` produces a single value and then immediately completes. This example shows it in use:
 
-```csharp
-var numbers = new Subject<int>();
-
+```cs
+IObservable<int> numbers = Observable.Range(1,5);
 numbers.Dump("numbers");
-numbers.Min().Dump("Min");
-numbers.Average().Dump("Average");
-
-numbers.OnNext(1);
-numbers.OnNext(2);
-numbers.OnNext(3);
-numbers.OnCompleted();
+numbers.Sum().Dump("sum");
 ```
 
-Output:
+The output shows the numbers produced by the source, and also the single result produced by `Sum`:
 
 ```
 numbers-->1
 numbers-->2
 numbers-->3
-numbers Completed
-min-->1
-min Completed
-avg-->2
-avg Completed
+numbers-->4
+numbers-->5
+numbers completed
+sum-->15
+sum completed
 ```
 
-The `Min` and `Max` methods have overloads that allow you to provide a custom implementation of an `IComparer<T>` to sort your values in a custom way. The `Average` extension method specifically calculates the mean (as opposed to median or mode) of the sequence. For sequences of integers (int or long) the output of `Average` will be an `IObservable<double>`. If the source is of nullable integers then the output will be `IObservable<double?>`. All other numeric types (`float`, `double`, `decimal` and their nullable equivalents) will result in the output sequence being of the same type as the input sequence.
+`Sum` is only able to work with values of type `int`, `long`, `float`, `double` `decimal`, or the nullable versions of these. This means that there are types you might expect to be able to `Sum` that you can't. For example the `BigInteger` type in the `System.Numerics` namespace represents integer values whose size is limited only by available memory, and how long you're prepared to wait for it to perform calculations. (Even basic arithmetic gets very slow on numbers with millions of digits.) You can use `+` to add these together because the type defines an overload for that operator. But `Sum` has historically had no way to find that. The introduction of [generic math in C# 11.0](https://learn.microsoft.com/en-us/dotnet/standard/generics/math#operator-interfaces) means that it would technically be possible to introduce a version of `Sum` that would work for any type `T` that implemented [`IAdditionOperators<T, T, T>`](https://learn.microsoft.com/en-us/dotnet/api/system.numerics.iadditionoperators-3). However, that would mean a dependency on .NET 7.0 (because generic math is not available in order versions), and at the time of writing this, Rx supports .NET 7.0 through its `net6.0` target. It could need to introduce a separate `net7.0` target to enable this, but has not yet done so. (To be fair, [`Sum` in LINQ to Objects also doesn't support this yet](https://github.com/dotnet/runtime/issues/64031).)
 
-## Functional folds					
+If you supply `Sum` with the nullable versions of these types (e.g., your source is an `IObservable<int?>`) then `Sum` will also return a sequence with a nullable item type, and it will produce `null` if any of the input values is `null`.
 
-Finally we arrive at the set of methods in Rx that meet the functional description of catamorphism/fold. These methods will take an `IObservable<T>` and produce a `T`.
+Although `Sum` can work only with a small, fixed list of numeric types, your source doesn't necessarily have to produce values of those types. `Sum` offers overloads that accept a lambda that extracts a suitable numeric value from each input element. For example, suppose you wanted to answer the following unlikely question: if the next 10 ships that happen to broadcast descriptions of themselves over AIS were put side by side, would they all fit in a channel of some particular width? We could do this by filtering the AIS messages down to those that provide ship size information, using `Take` to collect the next 10 such messages, and then using `Sum`. The Ais.NET library's `IVesselDimensions` interface does not implement addition (and even if it did, we already just saw that Rx wouldn't be able to exploit that), but that's fine: all we need to do is supply a lambda that can take an `IVesselDimensions` and return a value of some numeric type that `Sum` can process:
 
-Caution should be prescribed whenever using any of these fold methods on an observable sequence, as they are all blocking. The reason you need to be careful with blocking methods is that you are moving from an asynchronous paradigm to a synchronous one, and without care you can introduce concurrency problems such as locking UIs and deadlocks. We will take a deeper look into these problems in a later chapter when we look at concurrency.
+```cs
+IObservable<IVesselDimensions> vesselDimensions = receiverHost.Messages
+    .OfType<IVesselDimensions>();
 
-> It is worth noting that in the soon to be released .NET 4.5 and Rx 2.0 will provide support for avoiding these concurrency problems. The new `async`/`await` keywords and related features in Rx 2.0 can help exit the monad in a safer way.
+IObservable<int> totalVesselWidths = vesselDimensions
+    .Take(10)
+    .Sum(dimensions => checked((int)(dimensions.DimensionToPort + dimensions.DimensionToStarboard)));
+```
 
-TODO: this was where First, Last, and Single were. (That was an odd choice. They are technically catamorphisms, but they are degenerate cases. `Aggregate` is the canonical example but that wasn't in this section! `Sum`, `Average`, `Min`, and `Max` are also all good examples (more specialized than Aggregate, but at least they look at every input), but they're also not in here. To be fair, the Rx source code puts FirstAsync and SingleAsync in Observable.Aggregates.cs. But it's the fact that this section _only_ contained these, and none of the other more obviously aggregating catamorphisms.) I've moved those out into filtering, because they feel more akin to Take and Last. From a structural algebra perspective these are different kinds of things, but in terms of what they actually do, they are positional filters, so they seem to fit better in the filtering chapter than Aggregation because they don't aggregate.
+(If you're wondering what's with cast and the `checked` keyword here, AIS defines these values as unsigned integers, so the Ais.NET library reports them as `uint`, which is not a type Rx's `Sum` supports. In practice, it's very unlikely that a vessel will be wide enough to overflow a 32-bit signed integer, so we just cast it to `int`, and the `checked` keyword will throw an exception in the unlikely event that we encounter ship more than 2.1 billion metres wide.)
+
+### Average
+
+The standard LINQ operator `Average` effectively calculates the value that `Sum` would calculate, and then divides it by the value that `Count` would calculate. And once again, whereas most LINQ implementations would return a scalar, Rx's `Average` produces an observable.
+
+Although `Average` can process values of the same numeric types as `Sum`, the output type will be different in some cases. If the source is `IObservable<int>`, or if you use one of the overloads that takes a lambda that extracts the value from the source, and that lambda returns an `int`, the result will be a `double.` This is because the average of a set of whole numbers is not necessarily a whole number. Likewise, averaging `long` values produces a `double`. However, inputs of type `decimal` produce outputs of type `decimal`, and likewise `float` inputs produce a `float output.
+
+As with `Sum`, if the inputs to `Average` are nullable, the output will be too.
 
 
-## Build your own aggregations		
+### Min and Max
+
+Rx implements the standard LINQ `Min` and `Max` operators which find the element with the highest or lowest value. As with all the other operators in this section, these do not return scalars, and instead return an `IObservable<T>` that produces a single value.
+
+Rx defines specialized implementations for the same numeric types that `Sum` and `Average` support. However, unlike those operators it also defines an overload that will accept source items of any type. When you use `Min` or `Max` on a source type where Rx does not define a specialized implementation, it uses [`Comparer<T>.Default`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.comparer-1.default) to compare items. There is also an overload enabling you to pass a comparer.
+
+As with `Sum` and `Average` there are overloads that accept a callback. If you use these overloads, `Min` and `Max` will invoke this callback for each source item, and will look for the lowest or highest value that your callback returns. Note that the single output they eventually produce will be a value returned by the callback, and not the original source item from which that value was derived. To see what that means, look at this example:
+
+```cs
+IObservable<int> widthOfWidestVessel = vesselDimensions
+    .Take(10)
+    .Max(dimensions => checked((int)(dimensions.DimensionToPort + dimensions.DimensionToStarboard)));
+```
+
+`Max` returns an `IObservable<int>` here, which will be the width of the widest vessel out of the next 10 messages that report vessel dimensions. But what if you didn't just want to see the width? What if you wanted the whole message?
+
+
+### MinBy and MaxBy
+
+Rx offers two subtle variations on `Min` and `Max`: `MinBy` and `MaxBy`. (These are not universally supported as LINQ operators. .NET only added these for LINQ to Objects in .NET 6.0. Rx has had them for much longer, so these were once Rx-specific operators that have now effectively been retconned as standard LINQ operators.) This example is similar to the preceding one, but replaces `Max` with `MaxBy`:
+
+```cs
+IObservable<IVesselDimensions> widthOfWidestVessel = vesselDimensions
+    .Take(10)
+    .MaxBy(dimensions => checked((int)(dimensions.DimensionToPort + dimensions.DimensionToStarboard)));
+```
+
+Notice that the type of sequence we get is different. `Max` returned an `IObservable<int>`, because it invokes the callback for every item in the source, and then produces the highest of the values that our callback returned. But with `MaxBy`, we get back an `IObservable<IVesselDimensions>`.
+
+`MinBy` and `MaxBy` return a sequence of the same type as their inputs. Instead of returning the minimum or maximum value, they remember which particular source value caused the callback to emit the minimum or maximum value, and once the source completes, they return that source value (instead of the value the callback returned for that source value, which is what the callback-based overloads of `Min` and `Max` do).
+
+`MinBy` and `MaxBy` are only available in the form where you supply a callback. The point of these operators is that they separate out the criteria for comparison from the result. (You could achieve the same effect by calling `Min` or `Max` with a custom comparer, but these operators are typically more convenient.)
+
+
+## Simple Boolean Aggregation
+
+LINQ defines several standard operators that reduce entire sequences to a single boolean value.
+
+### Any
+
+There are two ways to use `Any`. First we can look at the parameterless overload for the extension method `Any`. This effectively asks the question "are there any elements in this sequence?" It returns an observable sequence that will produce a single value of `false` if the source completes without emitting any values. If the source does produce a value however, then when the first value is produced, the result sequence will immediately produce `true` and then complete. If the first notification it gets is an error, then it will pass that error on.
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(Console.WriteLine, () => Console.WriteLine("Subject completed"));
+var any = subject.Any();
+
+any.Subscribe(b => Console.WriteLine("The subject has any values? {0}", b));
+
+subject.OnNext(1);
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+The subject has any values? True
+subject completed
+```
+
+If we now remove the OnNext(1), the output will change to the following
+
+```
+subject completed
+The subject has any values? False
+```
+
+In the case where the source does produce a value, `Any` immediately unsubscribes from it. So if the source wants to report an error, `Any` will only see this if that is the first notification it produces.
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(Console.WriteLine,
+    ex => Console.WriteLine("subject OnError : {0}", ex),
+    () => Console.WriteLine("Subject completed"));
+IObservable<bool> any = subject.Any();
+
+any.Subscribe(b => Console.WriteLine("The subject has any values? {0}", b),
+    ex => Console.WriteLine(".Any() OnError : {0}", ex),
+    () => Console.WriteLine(".Any() completed"));
+
+subject.OnError(new Exception());
+```
+
+Output:
+
+```
+subject OnError : System.Exception: Fail
+.Any() OnError : System.Exception: Fail
+```
+
+The `Any` method also has an overload that takes a predicate. This effectively asks a slightly different question: "are there any elements in this sequence that meet these criteria?" The effect is similar to using `Where` followed by the no-arguments form of `Any`.
+
+```csharp
+IObservable<bool> any = subject.Any(i => i > 2);
+// Functionally equivalent to 
+IObservable<bool> longWindedAny = subject.Where(i => i > 2).Any();
+```
+
+As an exercise, write your own version of the two `Any` extension method overloads. While the answer may not be immediately obvious, we have covered enough material for you to create this using the methods you know...
+
+Example of the `Any` extension methods written with `Observable.Create`:
+
+```csharp
+public static IObservable<bool> MyAny<T>(this IObservable<T> source)
+{
+    return Observable.Create<bool>(
+        o =>
+        {
+            var hasValues = false;
+            return source
+                .Take(1)
+                .Subscribe(
+                    _ => hasValues = true,
+                    o.OnError,
+                    () =>
+                    {
+                        o.OnNext(hasValues);
+                        o.OnCompleted();
+                    });
+        });
+}
+
+public static IObservable<bool> MyAny<T>(
+    this IObservable<T> source, 
+    Func<T, bool> predicate)
+{
+    return source
+        .Where(predicate)
+        .MyAny();
+}
+```
+
+## All
+
+The `All` operator is similar to the `Any` method that takes a predicate, except that all values must meet the predicate. As soon as a value does not meet the predicate a `false` value is returned then the output sequence completed. If the source reaches its end without producing any elements that do not satisfy the predicate, then `All` will push `true` as its value. (A consequence of this is that if you use `All` on an empty sequence, the result will be a sequence that produces `true`. This is consistent with how `All` works in other LINQ providers, but it might be surprising for anyone not familiar with the formal logic convention known as [vacuous truth](https://en.wikipedia.org/wiki/Vacuous_truth).)
+
+Once `All` decides to produce a `false` value, it immediately unsubscribes from the source (just like `Any` does as soon as it determines that it can produce `true`.) If the source produces an error before this happens, the error will be passed along to the subscriber of the `All` method. 
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(Console.WriteLine, () => Console.WriteLine("Subject completed"));
+var all = subject.All(i => i < 5);
+all.Subscribe(b => Console.WriteLine("All values less than 5? {0}", b));
+
+subject.OnNext(1);
+subject.OnNext(2);
+subject.OnNext(6);
+subject.OnNext(2);
+subject.OnNext(1);
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+2
+6
+All values less than 5? False
+all completed
+2
+1
+subject completed
+```
+
+
+## IsEmpty
+
+The LINQ `IsEmpty` operator is logically the opposite of the no-arguments `Any` method. It returns `true` if and only if the source completes without producing any elements, and if the source produces an item, `IsEmpty` produces `false` and immediately unsubscribes.
+
+
+## Contains
+
+The `Contains` operator determines whether a particular element is present in a sequence. You could implement it using `Any`, just supplying a callback that compares each item with the value you're looking for. However, it will typically be slightly more succinct, and may be a more direct expression of intent to write `Contains`.
+
+```csharp
+var subject = new Subject<int>();
+subject.Subscribe(
+    Console.WriteLine, 
+    () => Console.WriteLine("Subject completed"));
+
+var contains = subject.Contains(2);
+
+contains.Subscribe(
+    b => Console.WriteLine("Contains the value 2? {0}", b),
+    () => Console.WriteLine("contains completed"));
+
+subject.OnNext(1);
+subject.OnNext(2);
+subject.OnNext(3);
+    
+subject.OnCompleted();
+```
+
+Output:
+
+```
+1
+2
+Contains the value 2? True
+contains completed
+3
+Subject completed
+```
+
+There is also an overload to `Contains` that allows you to specify an implementation of `IEqualityComparer<T>` other than the default for the type. This can be useful if you have a sequence of custom types that may have some special rules for equality depending on the use case.
+
+
+Next time: continue from here.
+
+## Build your own aggregations
 
 If the provided aggregations do not meet your needs, you can build your own. Rx provides two different ways to do this.
 
-### Aggregate						
+### Aggregate
 
 The `Aggregate` method allows you to apply an accumulator function to the sequence. For the basic overload, you need to provide a function that takes the current state of the accumulated value and the value that the sequence is pushing. The result of the function is the new accumulated value. 
 
@@ -149,7 +373,7 @@ public static IObservable<T> MyMax<T>(this IObservable<T> source)
 }
 ```
 
-### Scan								
+### Scan
 
 While `Aggregate` allows us to get a final value for sequences that will complete, sometimes this is not what we need. If we consider a use case that requires that we get a running total as we receive values, then `Aggregate` is not a good fit. `Aggregate` is also not a good fit for infinite sequences. The `Scan` extension method however meets this requirement perfectly. The signatures for both `Scan` and `Aggregate` are the same; the difference is that `Scan` will push the _result_ from every call to the accumulator function.
 
@@ -221,11 +445,11 @@ private static T MaxOf<T>(T x, T y)
 
 While the only functional differences between the two examples is checking greater instead of less than, the examples show two different styles. Some people prefer the terseness of the first example, others like their curly braces and the verbosity of the second example. The key here was to compose the `Scan` method with the `Distinct` or `DistinctUntilChanged` methods. It is probably preferable to use the `DistinctUntilChanged` so that we internally are not keeping a cache of all values.
 
-## Partitioning						
+## Partitioning
 
 Rx also gives you the ability to partition your sequence with features like the standard LINQ operator `GroupBy`. This can be useful for taking a single sequence and fanning out to many subscribers or perhaps taking aggregates on partitions.
 
-### MinBy and MaxBy					
+### MinBy and MaxBy
 
 The `MinBy` and `MaxBy` operators allow you to partition your sequence based on a key selector function. Key selector functions are common in other LINQ operators like the `IEnumerable<T>` `ToDictionary` or `GroupBy` and the [`Distinct`}(05_Filtering.html#Distinct) method. Each method will return you the values from the key that was the minimum or maximum respectively.
 
@@ -280,7 +504,7 @@ We can see here that the minimum key is 0 and the maximum key is 2. If therefore
 
 If instead of the values for the minimum/maximum key, you wanted to get the minimum value for each key, then you would need to look at `GroupBy`.
 
-### GroupBy							
+### GroupBy
 
 The `GroupBy` operator allows you to partition your sequence just as `IEnumerable<T>`'s `GroupBy` operator does. In a similar fashion to how the `IEnumerable<T>` operator returns an `IEnumerable<IGrouping<TKey, T>>`, the `IObservable<T>` `GroupBy` operator returns an `IObservable<IGroupedObservable<TKey, T>>`.
 
@@ -342,7 +566,7 @@ group.SelectMany(
     .Dump("group");
 ```
 
-### Nested observables				
+### Nested observables
 
 The concept of a sequence of sequences can be somewhat overwhelming at first, especially if both sequence types are `IObservable`. While it is an advanced topic, we will touch on it here as it is a common occurrence with Rx. I find it easier if I can conceptualize a scenario or example to understand concepts better.
 
@@ -393,253 +617,6 @@ Consolidating data into groups and aggregates enables sensible consumption of ma
 TODO: integrate these, which were previously in the vaguely titled Inspection chapter
 
 
-## Any								
-
-First we can look at the parameterless overload for the extension method `Any`. This will simply return an observable sequence that has the single value of `false` if the source completes without any values. If the source does produce a value however, then when the first value is produced, the result sequence will immediately push `true` and then complete. If the first notification it gets is an error, then it will pass that error on.
-
-```csharp
-var subject = new Subject<int>();
-subject.Subscribe(Console.WriteLine, () => Console.WriteLine("Subject completed"));
-var any = subject.Any();
-
-any.Subscribe(b => Console.WriteLine("The subject has any values? {0}", b));
-
-subject.OnNext(1);
-subject.OnCompleted();
-```
-
-Output:
-
-```
-1
-The subject has any values? True
-subject completed
-```
-
-If we now remove the OnNext(1), the output will change to the following
-
-```
-subject completed
-The subject has any values? False
-```
-
-If the source errors it would only be interesting if it was the first notification, otherwise the `Any` method will have already pushed true. If the first notification is an error then `Any` will just pass it along as an `OnError` notification.
-
-```csharp
-var subject = new Subject<int>();
-subject.Subscribe(Console.WriteLine,
-    ex => Console.WriteLine("subject OnError : {0}", ex),
-    () => Console.WriteLine("Subject completed"));
-var any = subject.Any();
-
-any.Subscribe(b => Console.WriteLine("The subject has any values? {0}", b),
-    ex => Console.WriteLine(".Any() OnError : {0}", ex),
-    () => Console.WriteLine(".Any() completed"));
-
-subject.OnError(new Exception());
-```
-
-Output:
-
-```
-subject OnError : System.Exception: Fail
-.Any() OnError : System.Exception: Fail
-```
-
-The `Any` method also has an overload that takes a predicate. This effectively makes it a `Where` with an `Any` appended to it.
-
-```csharp
-subject.Any(i => i > 2);
-// Functionally equivalent to 
-subject.Where(i => i > 2).Any();
-```
-
-As an exercise, write your own version of the two `Any` extension method overloads. While the answer may not be immediately obvious, we have covered enough material for you to create this using the methods you know...
-
-Example of the `Any` extension methods written with `Observable.Create`:
-
-```csharp
-public static IObservable<bool> MyAny<T>(this IObservable<T> source)
-{
-    return Observable.Create<bool>(
-        o =>
-        {
-            var hasValues = false;
-            return source
-                .Take(1)
-                .Subscribe(
-                    _ => hasValues = true,
-                    o.OnError,
-                    () =>
-                    {
-                        o.OnNext(hasValues);
-                        o.OnCompleted();
-                    });
-        });
-}
-
-public static IObservable<bool> MyAny<T>(
-    this IObservable<T> source, 
-    Func<T, bool> predicate)
-{
-    return source
-        .Where(predicate)
-        .MyAny();
-}
-```
-
-## All								
-
-The `All`() extension method works just like the `Any` method, except that all values must meet the predicate. As soon as a value does not meet the predicate a `false` value is returned then the output sequence completed. If the source is empty, then `All` will push `true` as its value. As per the `Any` method, and errors will be passed along to the subscriber of the `All` method.
-
-```csharp
-var subject = new Subject<int>();
-subject.Subscribe(Console.WriteLine, () => Console.WriteLine("Subject completed"));
-var all = subject.All(i => i < 5);
-all.Subscribe(b => Console.WriteLine("All values less than 5? {0}", b));
-
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(6);
-subject.OnNext(2);
-subject.OnNext(1);
-subject.OnCompleted();
-```
-
-Output:
-
-```
-1
-2
-6
-All values less than 5? False
-all completed
-2
-1
-subject completed
-```
-
-Early adopters of Rx may notice that the `IsEmpty` extension method is missing. You can easily replicate the missing method using the `All` extension method.
-
-```csharp
-// IsEmpty() is deprecated now.
-// var isEmpty = subject.IsEmpty();
-var isEmpty = subject.All(_ => false);
-```
-
-## Contains							
-
-The `Contains` extension method overloads could sensibly be overloads to the `Any` extension method. The `Contains` extension method has the same behavior as `Any`, however it specifically targets the use of `IComparable` instead of the usage of predicates and is designed to seek a specific value instead of a value that fits the predicate. I believe that these are not overloads of `Any` for consistency with `IEnumerable`.
-
-```csharp
-var subject = new Subject<int>();
-subject.Subscribe(
-    Console.WriteLine, 
-    () => Console.WriteLine("Subject completed"));
-
-var contains = subject.Contains(2);
-
-contains.Subscribe(
-    b => Console.WriteLine("Contains the value 2? {0}", b),
-    () => Console.WriteLine("contains completed"));
-
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(3);
-    
-subject.OnCompleted();
-```
-
-Output:
-
-```
-1
-2
-Contains the value 2? True
-contains completed
-3
-Subject completed
-```
-
-There is also an overload to `Contains` that allows you to specify an implementation of `IEqualityComparer<T>` other than the default for the type. This can be useful if you have a sequence of custom types that may have some special rules for equality depending on the use case.
-    
-
-
-
-## DefaultIfEmpty					
-
-The `DefaultIfEmpty` extension method will return a single value if the source sequence is empty. Depending on the overload used, it will either be the value provided as the default, or `Default(T)`. `Default(T)` will be the zero value for _struct_ types and will be `null` for classes. If the source is not empty then all values will be passed straight on through.
-
-In this example the source produces values, so the result of `DefaultIfEmpty` is just the source.
-
-```csharp
-var subject = new Subject<int>();
-
-subject.Subscribe(
-    Console.WriteLine,
-    () => Console.WriteLine("Subject completed"));
-
-var defaultIfEmpty = subject.DefaultIfEmpty();
-
-defaultIfEmpty.Subscribe(
-    b => Console.WriteLine("defaultIfEmpty value: {0}", b),
-    () => Console.WriteLine("defaultIfEmpty completed"));
-
-subject.OnNext(1);
-subject.OnNext(2);
-subject.OnNext(3);
-
-subject.OnCompleted();
-```
-
-Output:
-
-```
-1
-defaultIfEmpty value: 1
-2
-defaultIfEmpty value: 2
-3
-defaultIfEmpty value: 3
-Subject completed
-defaultIfEmpty completed
-```
-
-If the source is empty, we can use either the default value for the type (i.e. 0 for int) or provide our own value in this case 42.
-
-```csharp
-var subject = new Subject<int>();
-
-subject.Subscribe(
-    Console.WriteLine,
-    () => Console.WriteLine("Subject completed"));
-
-var defaultIfEmpty = subject.DefaultIfEmpty();
-
-defaultIfEmpty.Subscribe(
-    b => Console.WriteLine("defaultIfEmpty value: {0}", b),
-    () => Console.WriteLine("defaultIfEmpty completed"));
-
-var default42IfEmpty = subject.DefaultIfEmpty(42);
-
-default42IfEmpty.Subscribe(
-    b => Console.WriteLine("default42IfEmpty value: {0}", b),
-    () => Console.WriteLine("default42IfEmpty completed"));
-
-subject.OnCompleted();
-```
-
-Output:
-
-```
-Subject completed
-defaultIfEmpty value: 0
-defaultIfEmpty completed
-default42IfEmpty value: 42
-default42IfEmpty completed
-```
-
-
 
 
 
@@ -653,7 +630,7 @@ We didn't try to tackle all of the operators at once, we approached them in grou
 - Aggregation
 - Transformation
 
-On deeper analysis of the operators we find that most of the operators are actually	specialization of the higher order functional concepts. We named them the ABC's of functional programming:
+On deeper analysis of the operators we find that most of the operators are actuallyspecialization of the higher order functional concepts. We named them the ABC's of functional programming:
 
 - Anamorphism, aka:
   - Ana
