@@ -105,23 +105,7 @@ IObservable<int> widthOfWidestVessel = vesselDimensions
 
 `Max` returns an `IObservable<int>` here, which will be the width of the widest vessel out of the next 10 messages that report vessel dimensions. But what if you didn't just want to see the width? What if you wanted the whole message?
 
-
-### MinBy and MaxBy
-
-Rx offers two subtle variations on `Min` and `Max`: `MinBy` and `MaxBy`. (These are not universally supported as LINQ operators. .NET only added these for LINQ to Objects in .NET 6.0. Rx has had them for much longer, so these were once Rx-specific operators that have now effectively been retconned as standard LINQ operators.) This example is similar to the preceding one, but replaces `Max` with `MaxBy`:
-
-```cs
-IObservable<IVesselDimensions> widthOfWidestVessel = vesselDimensions
-    .Take(10)
-    .MaxBy(dimensions => checked((int)(dimensions.DimensionToPort + dimensions.DimensionToStarboard)));
-```
-
-Notice that the type of sequence we get is different. `Max` returned an `IObservable<int>`, because it invokes the callback for every item in the source, and then produces the highest of the values that our callback returned. But with `MaxBy`, we get back an `IObservable<IVesselDimensions>`.
-
-`MinBy` and `MaxBy` return a sequence of the same type as their inputs. Instead of returning the minimum or maximum value, they remember which particular source value caused the callback to emit the minimum or maximum value, and once the source completes, they return that source value (instead of the value the callback returned for that source value, which is what the callback-based overloads of `Min` and `Max` do).
-
-`MinBy` and `MaxBy` are only available in the form where you supply a callback. The point of these operators is that they separate out the criteria for comparison from the result. (You could achieve the same effect by calling `Min` or `Max` with a custom comparer, but these operators are typically more convenient.)
-
+**Note**: Rx defines `MinBy` and `MaxBy` methods. Rx defined these years before .NET 6.0 added [`Enumerable.MinBy`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.minby) and [`Enumerable.MaxBy`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.maxby), and Rx's operators are significantly different from their LINQ to Objects namesakes. The Rx ones are described in the [Partitioning chapter](./08_Partitioning.md).
 
 ## Simple Boolean Aggregation
 
@@ -222,7 +206,7 @@ public static IObservable<bool> MyAny<T>(
 }
 ```
 
-## All
+### All
 
 The `All` operator is similar to the `Any` method that takes a predicate, except that all values must meet the predicate. As soon as a value does not meet the predicate a `false` value is returned then the output sequence completed. If the source reaches its end without producing any elements that do not satisfy the predicate, then `All` will push `true` as its value. (A consequence of this is that if you use `All` on an empty sequence, the result will be a sequence that produces `true`. This is consistent with how `All` works in other LINQ providers, but it might be surprising for anyone not familiar with the formal logic convention known as [vacuous truth](https://en.wikipedia.org/wiki/Vacuous_truth).)
 
@@ -256,12 +240,12 @@ subject completed
 ```
 
 
-## IsEmpty
+### IsEmpty
 
 The LINQ `IsEmpty` operator is logically the opposite of the no-arguments `Any` method. It returns `true` if and only if the source completes without producing any elements, and if the source produces an item, `IsEmpty` produces `false` and immediately unsubscribes.
 
 
-## Contains
+### Contains
 
 The `Contains` operator determines whether a particular element is present in a sequence. You could implement it using `Any`, just supplying a callback that compares each item with the value you're looking for. However, it will typically be slightly more succinct, and may be a more direct expression of intent to write `Contains`.
 
@@ -298,17 +282,13 @@ Subject completed
 There is also an overload to `Contains` that allows you to specify an implementation of `IEqualityComparer<T>` other than the default for the type. This can be useful if you have a sequence of custom types that may have some special rules for equality depending on the use case.
 
 
-Next time: continue from here.
-
 ## Build your own aggregations
 
-If the provided aggregations do not meet your needs, you can build your own. Rx provides two different ways to do this.
+If the built-in aggregations described in the preceding sections do not meet your needs, you can build your own. Rx provides two different ways to do this.
 
 ### Aggregate
 
-The `Aggregate` method allows you to apply an accumulator function to the sequence. For the basic overload, you need to provide a function that takes the current state of the accumulated value and the value that the sequence is pushing. The result of the function is the new accumulated value. 
-
-This overload signature is as follows:
+The `Aggregate` method is very flexible: it is possible to build any of the operators shown so far in this chapter with it. You supply it with a function, and it invokes that function once for every element. But it doesn't just pass the element into your function: it also provides a way for your function to collect—to _aggregate_—information. As well as the current element, it also passes in an _accumulator_. The accumulator can be any type you like—it will depend on what sort of information you're looking to collect. `Aggregate` passes in the current accumulator value, and then whatever value your function returns becomes the new accumulator value, and it will pass that into the function along with the next element from the source. There are a few variations on this, but the simplest overload looks like this:
 
 ```csharp
 IObservable<TSource> Aggregate<TSource>(
@@ -316,96 +296,193 @@ IObservable<TSource> Aggregate<TSource>(
     Func<TSource, TSource, TSource> accumulator)
 ```
 
-If you wanted to produce your own version of `Sum` for `int` values, you could do so by providing a function that just adds to the current state of the accumulator.
+If you wanted to produce your own version of `Count` for `int` values, you could do so by providing a function that just adds 1 for each value the source produces:
 
 ```csharp
-var sum = source.Aggregate((acc, currentValue) => acc + currentValue);
+IObservable<int> sum = source.Aggregate((acc, element) => acc + 1);
 ```
 
-This overload of `Aggregate` has several problems. First is that it requires the aggregated value must be the same type as the sequence values. We have already seen in other aggregates like `Average` this is not always the case. Secondly, this overload needs at least one value to be produced from the source or the output will error with an `InvalidOperationException`. 
+To understand exactly what this is doing, let's look at how `Aggregate` will call this lambda. To make that slightly easier to see, suppose we put that lambda in its own variable:
 
-It should be completely valid for us to use `Aggregate` to create our own `Count` or `Sum` on an empty sequence. To do this you need to use the other overload. This overload takes an extra parameter which is the seed. The seed value provides an initial accumulated value. It also allows the aggregate type to be different to the value type.
-
-```csharp
-IObservable<TAccumulate> Aggregate<TSource, TAccumulate>(
-    this IObservable<TSource> source, 
-    TAccumulate seed, 
-    Func<TAccumulate, TSource, TAccumulate> accumulator)
+```cs
+Func<int, int, int> c = (acc, element) => acc + 1;
 ```
 
-To update our `Sum` implementation to use this overload is easy. Just add the seed which will be 0. This will now return 0 as the sum when the sequence is empty which is just what we want. You also now can also create your own version of `Count`.
+Now suppose the source produces an item with the value 100. `Aggregate` will invoke our function:
 
-```csharp
-var sum = source.Aggregate(0, (acc, currentValue) => acc + currentValue);
-var count = source.Aggregate(0, (acc, currentValue) => acc + 1);
-// or using '_' to signify that the value is not used.
-var count = source.Aggregate(0, (acc, _) => acc + 1);
+```cs
+c(0, 100) // returns 1
 ```
 
-As an exercise write your own `Min` and `Max` methods using `Aggregate`. You will probably find the `IComparer<T>` interface useful, and in particular the static `Comparer<T>.Default` property. When you have done the exercise, continue to the example implementations...
+The first argument is the current accumulator. `Aggregate` has used `default(int)` for the initial accumulator value, which is 0. Our function returns 1, which becomes the new accumulator value. So if the source produces a second value, say, 200, `Aggregate` will pass the new accumulator, along with the second value from the source:
 
-Examples of creating `Min` and `Max` from `Aggregate`:
+```cs
+c(1, 200) // returns 2
+```
+
+This particular function completely ignores its second argument (the element from the source). It just adds one to the accumulator each time. So the accumulator is nothing more than a record of the number of times our function has been called.
+
+Now let's look at how we might implement `Sum` using `Aggregate`:
+
 
 ```csharp
-public static IObservable<T> MyMin<T>(this IObservable<T> source)
-{
-    return source.Aggregate(
-        (min, current) => Comparer<T>
-            .Default
-            .Compare(min, current) > 0 
-                ? current 
-                : min);
-}
+Func<int, int, int> s = (acc, element) => acc + element
+IObservable<int> sum = source.Aggregate(s);
+```
 
-public static IObservable<T> MyMax<T>(this IObservable<T> source)
-{
-    var comparer = Comparer<T>.Default;
-    Func<T, T, T> max = 
-        (x, y) =>
+For the first element, `Aggregate` will again pass the default value for our chosen accumulator type, `int`: 0. And it will pass the first element value. So again if the first element is 100 it does this:
+
+```cs
+s(0, 100) // returns 100
+```
+
+And then if the second element is 200, `Aggregate` will make this call:
+
+```cs
+s(100, 200) // returns 300
+```
+
+Notice that this time, the first argument was 100, because that's what the previous invocation of `s` returned. So in this case, after seeing elements 100 and 200, the accumulator's value is 300, which is the sum of all the elements.
+
+What if we want the initial accumulator value to be something other than `default(TAccumulator)`? There's an overload for that. For example, here's how we could implement something like `All` with `Aggregate`:
+
+```cs
+IObservable<bool> all = source.Aggregate(true, (acc, element) => acc && element);
+```
+
+This isn't exactly equivalent to the real `All` by the way: it handles errors differently. `All` instantly unsubscribes from its source if it sees a single element that is `false`, because it knows that nothing else the source produces can possibly change the outcome. That means that if the source had been about to produce an error, it will no longer have the opportunity to do so because `All` unsubscribed. But `Aggregate` has no way of knowing that the accumulator has entered a state from which it can never leave, so it will remain subscribed to the source until the source completes (or until whichever code subscribed to the `IObservable<T>` returned by `Aggregate` unsubscribes). This means that if the source were to produce `true`, then `false`, `Aggregate` would, unlike `All`, remain subscribed to the source, so if the source goes on to call `OnError`, `Aggregate` will receive that error, and pass it on to its subscriber.
+
+Here's a way to think about `Aggregate` that some people find helpful. If your source produces the values 1 through 5, and if the function we pass to `Aggregate` is called `f`, then the value that `Aggregate` produces once the source completes will be this:
+
+```cs
+T result = f(f(f(f(f(default(T), 1), 2), 3), 4), 5);
+```
+
+So in the case of our recreation of `Count`, the accumulator type was `int`, so that becomes:
+
+```cs
+int sum = s(s(s(s(s(0, 1), 2), 3), 4), 5);
+// Note: Aggregate doesn't return this directly -
+// it returns an IObservable<int> that produces this value.
+```
+
+Rx's `Aggregate` doesn't perform all those invocations at once: it invokes the function as each element occurs. So the calculations will be spread out over time. (If your callback is a _pure function_—one that is unaffected by global variables and other environmental factors, and which will always return the same result for any particular input—this doesn't matter. The result of `Aggregate` will be the same as if it had all happened in one big expression like the preceding example. But if your callback's behaviour is affected by, say, a global variable, or by the current contents of the filesystem, then the fact that it will be invoked when the source produces each value may be more significant.)
+
+`Aggregate` has other names in some programming systems by the way. It is often referred to as a _fold_. (Specifically a _left fold_. A right fold proceeds in reverse. Conventionally its function takes arguments in the reverse order, so it would look like `s(1, s(2, s(3, s(4, s(5, 0)))))`. Rx does not offer a built-in right fold. It would not be a natural fit because it would have to wait until it received the final element before it could begin, meaning it would need to hold onto every element in the entire sequence, and then evaluate the entire fold at once when the sequence completes.) Some systems call it `reduce`.
+
+You might have spotted that in my quest to re-implement some of the built-in aggregation operators, I went straight from `Sum` to `Any`. What about `Average`? It turns out we can't do that with the overloads I've shown you so far. And that's because `Average` needs to accumulate two pieces of information—the running total and the count—and it also needs to perform once final step right at the end: it needs to divide the total by the count. With the overloads shown so far, we can only get part way there:
+
+```cs
+IObservable<int> nums = Observable.Range(1, 5);
+
+IObservable<(int Count, int Sum)> avgAcc = nums.Aggregate(
+    (Count: 0, Sum: 0),
+    (acc, element) => (Count: acc.Count + 1, Sum: acc.Sum + element));
+```
+
+This uses a tuple as the accumulator, enabling it to accumulate two values: the count and the sum. But the final accumulator value becomes the result, and that's not what we want. We're missing that final step that calculates the average by dividing the sum by the count. Fortunately, `Aggregate` offers a 3rd overload that enables us to provide this final step. We pass a second callback which will be invoked just once when the source completes. `Aggregate` passes the final accumulator value into this lambda, and then whatever it returns becomes the single item produced by the observable that `Aggregate` returns.
+
+```cs
+IObservable<double> avg = nums.Aggregate(
+    (Count: 0, Sum: 0),
+    (acc, element) => (Count: acc.Count + 1, Sum: acc.Sum + element),
+    acc => ((double) acc.Sum) / acc.Count);
+```
+
+I've been showing how `Aggregate` can re-implement some of the built-in aggregation operators to illustrate that it is a powerful and very general operator. However, that's not what we use it for. `Aggregate` is useful precisely because it lets us define custom aggregation.
+
+For example, suppose I wanted to build up a list of the names of all the ships that have broadcast their details over AIS. Here's one way to do that:
+
+```cs
+IObservable<IReadOnlySet<string>> allNames = vesselNames
+    .Take(10)
+    .Aggregate(
+        ImmutableHashSet<string>.Empty,
+        (set, name) => set.Add(name.VesselName));
+```
+
+I've used `ImmutableHashSet<string>` here because its usage patterns happen to fit `Aggregate` neatly. An ordinary `HashSet<string>` would also have worked, but is a little less convenient because its `Add` method doesn't return the set, so our function needs an extra statement to return the accumulated set:
+
+```cs
+IObservable<IReadOnlySet<string>> allNames = vesselNames
+    .Take(10)
+    .Aggregate(
+        new HashSet<string>(),
+        (set, name) =>
         {
-            if(comparer.Compare(x, y) < 0)
-            {
-                return y;
-            }
-            return x;
-        };
-    return source.Aggregate(max);
-}
+            set.Add(name.VesselName);
+            return set;
+        });
 ```
+
+With either of these implementations, `vesselNames` will produce a single value that is a `IReadOnlySet<string>` containing each vessel name seen in the first 10 messages that report a name.
+
+I've had to fudge an issue in these last two examples. I've made them work over just the first 10 suitable messages to emerge. Think about what would happen if I didn't have the `Take(10)` in there. The code would compile, but we'd have a problem. The AIS message source I've been using in various examples is an endless source. Ships will continue to move around the oceans for the foreseeable future. Ais.NET does not contain any code designed to detect either the end of civilisation, or the invention of technologies that render the use of ships obsolete, so it will never call `OnCompleted` on its subscribers. The observable returned by `Aggregate` reports nothing until its source either completes or fails. So if we remove that `Take(10)`, the behaviour would be identical `Observable.Never<IReadOnlySet<string>>`. I had to force the input to `Aggregate` to come to an end to make it produce something. But there is another way.
+
 
 ### Scan
 
-While `Aggregate` allows us to get a final value for sequences that will complete, sometimes this is not what we need. If we consider a use case that requires that we get a running total as we receive values, then `Aggregate` is not a good fit. `Aggregate` is also not a good fit for infinite sequences. The `Scan` extension method however meets this requirement perfectly. The signatures for both `Scan` and `Aggregate` are the same; the difference is that `Scan` will push the _result_ from every call to the accumulator function.
+While `Aggregate` allows us to reduce complete sequences to a single, final value, sometimes this is not what we need. If we are dealing with an endless source, we might want something more like a running total, updated each time we receive a value. The `Scan` operator is designed for exactly this requirement. The signatures for both `Scan` and `Aggregate` are the same; the difference is that `Scan` doesn't wait for the end of its input. It produces the aggregated value after every item.
 
-So instead of being an aggregator that reduces a sequence to a single value sequence, it is an accumulator that we return an accumulated value for each value of the source sequence. In this example we produce a running total.
-
-```csharp
-var numbers = new Subject<int>();
-var scan = numbers.Scan(0, (acc, current) => acc + current);
-
-numbers.Dump("numbers");
-scan.Dump("scan");
-
-numbers.OnNext(1);
-numbers.OnNext(2);
-numbers.OnNext(3);
-numbers.OnCompleted();
-```
-
-Output:
+We can use this to build up a set of vessel names as in the preceding section, but with `Scan` we don't have to wait until the end. This will report the current list every time it receives a message containing a name:
 
 ```
-numbers-->1
-sum-->1
-numbers-->2
-sum-->3
-numbers-->3
-sum-->6
-numbers completed
-sum completed
+IObservable<IReadOnlySet<string>> allNames = vesselNames
+    .Scan(
+        ImmutableHashSet<string>.Empty,
+        (set, name) => set.Add(name.VesselName));
 ```
 
-It is probably worth pointing out that you use `Scan` with `TakeLast()` to produce `Aggregate`.
+Note that this `allNames` observable will produce elements even if nothing has changed. If the accumulated set of names already contained the name that just emerged from `vesselNames`, the call to `set.Add` will do nothing, because that name will already be in the set. But `Scan` scan produces one output for each input, and doesn't care if the accumulator didn't change. Whether this matters will depend on what you are planning to do with this `allNames` observable, but if you need to, you can fix this easily with the [`DistinctUntilChanged` operator shown in Chapter 5](./05_Filtering.md#distinct-and-distinctuntilchanged).
+
+You could think of `Scan` as being a version of `Aggregate` that shows its working. If we wanted to see how the process of calculating an average aggregates the count and sum, we could write this:
+
+```cs
+IObservable<int> nums = Observable.Range(1, 5);
+
+IObservable<(int Count, int Sum)> avgAcc = nums.Scan(
+    (Count: 0, Sum: 0),
+    (acc, element) => (Count: acc.Count + 1, Sum: acc.Sum + element));
+
+avgAcc.Dump("acc");
+```
+
+That produces this output:
+
+```
+acc-->(1, 1)
+acc-->(2, 3)
+acc-->(3, 6)
+acc-->(4, 10)
+acc-->(5, 15)
+acc completed
+```
+
+You can see clearly here that `Scan` is emitting the current accumulated values each time the source produces a value.
+
+Unlike `Aggregate`, `Scan` doesn't offer an overload taking a second function to transform the accumulator into the result. So we can see the tuple containing the count and sum here, but not the actual average value we want. But we can achieve that by using the [`Select` operator described in the Transformation chapter](./06_Transformation.md):
+
+```cs
+IObservable<double> avg = nums.Scan(
+    (Count: 0, Sum: 0),
+    (acc, element) => (Count: acc.Count + 1, Sum: acc.Sum + element))
+    .Select(acc => ((double) acc.Sum) / acc.Count);
+
+avg.Dump("avg");
+```
+
+Now we get this output:
+
+```
+avg-->1
+avg-->1.5
+avg-->2
+avg-->2.5
+avg-->3
+avg completed
+```
+
+`Scan` is a more generalised operator than `Aggregate`. You could implement `Aggregate` by combining `Scan` with the [`TakeLast()` operator described in the Filtering chapter](./05_Filtering.md#takelast).
 
 ```csharp
 source.Aggregate(0, (acc, current) => acc + current);
@@ -413,239 +490,5 @@ source.Aggregate(0, (acc, current) => acc + current);
 source.Scan(0, (acc, current) => acc + current).TakeLast();
 ```
 
-As another exercise, use the methods we have covered so far in the book to produce a sequence of running minimum and running maximums. The key here is that each time we receive a value that is less than (or more than for a Max operator) our current accumulator we should push that value and update the accumulator value. We don't however want to push duplicate values. For example, given a sequence of [2, 1, 3, 5, 0] we should see output like [2, 1, 0] for the running minimum, and [2, 3, 5] for the running maximum. We don't want to see [2, 1, 2, 2, 0] or [2, 2, 3, 5, 5]. Continue to see an example implementation.
 
-Example of a running minimum:
-
-```csharp
-var comparer = Comparer<T>.Default;
-Func<T,T,T> minOf = (x, y) => comparer.Compare(x, y) < 0 ? x: y;
-var min = source.Scan(minOf).DistinctUntilChanged();
-```
-
-Example of a running maximum:
-
-```csharp
-public static IObservable<T> RunningMax<T>(this IObservable<T> source)
-{
-    return source.Scan(MaxOf)
-        .Distinct();
-}
-
-private static T MaxOf<T>(T x, T y)
-{
-    var comparer = Comparer<T>.Default;
-    if (comparer.Compare(x, y) < 0)
-    {
-        return y;
-    }
-    return x;
-}
-```
-
-While the only functional differences between the two examples is checking greater instead of less than, the examples show two different styles. Some people prefer the terseness of the first example, others like their curly braces and the verbosity of the second example. The key here was to compose the `Scan` method with the `Distinct` or `DistinctUntilChanged` methods. It is probably preferable to use the `DistinctUntilChanged` so that we internally are not keeping a cache of all values.
-
-## Partitioning
-
-Rx also gives you the ability to partition your sequence with features like the standard LINQ operator `GroupBy`. This can be useful for taking a single sequence and fanning out to many subscribers or perhaps taking aggregates on partitions.
-
-### MinBy and MaxBy
-
-The `MinBy` and `MaxBy` operators allow you to partition your sequence based on a key selector function. Key selector functions are common in other LINQ operators like the `IEnumerable<T>` `ToDictionary` or `GroupBy` and the [`Distinct`}(05_Filtering.html#Distinct) method. Each method will return you the values from the key that was the minimum or maximum respectively.
-
-```csharp
-// Returns an observable sequence containing a list of zero or more elements that have a 
-//  minimum key value.
-public static IObservable<IList<TSource>> MinBy<TSource, TKey>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector)
-{...}
-
-public static IObservable<IList<TSource>> MinBy<TSource, TKey>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector, 
-    IComparer<TKey> comparer)
-{...}
-
-// Returns an observable sequence containing a list of zero or more elements that have a
-//  maximum key value.
-public static IObservable<IList<TSource>> MaxBy<TSource, TKey>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector)
-{...}
-
-public static IObservable<IList<TSource>> MaxBy<TSource, TKey>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector, 
-    IComparer<TKey> comparer)
-{...}
-```
-
-Take note that each `Min` and `Max` operator has an overload that takes a comparer. This allows for comparing custom types or custom sorting of standard types.
-
-Consider a sequence from 0 to 10. If we apply a key selector that partitions the values in to groups based on their modulus of 3, we will have 3 groups of values. The values and their keys will be as follows:
-
-```csharp
-Func<int, int> keySelector = i => i % 3;
-```
-
-- 0, key: 0
-- 1, key: 1
-- 2, key: 2
-- 3, key: 0
-- 4, key: 1
-- 5, key: 2
-- 6, key: 0
-- 7, key: 1
-- 8, key: 2
-- 9, key: 0
-
-We can see here that the minimum key is 0 and the maximum key is 2. If therefore, we applied the `MinBy` operator our single value from the sequence would be the list of [0,3,6,9]. Applying the `MaxBy` operator would produce the list [2,5,8]. The `MinBy` and `MaxBy` operators will only yield a single value (like an `AsyncSubject`) and that value will be an `IList<T>` with zero or more values.
-
-If instead of the values for the minimum/maximum key, you wanted to get the minimum value for each key, then you would need to look at `GroupBy`.
-
-### GroupBy
-
-The `GroupBy` operator allows you to partition your sequence just as `IEnumerable<T>`'s `GroupBy` operator does. In a similar fashion to how the `IEnumerable<T>` operator returns an `IEnumerable<IGrouping<TKey, T>>`, the `IObservable<T>` `GroupBy` operator returns an `IObservable<IGroupedObservable<TKey, T>>`.
-
-```csharp
-// Transforms a sequence into a sequence of observable groups, 
-//  each of which corresponds to a unique key value, 
-//  containing all elements that share that same key value.
-public static IObservable<IGroupedObservable<TKey, TSource>> GroupBy<TSource, TKey>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector)
-{...}
-
-public static IObservable<IGroupedObservable<TKey, TSource>> GroupBy<TSource, TKey>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector, 
-    IEqualityComparer<TKey> comparer)
-{...}
-
-public static IObservable<IGroupedObservable<TKey, TElement>> GroupBy<TSource, TKey, TElement>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector, 
-    Func<TSource, TElement> elementSelector)
-{...}
-
-public static IObservable<IGroupedObservable<TKey, TElement>> GroupBy<TSource, TKey, TElement>(
-    this IObservable<TSource> source, 
-    Func<TSource, TKey> keySelector, 
-    Func<TSource, TElement> elementSelector, 
-    IEqualityComparer<TKey> comparer)
-{...}
-```
-
-I find the last two overloads a little redundant as we could easily just compose a `Select` operator to the query to get the same functionality.
-
-In a similar fashion that the `IGrouping<TKey, T>` type extends the `IEnumerable<T>`, the `IGroupedObservable<T>` just extends `IObservable<T>` by adding a `Key` property. The use of the `GroupBy` effectively gives us a nested observable sequence.
-
-To use the `GroupBy` operator to get the minimum/maximum value for each key, we can first partition the sequence and then `Min`/`Max` each partition.
-
-```csharp
-var source = Observable.Interval(TimeSpan.FromSeconds(0.1)).Take(10);
-var group = source.GroupBy(i => i % 3);
-group.Subscribe(
-    grp => 
-        grp.Min().Subscribe(
-            minValue => 
-            Console.WriteLine("{0} min value = {1}", grp.Key, minValue)),
-    () => Console.WriteLine("Completed"));
-```
-
-The code above would work, but it is not good practice to have these nested subscribe calls. We have lost control of the nested subscription, and it is hard to read. When you find yourself creating nested subscriptions, you should consider how to apply a better pattern. In this case we can use `SelectMany` which we will look at in the next chapter.
-
-```csharp
-var source = Observable.Interval(TimeSpan.FromSeconds(0.1)).Take(10);
-var group = source.GroupBy(i => i % 3);
-group.SelectMany(
-        grp =>
-            grp.Max()
-            .Select(value => new { grp.Key, value }))
-    .Dump("group");
-```
-
-### Nested observables
-
-The concept of a sequence of sequences can be somewhat overwhelming at first, especially if both sequence types are `IObservable`. While it is an advanced topic, we will touch on it here as it is a common occurrence with Rx. I find it easier if I can conceptualize a scenario or example to understand concepts better.
-
-Examples of Observables of Observables:
-
-<dl>
-    <dt>Partitions of Data</dt>
-    <dd>
-        You may partition data from a single source so that it can easily be filtered and
-        shared to many sources. Partitioning data may also be useful for aggregates as we
-        have seen. This is commonly done with the `GroupBy` operator.
-    </dd>
-    <dt>Online Game servers</dt>
-    <dd>
-        Consider a sequence of servers. New values represent a server coming online. The
-        value itself is a sequence of latency values allowing the consumer to see real time
-        information of quantity and quality of servers available. If a server went down
-        then the inner sequence can signify that by completing.
-    </dd>
-    <dt>Financial data streams</dt>
-    <dd>
-        New markets or instruments may open and close during the day. These would then stream
-        price information and could complete when the market closes.
-    </dd>
-    <dt>Chat Room</dt>
-    <dd>
-        Users can join a chat (outer sequence), leave messages (inner sequence) and leave
-        a chat (completing the inner sequence).
-    </dd>
-    <dt>File watcher</dt>
-    <dd>
-        As files are added to a directory they could be watched for modifications (outer
-        sequence). The inner sequence could represent changes to the file, and completing
-        an inner sequence could represent deleting the file.
-    </dd>
-</dl>
-
-Considering these examples, you could see how useful it could be to have the concept of nested observables. There are a suite of operators that work very well with nested observables such as `SelectMany`, `Merge` and `Switch` that we look at in future chapters.
-
-When working with nested observables, it can be handy to adopt the convention that a new sequence represents a creation (e.g. A new partition is created, new game host comes online, a market opens, users joins a chat, creating a file in a watched directory). You can then adopt the convention for what a completed inner sequence represents (e.g. Game host goes offline, Market Closes, User leave chat, File being watched is deleted). The great thing with nested observables is that a completed inner sequence can effectively be restarted by creating a new inner sequence.
-
-In this chapter we are starting to uncover the power of LINQ and how it applies to Rx. We chained methods together to recreate the effect that other methods already provide. While this is academically nice, it also allows us to starting thinking in terms of functional composition. We have also seen that some methods work nicely with certain types: `First()` + `BehaviorSubject<T>`, `Single()` + `AsyncSubject<T>`, `Single()` + `Aggregate()` etc. We have covered the second of our three classifications of operators, _catamorphism_. Next we will discover more methods to add to our functional composition tool belt and also find how Rx deals with our third functional concept, _bind_.
-
-Consolidating data into groups and aggregates enables sensible consumption of mass data. Fast moving data can be too overwhelming for batch processing systems and human consumption. Rx provides the ability to aggregate and partition on the fly, enabling real-time reporting without the need for expensive CEP or OLAP products.
-
-
-
-TODO: integrate these, which were previously in the vaguely titled Inspection chapter
-
-
-
-
-
-This brings us to a close on Part 2. The key takeaways from this were to allow you the reader to understand a key principal to Rx: functional composition. As we move through Part 2, examples became progressively more complex. We were leveraging the power of LINQ to chain extension methods together to compose complex queries.
-
-We didn't try to tackle all of the operators at once, we approached them in groups.
-
-- Creation
-- Reduction
-- Inspection
-- Aggregation
-- Transformation
-
-On deeper analysis of the operators we find that most of the operators are actuallyspecialization of the higher order functional concepts. We named them the ABC's of functional programming:
-
-- Anamorphism, aka:
-  - Ana
-  - Unfold
-  - Generate
-- Bind, aka:
-  - Map
-  - SelectMany
-  - Projection
-  - Transform
-- Catamorphism, aka:
-  - Cata
-  - Fold
-  - Reduce
-  - Accumulate
-  - Inject
-
-Now you should feel that you have a strong understanding of how a sequence can be manipulated. What we have learnt up to this point however can all largely be applied to `IEnumerable` sequences too. Rx can be much more complex than what many people will have dealt with in `IEnumerable` world, as we have seen with the `SelectMany` operator. In the next part of the book we will uncover features specific to the asynchronous nature of Rx. With the foundation we have built so far we should be able to tackle the far more challenging and interesting features of Rx.
+Aggregation is useful for reducing volumes of data or combining multiple elements to produce averages, or other measure that incorporate information from multiple elements. But to perform some kinds of analysis we will also need to slice up or otherwise restructure our data before calculating aggregated values. So in the next chapter we'll look at the various mechanisms Rx offers for partitioning data.
