@@ -423,13 +423,14 @@ This example uses `DistinctUntilChanged` to detect when a particular vessel repo
 
 ```cs
 uint exampleMmsi = 235009890;
-IObservable<IAisMessageType1to3> newIds = receiverHost.Messages
+IObservable<IAisMessageType1to3> statusChanges = receiverHost.Messages
     .Where(v => v.Mmsi == exampleMmsi)
     .OfType<IAisMessageType1to3>()
-    .DistinctUntilChanged(m => m.NavigationStatus);
+    .DistinctUntilChanged(m => m.NavigationStatus)
+    .Skip(1);
 ```
 
-For example, if the vessel had repeatedly been reporting a status of `AtAnchor`, `DistinctUntilChanged` would drop each such message because the status was the same as it had previously been. But if the status were to change to `UnderwayUsingEngine`, that would cause `DistinctUntilChanged` to let the first message reporting that status through. It would then not allow any further messages through until there was another change in value, either back to `AtAnchor`, or to something else such as `Moored`.
+For example, if the vessel had repeatedly been reporting a status of `AtAnchor`, `DistinctUntilChanged` would drop each such message because the status was the same as it had previously been. But if the status were to change to `UnderwayUsingEngine`, that would cause `DistinctUntilChanged` to let the first message reporting that status through. It would then not allow any further messages through until there was another change in value, either back to `AtAnchor`, or to something else such as `Moored`. (The `Skip(1)` on the end is there because `DistinctUntilChanged` always lets through the very first message it sees. We have no way of knowing whether that actually represents a change in status, but it is very likely not to: ships report their status every few minutes, and change their status much less often, so the first time we receive a report of a ship's status, it probably doesn't represent a change of status. By dropping that first item, we ensure that `statusChanges` provides notifications only when we can be certain that the status changed.)
 
 
 That was our quick run through of the filtering methods available in Rx. While they are relatively simple, as we have already begun to see, the power in Rx is down to the composability of its operators.

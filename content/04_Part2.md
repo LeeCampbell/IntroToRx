@@ -42,7 +42,7 @@ Notes:
     * To numeric
         * Count
         * Sum, Average
-        * Min(By), Max(By)
+        * Min, Max
     * Custom
         * Aggregate
         * Scan
@@ -77,4 +77,4 @@ Notes:
     * Sample
     * Throttle
     * Timeout
-    * (Buffer/Window again?)
+
