@@ -302,7 +302,7 @@ IObservable<IList<IAisMessageType1to3>> shipStatusChanges =
 IDisposable sub = shipStatusChanges.Subscribe(m => Console.WriteLine(
     $"Ship {((IAisMessage)m[0]).Mmsi} changed status from" +
     $" {m[1].NavigationStatus} to {m[1].NavigationStatus}" +
-    $" at {DateTimeOffset.UtcNow}"));```
+    $" at {DateTimeOffset.UtcNow}"));
 ```
 
 As the output shows, we can now report the previous state as well as the state just entered:

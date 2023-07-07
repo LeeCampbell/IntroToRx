@@ -152,3 +152,37 @@ Caution should be prescribed whenever using any of these fold methods on an obse
 TODO: this was where First, Last, and Single were. (That was an odd choice. They are technically catamorphisms, but they are degenerate cases. `Aggregate` is the canonical example but that wasn't in this section! `Sum`, `Average`, `Min`, and `Max` are also all good examples (more specialized than Aggregate, but at least they look at every input), but they're also not in here. To be fair, the Rx source code puts FirstAsync and SingleAsync in Observable.Aggregates.cs. But it's the fact that this section _only_ contained these, and none of the other more obviously aggregating catamorphisms.) I've moved those out into filtering, because they feel more akin to Take and Last. From a structural algebra perspective these are different kinds of things, but in terms of what they actually do, they are positional filters, so they seem to fit better in the filtering chapter than Aggregation because they don't aggregate.
 
 ---end
+
+## Amb
+
+The `Amb` method was a new concept to me when I started using Rx. This function was first introduced by [John McCarthy](https://en.wikipedia.org/wiki/John_McCarthy_(computer_scientist)), in his 1961 paper ['A Basis for a Mathematical Theory of Computation'](https://www.cambridge.org/core/journals/journal-of-symbolic-logic/article/abs/john-mccarthy-a-basis-for-a-mathematical-theory-of-computation-preliminary-report-proceedings-of-the-western-joint-computer-conference-papers-presented-at-the-joint-ireaieeacm-computer-conference-los-angeles-calif-may-911-1961-western-joint-computer-conference-1961-pp-225238-john-mccarthy-a-basis-for-a-mathematical-theory-of-computation-computer-programming-and-formal-systems-edited-by-p-braffort-and-d-hirschberg-studies-in-logic-and-the-foundations-of-mathematics-northholland-publishing-company-amsterdam1963-pp-3370/D1AD4E0CDB7FBE099B04BB4DAF24AFFA) in the Proceedings of the Western Joint Computer Conference. (A digital copy of this is hard to find, but a later version was published in [1963](http://www-formal.stanford.edu/jmc/basis1.pdf) in 'Computer Programming and Format Systems'.) It is an abbreviation of the word _Ambiguous_. Rx diverges slightly from normal .NET class library naming conventions here in using this abbreviation, partly because `amb` is the established name for this operator, but also as a tribute to McCarthy, whose work was an inspiration for the design of Rx.
+
+But what does `Amb` do? The basic idea of an [_ambiguous function_](http://www-formal.stanford.edu/jmc/basis1/node7.html) is that we are allowed to define multiple ways to produce a result, and that some or all of these might in practice prove unable to produce a result. Suppose we've defined some ambiguous function called `equivocate`, and perhaps that for some particular input value, all of `equivocate`'s component parts—all the different ways we gave it of calculating a result—are unable to process the value. (Maybe every one of them divides a number by the input. If we supply an input of `0`, then none of the components can produce a value for this input because they would all attempt to divide by 0.) In cases such as these where none of `equivocate`'s component parts is able to produce a result, `equivocate` itself is unable to produce a result. But suppose we supply some input where exactly one of its component parts is able to produce a result. In that case this result becomes the result of `equivocate` for that input.
+
+So in essence, we're supplying a bunch of different ways to process the input, and if exactly one of those is able to produce a result, we select that result. And if none of the ways of processing the input produces anything, then our ambiguous function also produces nothing.
+
+Where it gets slightly more weird (and where Rx departs from the original definition of `amb`) is when more than one of an ambiguous function's constituents produces a result. In McCarthy's theoretical formulation, the ambiguous function effectively produces all of the results as possible outputs. (This is technically known as _nondeterministic_ computation. It is as though the computer evaluating the ambiguous function clones itself, producing a copy for each possible result, continuing to execute every single copy. You could imagine an multithreaded implementation of such a system, where every time an ambiguous function produces multiple possible results, we create that many new threads so as to be able to evaluate all possible outcomes. This is a reasonable mental model for nondeterministic computation, but it's not what actually happens with Rx's `Amb` operator.) In the kinds of theoretical work ambiguous functions were introduced for, the ambiguity often vanishes in the end—there may have been an enormous number of ways in which a computation could have proceeded, but they might all, finally, produce the same result. However, such theoretical concerns are taking us away from what Rx's `Amb` does, and how we might use it in practice.
+
+[Rx's `Amb`](09_CombiningSequences.md#amb) provides the behaviour described in the cases where either none of the inputs produces anything, or exactly one of them does. Howeever, it makes no attempt to support non-deterministic computation, so its handling of the case where multiple constituents are able to produce value is oversimplified, but then McCarthy's `amb` was first and foremost an analytical construct, so any practical implementation of it is always going to fall short.
+
+
+
+A bit from the end of Part 2:
+
+On deeper analysis of the operators we find that most of the operators are actuallyspecialization of the higher order functional concepts. We named them the ABC's of functional programming:
+
+- Anamorphism, aka:
+  - Ana
+  - Unfold
+  - Generate
+- Bind, aka:
+  - Map
+  - SelectMany
+  - Projection
+  - Transform
+- Catamorphism, aka:
+  - Cata
+  - Fold
+  - Reduce
+  - Accumulate
+  - Inject
