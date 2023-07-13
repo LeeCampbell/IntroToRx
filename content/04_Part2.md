@@ -66,14 +66,13 @@ Notes:
     * And/Then/When
 
 Does Part 3 start here? The existing book has the rather nondescriptive "Taming the sequence" title, and
-I'd prefer to come up with something a bit more meaningful.
+I'd prefer to come up with something a bit more meaningful. Maybe "Getting Pragmatic"
 
-* Error Handling
-    * Catch
-    * Finally
-    * Using
-    * Retry
-    * OnErrorResumeNext
+* Schedulers
+
+* Leaving IObservable
+    * Do
+    * For
 * Timing
     * TimeStamp TimeInterval
     * TakeUntil (time-based)
@@ -81,9 +80,19 @@ I'd prefer to come up with something a bit more meaningful.
     * Sample
     * Throttle
     * Timeout
+* Error Handling
+    * Catch
+    * Finally
+    * Using
+    * Retry
+    * OnErrorResumeNext
 
-TODO: side effects?
 
 TODO: where does Defer fit in? I use it in ch03. I refer to it in Combining Sequences. But it's not clear where its home is.
 
 TODO: where does integration with Task fit in? Chapter 3's From Task section talks about the ToObservable extension method. The chapter currently called "Leaving the Monad" talks about ToTask. What about ToAsync and FromAsync? Chapter 5 mentions in passing that you can `await` any sequence in the ElementAt section, but I don't think I mention that any point earlier than that.
+
+
+Check these to see if there's anything in them not now covered earlier:
+* HotAndColdObservables
+* SequencesOfCoincidence
