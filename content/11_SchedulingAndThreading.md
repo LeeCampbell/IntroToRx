@@ -425,15 +425,31 @@ Although this scheduler is useful if you would prefer work not to happen on your
 
 The `EventLoopScheduler` provides one-at-a-time scheduling, queuing up newly scheduled work items. This is similar to how the `CurrentThreadScheduler` operates if you use it from just one thread. The difference is that `EventLoopScheduler` creates a dedicated thread for this work instead of using whatever thread you happen to schedule the work from.
 
-### HistoricalScheduler
+Unlike the schedulers we've examined so far, there is no static property for obtaining an `EventLoopScheduler`. That's because each one has its own thread, so you need to create one explicitly. It offers two constructors:
 
-The `HistoricalScheduler`. Should we do this one?
+```cs
+public EventLoopScheduler()
+public EventLoopScheduler(Func&lt;ThreadStart, Thread> threadFactory)
+```
 
-Many Rx operators provide overloads that accepts an `IScheduler`
+The first creates a thread for you. The second lets you control the thread creation process—it invokes the callback you supply, and it will pass this its own callback that you are required to run on the newly created thread.
+
+The `EventLoopScheduler` implements `IDisposable`, and calling Dispose will allow the thread to terminate. This can work nicely with the `Observable.Using` method. The following example shows how to use an `EventLoopScheduler` to iterate over all contents of an `IEnumerable<T>` on a dedicated thread, ensuring that the thread exits once we have finished:
+
+```cs
+IEnumerable<int> xs = GetNumbers();
+Observable
+    .Using(
+        () => new EventLoopScheduler(),
+        scheduler => xs.ToObservable(scheduler))
+    .Subscribe(...);
+```
 
 ### NewThreadScheduler
 
 The `NewThreadScheduler` creates a new thread to execute every work item it is given. This is unlikely to make sense in most scenarios. However, it might be useful in cases where you want to execute some long running work, and represent its completion through an `IObservable<T>`. The `Observable.ToAsync` does exactly this, and will normally use the `DefaultScheduler`, meaning it will run the work on a thread pool thread. But it the work is likely to take more than second or two, the thread pool may not be a good choice, because it is optimized for short execution times, and its heuristics for managing the size of the thread pool are not designed with long-running operations in mind. The `NewThreadScheduler` may be a better choice in this case.
+
+Although each call to `Schedule` creates a new thread, the `NewThreadScheduler` passes a different scheduler into work item callbacks, meaning that anything that attempts to perform iterative work will not create a new thread for every iteration. For example, if you use `NewThreadScheduler` with `Observable.Range`, you will get a new thread each time you subscribe to the resulting `IObservable<int>`, but you won't get a new thread for each item, even though `Range` does schedule a new work item for each value it produces. It schedules these per-value work items through the nested scheduler supplied to the work item callback, and the nested scheduler that `NewThreadScheduler` supplies in these cases invokes all such nested work items on the same thread.
 
 ### SynchronizationContextScheduler
 
@@ -445,9 +461,10 @@ Invokes all work through the TPL task pool. The TPL task pool is newer than the 
 
 ### ThreadPoolScheduler
 
-Invokes all work through the CLR thread pool.
+Invokes all work through the thread pool. This type is a historical artifact, dating back to when not all platforms offered the same kind of thread pool. In almost all cases, you should use the `DefaultScheduler`. The only scenario in which using `ThreadPoolScheduler` makes any difference is when writing UWP applications. The UWP target of `System.Reactive` v6.0 provides a different implementation of this class than you get for all other targets. It uses `Windows.System.Threading.ThreadPool` whereas all other targets use `System.Threading.ThreadPool`. The UWP version provides properties letting you configure some features specific to the UWP thread pool.
 
-TODO: it's not clear when you'd use this, not the DefaultScheduler.
+In practice it's best to avoid this class in new code. The only reason the UWP target had a different implementation was that UWP used not to provide `System.Threading.ThreadPool`. But that changed when UWP added support for .NET Standard 2.0 in Windows version 10.0.19041. There is no longer any good reason for there to be a UWP-specific `ThreadPoolScheduler`, and it's a source of confusion that this type is quite different in the UWP target but it has to remain for backwards compatibility purposes. (It may well be deprecated because Rx 7 will be addressing some problems arising from the fact that the `System.Reactive` component currently has direct dependencies on UI frameworks.) If you use the `DefaultScheduler` you will be using the `System.Threading.ThreadPool` no matter which platform you are running on.
+
 
 ### UI Framework Schedulers: ControlScheduler, DispatcherScheduler and CoreDispatcherScheduler
 
@@ -455,6 +472,10 @@ Although the `SynchronizationContextScheduler` will work for all widely used cli
 
 These more specialized types offer two benefits. First, you don't necessarily have to be on the target UI thread to obtain an instance of these schedulers. Whereas with `SynchronizationContextScheduler` the only way you can generally obtain the `SynchronizationContext` this requires is by retrieving `SynchronizationContext.Current` while running on the UI thread. But these other UI-framework-specific schedulers can be passed a suitable `Control`, `Dispatcher` or `CoreDispatcher`, which it's possible to obtain from a non-UI thread. Second, `DispatcherScheduler` and `CoreDispatcherScheduler` provide a way to use the prioritisation mechanism supported by the `Dispatcher` and `CoreDispatcher` types.
 
+
+### Test Schedulers
+
+The Rx libraries define several schedulers that virtualize time, including `HistoricalScheduler`, `TestScheduler`, `VirtualTimeScheduler`, and `VirtualTimeSchedulerBase`. We will look at this sort of scheduler in the [Testing chapter](91_TestingRx.md).
 
 
 ## SubscribeOn and ObserveOn
@@ -613,15 +634,15 @@ Rx also offers `SubscribeOnDispatcher()` and `ObserveOnDispatcher()` extension m
 
 Introducing concurrency to your application will increase its complexity. If your application is not noticeably improved by adding a layer of concurrency, then you should avoid doing so. Concurrent applications can exhibit maintenance problems with symptoms surfacing in the areas of debugging, testing and refactoring.
 
-The common problem that concurrency introduces is unpredictable timing. Unpredictable timing can be caused by variable load on a system, as well as variations in system configurations (e.g. varying core clock speed and availability of processors). These can ultimately can result in race conditions. Symptoms of race conditions include out-of-order execution, [deadlocks](http://en.wikipedia.org/wiki/Deadlock), [livelocks](http://en.wikipedia.org/wiki/Deadlock#Livelock) and corrupted state.
+The common problem that concurrency introduces is unpredictable timing. Unpredictable timing can be caused by variable load on a system, as well as variations in system configurations (e.g. varying core clock speed and availability of processors). These can ultimately can result in [deadlocks](http://en.wikipedia.org/wiki/Deadlock), [livelocks](http://en.wikipedia.org/wiki/Deadlock#Livelock) and corrupted state.
 
-In my opinion, the biggest danger when introducing concurrency haphazardly to an application, is that you can silently introduce bugs. These defects may slip past Development, QA and UAT and only manifest themselves in Production environments. Rx, however, does such a good job of simplifying the concurrent processing of observable sequences that many of these concerns can be mitigated. You can still create problems, but if you follow the guidelines then you can feel a lot safer in the knowledge that you have heavily reduced the capacity for unwanted race conditions.
+A particularly significant danger of introducing concurrency to an application, is that you can silently introduce bugs. Bugs arising from unpredictable timing are notoriously difficult to detect, making easy for these kinds of defects to slip past Development, QA and UAT and only manifest themselves in Production environments. Rx, however, does such a good job of simplifying the concurrent processing of observable sequences that many of these concerns can be mitigated. You can still create problems, but if you follow the guidelines then you can feel a lot safer in the knowledge that you have heavily reduced the capacity for unwanted race conditions.
 
 In a later chapter, [Testing Rx](16_TestingRx.html), we will look at how Rx improves your ability to test concurrent workflows.
 
 ### Lock-ups
 
-When working on my first commercial application that used Rx, the team found out the hard way that Rx code can most certainly deadlock. When you consider that some calls (like `First`, `Last`, `Single` and `ForEach`) are blocking, and that we can schedule work to be done in the future, it becomes obvious that a race condition can occur. This example is the simplest block I could think of. Admittedly, it is fairly elementary but it will get the ball rolling.
+Rx can simplify handling of concurrency, but it is not immune deadlock. Some calls (like `First`, `Last`, `Single` and `ForEach`) are blocking—they do not return until something that they are waiting for occurs. The following example shows that this makes it very easy for deadlock to occur:
 
 ```csharp
 var sequence = new Subject<int>();
@@ -634,7 +655,11 @@ sequence.OnNext(1);
 Console.WriteLine("I can never execute....");
 ```
 
-Hopefully, we won't ever write such code though, and if we did, our tests would give us quick feedback that things went wrong. More realistically, race conditions often slip into the system at integration points. The next example may be a little harder to detect, but is only small step away from our first, unrealistic example. Here, we block in the constructor of a UI element which will always be created on the dispatcher. The blocking call is waiting for an event that can only be raised from the dispatcher, thus creating a deadlock.
+The `First` method will not return until its source emits a sequence. But the code that causes this source to emit sequence is on the line _after_ the call to `First`. So the source can't emit a sequence until `First` returns. This style of deadlock, with two parties, each unable to proceed until the other proceeds, is often known as a _deadly embrace_. As this code shows, it's entirely possible for a deadly embrace to occur even in single threaded code. In fact, the single threaded nature of this code is what enables deadlock: we have two operations (waiting for the first notification, and sending the first notification) and only a single thread. That doesn't have to be a problem—it we'd used `FirstAsync` and attached an observer to that, `FirstAsync` would have executed its logic when the source `Subject<int>` invoked its `OnNext`. But that is more complex than just calling `First` and assigning the result into a variable.
+
+This is an oversimplified example to illustrate the behaviour, and we would never write such code in production. (And even if we did, it fails so quickly and consistency that we would immediately become aware of a problem.) But in real application code, these kinds of problems can be harder to spot. Race conditions often slip into the system at integration points, so the problem isn't necessarily evidence in any one piece of code: timing problems can emerge as a result of how we plug multiple pieces of code together.
+
+The next example may be a little harder to detect, but is only small step away from our first, unrealistic example. The basic idea is that we've got a subject that represents button clicks in a user interface. Event handlers representing user input are invoked by the UI framework—we just provide the framework with event handler methods, and it calls them for us whenever the event of interest, such as a button being clicked, occurs. This code calls `First` on the subject representing clicks, but it's less obvious that this might cause a problem here than it was in the preceding example:
 
 ```csharp
 public Window1()
@@ -646,8 +671,9 @@ public Window1()
     // Deadlock! We need the dispatcher to continue to allow me to click the button to produce a value
     Value = _subject.First();
     
-    // This will give same result but will not be blocking (deadlocking). 
-    _subject.Take(1).Subscribe(value => Value = value);
+    // This will have the intended effect, but because it does not block,
+    // we can call this on the UI thread without deadlocking.
+    //_subject.FirstAsync(1).Subscribe(value => Value = value);
 }
 
 private void MyButton_Click(object sender, RoutedEventArgs e)
@@ -661,13 +687,24 @@ public string Value
     set
     {
         _value = value;
-        var handler = PropertyChanged;
-        if (handler != null) handler(this, new PropertyChangedEventArgs("Value"));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Value"));
     }
 }
 ```
 
-Next, we start seeing things that can become more sinister. The button's click handler will try to get the first value from an observable sequence exposed via an interface.
+The earlier example called the subject's `OnNext` after `First` returned, making it relatively straightforward to see that if `First` didn't return, then the subject wouldn't emit a notification. But that's not as obvious here—the `MyButton_Click` event handler will be set up inside the call to `InitializeComponent` (as is normal in WPF code), so apparently we've done the necessary setup to enable events to flow. By the time we reach this call to `First, the UI framework already knows that if the user clicks `MyButton`, it should call `MyButton_Click`, and that method is going to cause the subject to emit a value.
+
+There's nothing intrinsically wrong with that use of `First`. (Risky, yes, but there are scenarios in which that exact code would be absolutely fine.) The problem is the context in which we've used it. This code is in the constructor of a UI element, and these always run on a particular thread associated with that window's UI elements. (This happens to be a WPF example, but other UI frameworks work the same way.) And that's the same thread that the UI framework will use to deliver notifications about user input. If we block this UI thread, we prevent the UI framework from invoking our button click event handler. So this blocking call is waiting for an event that can only be raised from the very thread that it is blocking, thus creating a deadlock.
+
+You might be starting to get the impression that we should try to avoid blocking calls in Rx. This is a good rule of thumb. We can fix the code above by commenting out the line that uses `First`, and uncommenting the one below it containing this code:
+
+```cs
+_subject.FirstAsync(1).Subscribe(value => Value = value);
+```
+
+This uses `FirstAsync` which does the same job, but with a different approach. It implements the same logic but it returns an `IObservable<T>` to which we must subscribe if we want to receive the first value whenever it does eventually appear. It is more complex than the just assigning the result of `First` into the `Value` property, but it is better adapted to the fact that we can't know when that source will produce a value.
+
+If you do a lot of UI development, that last example might have seemed obviously wrong to you: we had code in the constructor for a window that wouldn't allow the constructor to complete until the user clicked a button in that window. The window isn't even going to appear until construction is complete so it makes no sense to wait for the user to click a button. That button's not even going to be visible on screen until after our constructor completes. Moreover, seasoned UI developers know that you don't just stop the world and wait for a specific action from the user. (Even modal dialogs, which effectively do demand a response before continuing, don't block the UI thread.) But as the next example shows, it's easy for problems to be harder to see. In this example, a button's click handler will try to get the first value from an observable sequence exposed via an interface.
 
 ```csharp
 public partial class Window1 : INotifyPropertyChanged
@@ -704,7 +741,9 @@ public partial class Window1 : INotifyPropertyChanged
 }
 ```
 
-There is only one small problem here in that we block on the `Dispatcher` thread (`First` is a blocking call), however this manifests itself into a deadlock if the service code is written incorrectly.
+Unlike the earlier example, this does not attempt to block progress in the constructor. The blocking call to `First` occurs here in a button click handler (the `MyButton2_Click` method near the end). This example is more interesting because this sort of thing isn't necessarily wrong. Applications often perform blocking operations in click handlers: when we click a button to save a copy of a document, we expect the application to perform all necessary IO work to write our data out to storage. With modern solid state storage devices, this often happens so quickly as to appear instantaneous, but back in the days when mechanical hard drives were the norm, it was not unusual for an application to become briefly unresponsive while it saved our document. This can happen even today if your storage is remote, and networking issues are causing delays.
+
+So even if we've learned to be suspicious of blocking operations such as `First`, it's possible that it's OK in this example. It's not possible to tell for certain by looking at this code alone. It all depends on what sort of an observable `GetTemperature` returns, and the manner in which it produces its items. That call to `First` will block on the UI thread until a first item becomes available, so this will produce a deadlock if the production of that first item requires access to the UI thread. Here's a slightly contrived way to create that problem:
 
 ```csharp
 class MyService : IMyService
@@ -724,97 +763,75 @@ class MyService : IMyService
 }
 ```
 
-This odd implementation, with explicit scheduling, will cause the three `OnNext` calls to be scheduled once the `First()` call has finished; however, `that` is waiting for an `OnNext` to be called: we are deadlocked.
+This fakes up behaviour intended to simulate an actual temperature sensor by making a series of calls to `OnNext`. But it does some odd explicit scheduling: it calls `SubscribeOnDispatcher`. That's an extension method that effectively calls `SubscribeOn(DispatcherScheduler.Current.Dispatcher)`. This effectively tells Rx that when something tries to subscribe to the `IObservable<int>` that `GetTemperature` returns, that subscription call should be done through a WPF-specific scheduler that runs its work items on the UI thread. (Strictly, speaking, WPF does allow multiple UI threads, so to more precise, this code only works if you call it on a UI thread, and if you do so, the scheduler will ensure that work items are scheduled onto the same UI thread.)
 
-So far, this chapter may seem to say that concurrency is all doom and gloom by focusing on the problems you could face; this is not the intent though. 
-We do not magically avoid classic concurrency problems simply by adopting Rx. 
-Rx will however make it easier to get it right, provided you follow these two simple rules.
+The effect is that when our click handler calls `First`, that will in turn subscribe to the `IObservable<int>` returned by `GetTemperature`, and because that used `SubscribeOnDispatcher`, this does not invoke the callback passed to `Obserable.Create` immediately. Instead, it schedules a work item that will do that when the UI thread (i.e., the thread we're running on) becomes free. It's not considered to be free right now, because it's in the middle of handling the button click. Having handed this work item to the scheduler, the `Subscribe` call returns back to the `First` method. And the `First` method now sits and waits for the first item to emerge. Since it won't return until that happens, the UI thread will not be considered to be available until that happens, meaning that the scheduled work item that was supposed to produce that first item can never run, and we have deadlock.
 
-- Only the final subscriber should be setting the scheduling
+This boils down to the same basic problem as the first of these `First`-related deadlock examples. We have two processes: the generation of items, and waiting for an item to occur. These need to be in progress concurrently—we need the "wait for first item" logic to be up and running at the point when the source emits its first item. These examples all use just a single thread, which makes it a bad idea to use a single blocking call (`First`) both to set up the process of watching for the first item, and also to wait for that to happen. But even though it was the same basic problem in all three cases, it became harder to see as the code became more complex. With real application code, it's often a lot harder than this to see the root causes of deadlocks.
+
+So far, this chapter may seem to say that concurrency is all doom and gloom by focusing on the problems you could face, and the fact that they are often hard to spot in practice; this is not the intent though. 
+Although adopting Rx can't magically avoid classic concurrency problems, Rx can make it easier to get it right, provided you follow these two simple rules.
+
+- Only the top-level subscriber should make scheduling decisions
 - Avoid using blocking calls: e.g. `First`, `Last` and `Single`
 
-The last example came unstuck with one simple problem; the service was dictating the scheduling paradigm when, really, it had no business doing so. Before we had a clear idea of where we should be doing the scheduling in my first Rx project, we had all sorts of layers adding 'helpful' scheduling code. What it ended up creating was a threading nightmare. When we removed all the scheduling code and then confined it it in a single layer (at least in the Silverlight client), most of our concurrency problems went away. I recommend you do the same. At least in WPF/Silverlight applications, the pattern should be simple: "Subscribe on a Background thread; Observe on the Dispatcher".
+The last example came unstuck with one simple problem; the `GetTemperature` service was dictating the scheduling model when, really, it had no business doing so. Code representing a temperature sensor shouldn't need to know that I'm using a particular UI framework, and certainly shouldn't be unilaterally deciding that it is going to run certain work on a WPF user interface thread. When getting started with Rx, it can be easy to convince yourself that baking scheduling decisions into lower layers is somehow being 'helpful'. "Look!" you might say. "Not only have I provided temperature readings, I've also made this automatically notify you on the UI thread, so you won't have to bother with `ObserveOn`." The intentions may be good, but it's all too easy to create a threading nightmare. Only the code that sets up a subscription and consumes its results can have a complete overview of the concurrency requirements, so that is the right level at which to choose which schedulers to use. Lower levels of code should not try to get involved; they should just do what they are told. (Rx arguably breaks this rule slightly itself by choosing default schedulers where they are needed. But it makes very conservative choices designed to minimize the chances of deadlock, and always allows applications to take control by specifying the scheduler.)
+
+Note that following either one of the two rules above would have been sufficient to prevent deadlock in this example. But it is best to follow both rules.
+
+This does leave one question unanswered: _how_ should the top-level subscriber make scheduling decisions? I've identified the area of the code that needs to make the decision, but what should the decision be? It will depend on the kind of application you are writing. For UI code, this pattern generally works well: "Subscribe on a background thread; Observe on the UI thread". With UI code, the risk of deadlock arises in because the UI thread is effectively a shared resource, and contention for that resource can produce deadlock. So the strategy is to avoid requiring that resource as much as possible: work that doesn't need to be on the thread should not be on that thread, which is why performing subscription on a worker thread (e.g., by using the `TaskPoolScheduler`) reduces the risk of deadlock. It follows that if you have observable sources that decide when to produce events (e.g., timers, or sources representing inputs from external information feeds or devices) you would also want those to schedule work on worker threads. It is only when we need to update the user interface that we need our code to run on the UI thread, and so we defer that until the last possible moment by using `ObserveOn` in conjunction with a suitable UI-aware scheduler (such as the WPF `DispatcherScheduler`). If we have a complex Rx query made up out of multiple operators, this `ObserveOn` should come right at the end, just before we call `Subscribe` to attach the handler that will update the UI. This way, only the final step, the updating of the UI, will need access to the UI thread. By the time this runs, all complex processing will be complete, and so this should be able to run very quickly, relinquishing control of the UI thread almost immediately, improving application responsiveness, and lowering the risk of deadlock.
+
+Other scenarios will require other strategies, but the general principle with deadlocks is always the same: understand which shared resources require exclusive access. For example, if you have a sensor library, it might create a dedicated thread to monitor devices and report new measurements, and if it were to stipulate that certain work had to be done on that thread, this would be very similar to the UI scenario: there is a particular thread that you will need to avoid blocking. The same approach would likely apply here. But this is not the only kind of scenario.
+
+You could imagine a data processing application in which certain data structures are shared. It's quite common in these cases to be allowed to access such data structures from any thread, but to be required to do so one thread at a time. Typically we would use thread synchronization primitives to protect against concurrent use of these critical data structures. In these cases, the risks of deadlock do not arise from the use of particular threads. Instead, they arise from the possibility that one thread can't progress because some other threads is using a shared data structure, but that other thread is waiting for the first thread to do something, and won't relinquish its lock on that data structure until that happens. The simplest way to avoid problems here is to avoid blocking wherever possible. Avoid methods like `First`, preferring their non-blocking equivalents such as `FirstAsync`. (If there are cases where you can't avoid blocking, try to avoid doing so while in possession of locks that guard access to shared data. And if you really can't avoid that either, then there are no simple answers—you'll now have to start thinking about lock hierarchies to systematically avoid deadlock, just as you would if you weren't using Rx.) The non-blocking style is the natural way to do things with Rx, and that's the main way Rx can help you avoid concurrency related problems in these cases.
 
 ## Advanced features of schedulers
 
-We have only looked at the most simple usage of schedulers so far:
-
-- Scheduling an action to be executed as soon as possible
-- Scheduling the subscription of an observable sequence
-- Scheduling the observation of notifications coming from an observable sequence
-
-Schedulers also provide more advanced features that can help you with various problems.
+Schedulers provide some features that are mainly of interest when writing observable sources that need to interact with a schedule. The most common way to use schedulers is when setting up a subscription, either supplying them as arguments when creating observable sources, or passing them to `SubscribeOn` and `ObserveOn`. But if you need to write an observable source that produces items on some schedule of its own choosing (e.g., suppose you are writing a library that represents some external data source and you want to present that as an `IObservable<T>`), you might need to use some of these more advanced features.
 
 ### Passing state
 
-In the extension method to `IScheduler` we have looked at, you could only provide an `Action` to execute. This `Action` did not accept any parameters. If you want to pass state to the `Action`, you could use a closure to share the data like this:
+All of the methods defined by `IScheduler` take a `state` argument. Here's the interface definition again:
 
-```csharp
-var myName = "Lee";
-Scheduler.NewThread.Schedule(() => Console.WriteLine("myName = {0}", myName));
+```cs
+public interface IScheduler
+{
+    DateTimeOffset Now { get; }
+    IDisposable Schedule<TState>(TState state, Func<IScheduler, TState, IDisposable> action);
+    IDisposable Schedule<TState>(TState state, TimeSpan dueTime, Func<IScheduler, TState, IDisposable> action);
+    IDisposable Schedule<TState>(TState state, DateTimeOffset dueTime, Func<IScheduler, TState, IDisposable> action);
+}
 ```
 
-This could create a problem, as you are sharing state across two different scopes. I could modify the variable `myName` and get unexpected results.
+The scheduler does not care what is in this `state` argument. It just passes it unmodified into your callback when it executes your work item. This provides one way to provide context for that callback. It's not strictly necessary: the delegate we pass as the `action` can incorporate whatever state we need. The easiest way to do that is to capture variables in a lambda. However, if you look at the [Rx source code](https://github.com/dotnet/reactive/) you will find that it typically doesn't do that. For example, the heart of the `Range` operator is a method called `LoopRec` and if you look at [the source for `LoopRec`](https://github.com/dotnet/reactive/blob/95d9ea9d2786f6ec49a051c5cff47dc42591e54f/Rx.NET/Source/src/System.Reactive/Linq/Observable/Range.cs#L55-L73) you'll see that it includes this line:
 
-In this example, we use a closure as above to pass state. I immediately modify the closure and this creates a race condition: will my modification happen before or after the state is used by the scheduler?
-
-```csharp
-var myName = "Lee";
-scheduler.Schedule(() => Console.WriteLine("myName = {0}", myName));
-myName = "John"; // What will get written to the console?
+```cs
+var next = scheduler.Schedule(this, static (innerScheduler, @this) => @this.LoopRec(innerScheduler));
 ```
 
-In my tests, "John" is generally written to the console when `scheduler` is an instance of `NewThreadScheduler`. If I use the `ImmediateScheduler` then "Lee" would be written. The problem with this is the non-deterministic nature of the code.
+Logically, `Range` is just a loop that executes once for each item it produces. But to enable concurrent execution and to avoid stack overflows, it implements this by scheduling each iteration of the loop as an individual work item. (The method is called `LoopRec` because it is logically a recursive loop: we kick it off by calling `Schedule`, and each time the scheduler calls this method, it calls `Schedule` again to ask for the next item to run. This doesn't actually cause recursion with any of Rx's built-in schedulers, even the `ImmediateScheduler`, because they all detect this and arrange to run the next item after the current one returns. But if you wrote the most naive scheduler possible, this would actually end up recursing at runtime, likely leading to stack overflows if you tried to create a large sequence.)
 
-A preferable way to pass state is to use the `Schedule` overloads that accept state. This example takes advantage of this overload, giving us certainty about our state.
+Notice that the lambda passed to `Schedule` has been annotated with `static`. This tells the C# compiler that it is our intention _not_ to capture any variables, and that any attempt to do so should cause a compiler error. The advantage of this is that the compiler is able to generate code that reuses the same delegate instance for every call. The first time this runs, it will create a delegate and store it in a hidden field. On every subsequent execution of this (either in future iterations of the same range, or for completely new range instances) it can just use that same delegate again and again and again. This is possible because the delegate captures no state. This avoids allocating a new object each time round the loop.
 
-```csharp
-var myName = "Lee";
-scheduler.Schedule(myName, 
-    (_, state) =>
-    {
-        Console.WriteLine(state);
-        return Disposable.Empty;
-    });
-myName = "John";
+Couldn't the Rx library have used this more straightforward approach?
+
+```cs
+var next = scheduler.Schedule(() => LoopRec(scheduler)); // Don't do this. (See below.)
 ```
 
-Here, we pass `myName` as the state. We also pass a delegate that will take the state and return a disposable. The disposable is used for cancellation; we will look into that later. The delegate also takes an `IScheduler` parameter, which we name "_" (underscore). This is the convention to indicate we are ignoring the argument. When we pass `myName` as the state, a reference to the state is kept internally. So when we update the `myName` variable to "John", the reference to "Lee" is still maintained by the scheduler's internal workings.
+This uses an extension method that Rx supplies for cases where you have no need for the `state` argument. In fact it's the wrong thing to use here, because this could end up passing the wrong scheduler. If you look at the `IScheduler` interface, you'll see that the work item callback's first argument is an `IScheduler`, and you're supposed to use that scheduler for any logically recursive work. Some schedulers (e.g., the `ImmediateScheduler`) supply a special type of scheduler specifically to avoid logical recursion turning into actual recursion that could end up going so deep that the application crashes with a stack overflow. This particular extension method isn't meant for these logically recursive scenarios, so we can't quite make it this simple. But perhaps we could avoid that weirdness of passing our own `this` argument:
 
-Note that in our previous example, we modify the `myName` variable to point to a new instance of a string. If we were to instead have an instance that we actually modified, we could still get unpredictable behavior. In the next example, we now use a list for our state. After scheduling an action to print out the element count of the list, we modify that list.
-
-```csharp
-var list = new List<int>();
-scheduler.Schedule(list,
-    (innerScheduler, state) =>
-    {
-        Console.WriteLine(state.Count);
-        return Disposable.Empty;
-    });
-list.Add(1);
+```cs
+var next = scheduler.Schedule<object?>(null, (innerScheduler, _) => LoopRec(innerScheduler));
 ```
 
-Now that we are modifying shared state, we can get unpredictable results. In this example, we don't even know what type the scheduler is, so we cannot predict the race conditions we are creating. As with any concurrent software, you should avoid modifying shared state.
+This fixes the problem with the preceding example: it correctly uses the correct scheduler for any further logically recursive calls. And now we're just invoking the `LoopRec` instance member in the ordinary way: we're implicitly using the `this` reference that is in scope. So this will create a delegate the captures that implicit `this` reference. But that's inefficient: it will force the compiler to generate code that allocates two objects each time this line runs. (And the same would happen with the preceding example—not only is it broken, it's also inefficient.) It creates one object that has a field holding onto the captured `this`, and then it needs to create a distinct delegate instance that has a reference to that capture object.
+
+The more complex code that is actually in the `Range` implementation avoids this. It disables capture by annotating the lambda with `static`. That prevents code from relying on the implicit `this` reference. So it has had to arrange for the `this` reference to be available to the callback. And that's exactly the sort of thing the `state` argument is there for. It provides a way to pass in some per-work-item state so that you can avoid the overhead of capturing variables on each iteration.
 
 ### Future scheduling
 
-As you would expect with a type called "IScheduler", you are able to schedule an action to be executed in the future. You can do so by specifying the exact point in time an action should be invoked, or you can specify the period of time to wait until the action is invoked. This is clearly useful for features such as buffering, timers etc.
-
-Scheduling in the future is thus made possible by two styles of overloads, one thattakes a `TimeSpan` and one that takes a `DateTimeOffset`. These are the two most simple overloads that execute an action in the future.
-
-```csharp
-public static IDisposable Schedule(
-    this IScheduler scheduler, 
-    TimeSpan dueTime, 
-    Action action)
-{...}
-
-public static IDisposable Schedule(
-    this IScheduler scheduler, 
-    DateTimeOffset dueTime, 
-    Action action)
-{...}
-```
+I talked earlier about time-based operators, and also about the two time-based members of `ISchedule` that enable this, but I've not yet shown how to use it. These enable you to schedule an action to be executed in the future. You can do so by specifying the exact point in time an action should be invoked by calling the overload of `Schedule` that takes a `DateTimeOffset`, or you can specify the period of time to wait until the action is invoked with the `TimeSpan`-based overload.
 
 You can use the `TimeSpan` overload like this:
 
@@ -834,22 +851,22 @@ After schedule at 2012-01-01T12:00:00.058000+00:00
 Inside schedule at 2012-01-01T12:00:01.044000+00:00
 ```
 
-We can see therefore that scheduling is non-blocking as the 'before' and 'after' calls are very close together in time. You can also see that approximately one second after the action was scheduled, it was invoked.
+This illustrates that scheduling was non-blocking here, because the 'before' and 'after' calls are very close together in time. (It will be this way for most schedulers, but as discussed earlier, `ImmediateScheduler` works differently. In this case, you would see the After message after the Inside one. that's why none of the timed operators will use `ImmediateScheduler` by default.) You can also see that approximately one second after the action was scheduled, it was invoked.
 
-You can specify a specific point in time to schedule the task with the `DateTimeOffset` overload. If, for some reason, the point in time you specify is in the past, then the action is scheduled as soon as possible.
+You can specify a specific point in time to schedule the task with the `DateTimeOffset` overload. If, for some reason, the point in time you specify is in the past, then the action is scheduled as soon as possible. Be aware that changes in the system clock complicate matters. Rx's schedulers do make some accommodations to deal with clock drift, but sudden large changes to the system clock can cause some short term chaos.
 
 ### Cancellation
 
-Each of the overloads to `Schedule` returns an `IDisposable`; this way, a consumer can cancel the scheduled work. In the previous example, we scheduled work to be invoked in one second. We could cancel that work by disposing of the cancellation token (i.e. the return value).
+Each of the overloads to `Schedule` returns an `IDisposable`, and calling `Dispose` on this will cancel the scheduled work. In the previous example, we scheduled work to be invoked in one second. We could cancel that work by disposing of the return value.
 
 ```csharp
 var delay = TimeSpan.FromSeconds(1);
 Console.WriteLine("Before schedule at {0:o}", DateTime.Now);
 
-var token = scheduler.Schedule(delay, () => Console.WriteLine("Inside schedule at {0:o}", DateTime.Now));
+var workItem = scheduler.Schedule(delay, () => Console.WriteLine("Inside schedule at {0:o}", DateTime.Now));
 Console.WriteLine("After schedule at  {0:o}", DateTime.Now);
 
-token.Dispose();
+workItem.Dispose();
 ```
 
 Output:
@@ -861,11 +878,11 @@ After schedule at 2012-01-01T12:00:00.058000+00:00
 
 Note that the scheduled action never occurs, as we have cancelled it almost immediately.
 
-When the user cancels the scheduled action method before the scheduler is able to invoke it, that action is just removed from the queue of work. This is what we see in example above. If you want to cancel scheduled work that is already running, then you can use one of the overloads to the `Schedule` method that takes a `Func<IDisposable>`. This gives a way for users to cancel out of a job that may already be running. This job could be some sort of I/O, heavy computations or perhaps usage of `Task` to perform some work.
+When the user cancels the scheduled action method before the scheduler is able to invoke it, that action is just removed from the queue of work. This is what we see in example above. It's possible to cancel scheduled work that is already running, and this is why the work item callback is required to return `IDisposable`: if work has already begun when you try to cancel the work item, Rx calls `Dispose` on the `IDisposable` that your work item callback returned. This gives a way for users to cancel out of a job that may already be running. This job could be some sort of I/O, heavy computations or perhaps usage of `Task` to perform some work.
 
-Now this may create a problem; if you want to cancel work that has already been started, you need to dispose of an instance of `IDisposable`, but how do you return the disposable if you are still doing the work? You could fire up another thread so the work happens concurrently, but creating threads is something we are trying to steer away from.
+You may be wondering how this mechanism can be any use: the work item callback needs to have returned already for Rx to be able to invoke the `IDisposable` that it returns. This mechanism can only be used in practice if work continues after returning to the scheduler. You could fire up another thread so the work happens concurrently, although we generally try to avoid creating threads in Rx. Another possibility would be it the scheduled work item invoked some asynchronous API and returned without waiting for it to complete—if that API offered cancellation, you could return an `IDisposable` that cancelled it.
 
-In this example, we have a method that we will use as the delegate to be scheduled. It just fakes some work by performing a spin wait and adding values to the `list` argument. The key here is that we allow the user to cancel with the `CancellationToken` via the disposable we return.
+To illustrate cancellation in operation, this slightly unrealistic example runs some work as a `Task` to enable it to continue after our callback returns. It just fakes some work by performing a spin wait and adding values to the `list` argument. The key here is that create a `CancellationToken` to be able to tell the task we want it to stop, and we return an `IDisposable` that puts this token in to a cancelled state.
 
 ```csharp
 public IDisposable Work(IScheduler scheduler, List<int> list)
@@ -888,7 +905,7 @@ public IDisposable Work(IScheduler scheduler, List<int> list)
    
             if (cancelToken.IsCancellationRequested)
             {
-                Console.WriteLine("Cancelation requested");
+                Console.WriteLine("Cancellation requested");
                 
                 // cancelToken.ThrowIfCancellationRequested();
                 
@@ -926,14 +943,14 @@ Enter to quit:
 ........
 Cancelling...
 Cancelled
-CancelLation requested
+Cancellation requested
 ```
 
-The problem here is that we have introduced explicit use of `Task`. We can avoid explicit usage of a concurrency model if we use the Rx recursive scheduler features instead.
+The problem here is that we have introduced explicit use of `Task` so we are increasing concurrency in a way that is outside of the control of the scheduler. The Rx library generally allowed control over the way in which concurrency is introduced by accepting a scheduler parameter. If the goal is to enable long-running iterative work, we can avoid having to spin up new threads or tasks but using Rx recursive scheduler features instead. I already talked a bit about this in the [Passing state](#passing-state) section, but there are a few ways to go about it.
 
 ### Recursion
 
-The more advanced overloads of `Schedule` extension methods take some strange looking delegates as parameters. Take special note of the final parameter in each of these overloads of the `Schedule` extension method.
+In addition to the `IScheduler` methods, Rx defines various overloads of `Schedule` in the form of extension methods. Some of these take some strange looking delegates as parameters. Take special note of the final parameter in each of these overloads of the `Schedule` extension method.
 
 ```csharp
 public static IDisposable Schedule(
@@ -973,7 +990,7 @@ public static IDisposable Schedule<TState>(
 {...}   
 ```
 
-Each of these overloads take a delegate "action" that allows you to call "action" recursively. This may seem a very odd signature, but it makes for a great API. This effectively allows you to create a recursive delegate call. This may be best shown with an example.
+Each of these overloads take a delegate "action" that allows you to call "action" recursively. This may seem a very odd signature, but it allows us to achieve a similar logically recursive iterative approach as you saw in [Passing state](#passing-state) section, but in a potentially simpler way.
 
 This example uses the most simple recursive overload. We have an `Action` that can be called recursively.
 
@@ -1007,239 +1024,12 @@ Cancelled
 Running
 ```
 
-Note that we didn't have to write any cancellation code in our delegate. Rx handled the looping and checked for cancellation on our behalf. Brilliant! Unlike simple recursive methods in C#, we are also protected from stack overflows, as Rx provides an extra level of abstraction. Indeed, Rx takes our recursive method and transforms it to a loop structure instead.
+Note that we didn't have to write any cancellation code in our delegate. Rx handled the looping and checked for cancellation on our behalf. Since each individual iteration was scheduled as a separate work item, there are no long-running jobs, so it's enough to let the scheduler deal entirely with cancellation.
 
-#### Creating your own iterator
+The main difference between these overloads, and using the `IScheduler` methods directly, is that you don't need to pass another callback directly into the scheduler. You just invoke the supplied `Action` and it schedules another call to your method. They also enable you not to pass a state argument if you don't have any use for one.
 
-Earlier in the book, we looked at how we can use [Rx with APM](04_CreatingObservableSequences.html#FromAPM). In our example, we just read the entire file into memory. We also referenced Jeffrey van Gogh's [blog post](http://blogs.msdn.com/b/jeffva/archive/2010/07/23/rx-on-the-server-part-1-of-n-asynchronous-system-io-stream-reading.aspx), which sadly is now out of date; however, his concepts are still sound. Instead of the Iterator method from Jeffrey's post, we can use schedulers to achieve the same result.
+As mentioned in the earlier section, although this logically represents recursion, Rx protects us from stack overflows. The schedulers implement this style of recursion by waiting for the method to return before performing the recursive call. (So it is always what's called "tail recursion" where the recursive call occurs right at the end of the current method.)
 
-The goal of the following sample is to open a file and stream it in chunks. This enables us to work with files that are larger than the memory available to us, as we would only ever read and cache a portion of the file at a time. In addition to this, we can leverage the compositional nature of Rx to apply multiple transformations to the file such as encryption and compression. By reading chunks at a time, we are able to start the other transformations before we have finished reading the file.
-
-First, let us refresh our memory with how to get from the `FileStream`'s APM methods into Rx.
-
-```csharp
-var source = new FileStream(@"C:\some-file.txt", FileMode.Open, FileAccess.Read);
-var factory = Observable.FromAsyncPattern<byte[], int, int, int>(source.BeginRead, source.EndRead);
-var buffer = new byte[source.Length];
-
-IObservable<int> reader = factory(buffer, 0, (int)source.Length);
-
-reader.Subscribe(bytesRead =>  Console.WriteLine("Read {0} bytes from file into buffer", bytesRead));
-```
-
-The example above uses `FromAsyncPattern` to create a factory. The factory will take a byte array (`buffer`), an offset (`0`) and a length (`source.Length`); it effectively returns the count of the bytes read as a single-value sequence. When the sequence (`reader`) is subscribed to, `BeginRead` will read values, starting from the offset, into the buffer. In this case, we will read the whole file. Once the file has been read into the buffer, the sequence (`reader`) will push the single value (`bytesRead`) in to the sequence.
-
-This is all fine, but if we want to read chunks of data at a time then this is not good enough. We need to specify the buffer size we want to use. Let's start with 4KB (4096 bytes).
-
-```csharp
-var bufferSize = 4096;
-var buffer = new byte[bufferSize];
-IObservable<int> reader = factory(buffer, 0, bufferSize);
-reader.Subscribe(bytesRead => Console.WriteLine("Read {0} bytes from file", bytesRead));
-```
-
-This works but will only read a max of 4KB from the file. If the file is larger, we want to keep reading all of it. As the `Position` of the `FileStream` will have advanced to the point it stopped reading, we can reuse the `factory` to reload the buffer. Next, we want to start pushing these bytes into an observable sequence. Let's start by creating the signature of an extension method.
-
-```csharp
-public static IObservable<byte> ToObservable(
-    this FileStream source, 
-    int buffersize, 
-    IScheduler scheduler)
-{...}
-```
-
-We can ensure that our extension method is lazily evaluated by using `Observable.Create`. We can also ensure that the `FileStream` is closed when the consumer disposes of the subscription by taking advantage of the `Observable.Using` operator.
-
-```csharp
-public static IObservable<byte> ToObservable(
-    this FileStream source, 
-    int buffersize, 
-    IScheduler scheduler)
-{
-    var bytes = Observable.Create<byte>(o =>
-    {
-        ...
-    });
-
-    return Observable.Using(() => source, _ => bytes);
-}
-```
-
-Next, we want to leverage the scheduler's recursive functionality to continuously read chunks of data while still providing the user with the ability to dispose/cancel when they choose. This creates a bit of a pickle; we can only pass in one state parameter but need to manage multiple moving parts (buffer, factory, filestream). To do this, we create our own private helper class:
-
-```csharp
-private sealed class StreamReaderState
-{
-    private readonly int _bufferSize;
-    private readonly Func<byte[], int, int, IObservable<int>> _factory;
-
-    public StreamReaderState(FileStream source, int bufferSize)
-    {
-        _bufferSize = bufferSize;
-        _factory = Observable.FromAsyncPattern<byte[], int, int, int>(
-            source.BeginRead, 
-            source.EndRead);
-        Buffer = new byte[bufferSize];
-    }
-
-    public IObservable<int> ReadNext()
-    {
-        return _factory(Buffer, 0, _bufferSize);
-    }
-
-    public byte[] Buffer { get; set; }
-}
-```
-
-This class will allow us to read data into a buffer, then read the next chunk by calling `ReadNext()`. In our `Observable.Create` delegate, we instantiate our helper class and use it to push the buffer into our observable sequence.
-
-```csharp
-public static IObservable<byte> ToObservable(
-    this FileStream source, 
-    int buffersize, 
-    IScheduler scheduler)
-{
-    var bytes = Observable.Create<byte>(o =>
-    {
-        var initialState = new StreamReaderState(source, buffersize);
-
-        initialState
-            .ReadNext()
-            .Subscribe(bytesRead =>
-            {
-                for (int i = 0; i < bytesRead; i++)
-                {
-                    o.OnNext(initialState.Buffer[i]);
-                }
-            });
-        ...
-    });
-
-    return Observable.Using(() => source, _ => bytes);
-}
-```
-
-So this gets us off the ground, but we are still do not support reading files larger than the buffer. Now, we need to add recursive scheduling. To do this, we need a delegate to fit the required signature. We will need one that accepts a `StreamReaderState` and can recursively call an `Action<StreamReaderState>`.
-
-```csharp
-public static IObservable<byte> ToObservable(
-    this FileStream source, 
-    int buffersize, 
-    IScheduler scheduler)
-{
-    var bytes = Observable.Create<byte>(o =>
-    {
-        var initialState = new StreamReaderState(source, buffersize);
-
-        Action<StreamReaderState, Action<StreamReaderState>> iterator;
-        iterator = (state, self) =>
-        {
-            state.ReadNext()
-                    .Subscribe(bytesRead =>
-                        {
-                            for (int i = 0; i < bytesRead; i++)
-                            {
-                                o.OnNext(state.Buffer[i]);
-                            }
-                            self(state);
-                        });
-        };
-        return scheduler.Schedule(initialState, iterator);
-    });
-
-    return Observable.Using(() => source, _ => bytes);
-}
-```
-    
-We now have an `iterator` action that will:
-
-- call `ReadNext()`
-- subscribe to the result
-- push the buffer into the observable sequence
-- and recursively call itself.
-
-We also schedule this recursive action to be called on the provided scheduler. Next, we want to complete the sequence when we get to the end of the file. This is easy, we maintain the recursion until the `bytesRead` is 0.
-
-```csharp
-public static IObservable<byte> ToObservable(
-    this FileStream source, 
-    int buffersize, 
-    IScheduler scheduler)
-{
-    var bytes = Observable.Create<byte>(o =>
-    {
-        var initialState = new StreamReaderState(source, buffersize);
-
-        Action<StreamReaderState, Action<StreamReaderState>> iterator;
-        iterator = (state, self) =>
-        {
-            state.ReadNext()
-                    .Subscribe(bytesRead =>
-                        {
-                            for (int i = 0; i < bytesRead; i++)
-                            {
-                                o.OnNext(state.Buffer[i]);
-                            }
-                            if (bytesRead > 0)
-                                self(state);
-                            else
-                                o.OnCompleted();
-                        });
-        };
-        return scheduler.Schedule(initialState, iterator);
-    });
-
-    return Observable.Using(() => source, _ => bytes);
-}
-```
-
-At this point, we have an extension method that iterates on the bytes from a file stream. Finally, let us apply some clean up so that we correctly manage our resources and exceptions, and the finished method looks something like this:
-
-```csharp
-public static IObservable<byte> ToObservable(
-    this FileStream source, 
-    int buffersize, 
-    IScheduler scheduler)
-{
-    var bytes = Observable.Create<byte>(o =>
-    {
-        var initialState = new StreamReaderState(source, buffersize);
-        var currentStateSubscription = new SerialDisposable();
-        Action<StreamReaderState, Action<StreamReaderState>> iterator =
-        (state, self) =>
-            currentStateSubscription.Disposable = state.ReadNext()
-                    .Subscribe(
-                    bytesRead =>
-                    {
-                        for (int i = 0; i < bytesRead; i++)
-                        {
-                            o.OnNext(state.Buffer[i]);
-                        }
-
-                        if (bytesRead > 0)
-                            self(state);
-                        else
-                            o.OnCompleted();
-                    },
-                    o.OnError);
-
-        var scheduledWork = scheduler.Schedule(initialState, iterator);
-        return new CompositeDisposable(currentStateSubscription, scheduledWork);
-    });
-
-    return Observable.Using(() => source, _ => bytes);
-}
-```
-
-This is example code and your mileage may vary. I find that increasing the buffer size and returning `IObservable<IList<byte>>` suits me better, but the example above works fine too. The goal here was to provide an example of an iterator that provides concurrent I/O access with cancellation and resource-efficient buffering.
-
-<!--
-<a name="ScheduledExceptions"></a>
-<h4>Exceptions from scheduled code</h4>
-<p>
-    TODO:
-</p>
--->
 
 #### Combinations of scheduler features
 

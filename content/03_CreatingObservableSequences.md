@@ -833,19 +833,71 @@ Tasks come in two forms: `Task<T>`, which produces a result, and `Task`, which d
 The extension method is simple to use:
 
 ```csharp
-var t = Task.Factory.StartNew(() => "Test");
-var source = t.ToObservable();
+Task<string> t = Task.Run(() =>
+{
+    Console.WriteLine("Task running...");
+    return "Test";
+});
+IObservable<string> source = t.ToObservable();
+source.Subscribe(
+    Console.WriteLine,
+    () => Console.WriteLine("completed"));
 source.Subscribe(
     Console.WriteLine,
     () => Console.WriteLine("completed"));
 ```
 
-Output:
+Here's the output.
 
 ```
+Task running...
+Test
+completed
 Test
 completed
 ```
+
+Notice that even with two subscribers, the task runs only once. That shouldn't be surprising since we only created a single task. If the task has not yet finished, then all subscribers will receive the result when it does. If the task has finished, the `IObservable<T>` effectively becomes a single-value cold observable. But there's a different way to wrap a task: `Observable.FromAsync`.
+
+
+#### One Task per subscription
+
+There's a different way to get an `IObservable<T>` for a source. I can replace the first statement in the preceding example with this:
+
+```cs
+IObservable<string> source = Observable.FromAsync(() => Task.Run(() =>
+{
+    Console.WriteLine("Task running...");
+    return "Test";
+}));
+```
+
+I get slightly different output now when subscribing twice:
+
+```
+Task running...
+Task running...
+Test
+Test
+completed
+completed
+```
+
+Notice that this executes the task twice, once for each call to `Subscribe`. `FromAsync` can do this because instead of passing a `Task<T>` we pass a callback that returns a `Task<T>`. It calls that when we call `Subscribe`, so each subscriber essentially gets their own task.
+
+If I want to use `async` and `await` to define my task, then I don't need to bother with the `Task.Run` because an `async` lambda creates a `Func<Task<T>>`, which is exactly the type `FromAsync` wants:
+
+```cs
+IObservable<string> source = Observable.FromAsync(async () =>
+{
+    Console.WriteLine("Task running...");
+    await Task.Delay(50);
+    return "Test";
+});
+```
+
+There is a subtle difference with this though. When I used `Task.Run` the lambda ran on a task pool thread from the start. But when I write it this way, the lambda will begin to run on whatever thread calls `Subscribe`. It's only when it hits the first `await` that it returns (and the call to `Subscribe` will then return), with the remainder of the method running on the thread pool.
+
 
 ### From IEnumerable&lt;T&gt;
 
