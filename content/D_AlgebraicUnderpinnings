@@ -186,3 +186,186 @@ On deeper analysis of the operators we find that most of the operators are actua
   - Reduce
   - Accumulate
   - Inject
+
+
+
+From 12, leaving IObservable<T>
+
+
+## What is a monad
+
+We have casually referred to the term _monad_ earlier in the book, but to most it will be a very foreign term. 
+I am going to try to avoid overcomplicating what a monad is, but give enough of an explanation to help us out with our next category of methods. 
+The full definition of a monad is quite abstract. 
+[Many others](http://www.haskell.org/haskellwiki/Monad_tutorials_timeline) have tried to provide their definition of a monad using all sorts of metaphors from astronauts to Alice in Wonderland. 
+Many of the tutorials for monadic programming use Haskell for the code examples which can add to the confusion.
+For us, a monad is effectively a programming structure that represents computations.
+Compare this to other programming structures:
+
+<dl>
+    <dt>Data structure</dt>
+    <dd>
+        Purely state e.g. a List, a Tree or a Tuple
+    </dd>
+    <dt>Contract</dt>
+    <dd>
+        Contract definition or abstract functionality e.g. an interface or abstract class
+    </dd>
+    <dt>Object-Orientated structure</dt>
+    <dd>
+        State and behavior together
+    </dd>
+</dl>
+
+Generally a monadic structure allows you to chain together operators to produce a pipeline, just as we do with our extension methods.
+
+<cite>Monads are a kind of abstract data type constructor that encapsulate program logic instead of data in the domain model. </cite>
+
+This neat definition of a monad lifted from Wikipedia allows us to start viewing sequences as monads; the abstract data type in this case is the `IObservable<T>` type. When we use an observable sequence, we compose functions onto the abstract data type (the `IObservable<T>`) to create a query. This query becomes our encapsulated programming logic.
+
+The use of monads to define control flows is particularly useful when dealing with typically troublesome areas of programming such as IO, concurrency and exceptions. This just happens to be some of Rx's strong points!
+
+## Why leave the monad?
+
+There is a variety of reasons you may want to consume an observable sequence in a different paradigm. Libraries that need to expose functionality externally may be required to present it as events or as `Task` instances. In demonstration and sample code you may prefer to use blocking methods to limit the number of asynchronous moving parts. This may help make the learning curve to Rx a little less steep!
+
+In production code, it is rarely advised to 'break the monad', especially moving from an observable sequence to blocking methods. Switching between asynchronous and synchronous paradigms should be done with caution, as this is a common root cause for concurrency problems such as deadlock and scalability issues.
+
+
+... more from 12
+
+In this chapter we will discuss the consequences of introducing side effects when working with an observable sequence. A function is considered to have a side effect if, in addition to any return value, it has some other observable effect. Generally the 'observable effect' is a modification of state. This observable effect could be
+
+* modification of a variable with a wider scope than the function (i.e. global, staticor perhaps an argument)
+* I/O such as a read/write from a file or network
+<!--TODO:Validate that readers see the display as an I/O device or not?-->
+* updating a display
+<!--TODO: Are there other existing paradigms that allow you to modify state, either safely or explicitly-->
+
+## Issues with side effects
+
+Functional programming in general tries to avoid creating any side effects. Functions with side effects, especially which modify state, require the programmer to understand more than just the inputs and outputs of the function. The surface area they are required to understand needs to now extend to the history and context of the state being modified. This can greatly increase the complexity of a function, and thus make it harder to correctly understand and maintain.
+
+Side effects are not always accidental, nor are they always intentional. An easy way to reduce the accidental side effects is to reduce the surface area for change. The simple actions coders can take are to reduce the visibility or scope of state and to make what you can immutable. You can reduce the visibility of a variable by scoping it to a code block like a method. You can reduce visibility of class members by making them private or protected. By definition immutable data can't be modified so cannot exhibit side effects. These are sensible encapsulation rules that will dramatically improve the maintainability of your Rx code.
+
+To provide a simple example of a query that has a side effect, we will try to output the index and value of the elements received by updating a variable (closure).
+
+```csharp
+var letters = Observable.Range(0, 3)
+                        .Select(i => (char)(i + 65));
+
+var index = -1;
+var result = letters.Select(
+    c =>
+    {
+        index++;
+        return c;
+    });
+
+result.Subscribe(
+    c => Console.WriteLine("Received {0} at index {1}", c, index),
+    () => Console.WriteLine("completed"));
+```
+
+Output:
+
+```
+Received A at index 0
+Received B at index 1
+Received C at index 2
+completed
+```
+
+While this seems harmless enough, imagine if another person sees this code and understands it to be the pattern the team is using. They in turn adopt this style themselves. For the sake of the example, we will add a duplicate subscription to our previous example.
+
+```csharp
+var letters = Observable.Range(0, 3)
+                        .Select(i => (char)(i + 65));
+
+var index = -1;
+var result = letters.Select(
+    c =>
+    {
+        index++;
+        return c;
+    });
+
+result.Subscribe(
+    c => Console.WriteLine("Received {0} at index {1}", c, index),
+    () => Console.WriteLine("completed"));
+
+result.Subscribe(
+    c => Console.WriteLine("Also received {0} at index {1}", c, index),
+    () => Console.WriteLine("2nd completed"));
+```
+
+Output
+
+```
+Received A at index 0
+Received B at index 1
+Received C at index 2
+completed
+Also received A at index 3
+Also received B at index 4
+Also received C at index 5
+2nd completed
+```
+
+<!--TODO: Apply forward reference. Where do we show better ways of controlling workflow?-->
+
+Now the second person's output is clearly nonsense. They will be expecting index values to be 0, 1 and 2 but get 3, 4 and 5 instead. I have seen far more sinister versions of side effects in code bases. The nasty ones often modify state that is a Boolean value e.g. `hasValues`, `isStreaming` etc. We will see in a later chapter far better ways of controlling workflow with observable sequences than using shared state.
+
+In addition to creating potentially unpredictable results in existing software, programs that exhibit side effects are far more difficult to test and maintain. Future refactoring, enhancements or other maintenance on programs that exhibits side effects are far more likely to be brittle. This is especially so in asynchronous or concurrent software.
+
+## Composing data in a pipeline
+
+The preferred way of capturing state is to introduce it to the pipeline. Ideally, we want each part of the pipeline to be independent and deterministic. That is, each function that makes up the pipeline should have its inputs and output as its only state. To correct our example we could enrich the data in the pipeline so that there is no shared state. This would be a great example where we could use the `Select` overload that exposes the index.
+
+```csharp
+var source = Observable.Range(0, 3);
+var result = source.Select((idx, value) => new
+             {
+                 Index = idx,
+                 Letter = (char) (value + 65)
+             });
+
+result.Subscribe(
+    x => Console.WriteLine("Received {0} at index {1}", x.Letter, x.Index),
+    () => Console.WriteLine("completed"));
+
+result.Subscribe(
+    x => Console.WriteLine("Also received {0} at index {1}", x.Letter, x.Index),
+    () => Console.WriteLine("2nd completed"));
+```
+
+Output:
+
+```
+Received A at index 0
+Received B at index 1
+Received C at index 2
+completed
+Also received A at index 0
+Also received B at index 1
+Also received C at index 2
+2nd completed
+```
+
+Thinking outside of the box, we could also use other features like `Scan` to achieve similar results. Here is an example.
+
+```csharp
+var result = source.Scan(
+                new
+                {
+                    Index = -1,
+                    Letter = new char()
+                },
+                (acc, value) => new
+                {
+                    Index = acc.Index + 1,
+                    Letter = (char)(value + 65)
+                });
+```
+
+The key here is to isolate the state, and reduce or remove any side effects like mutating state.

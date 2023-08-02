@@ -383,9 +383,9 @@ The `Schedule` overload that takes a `DateTime` is slightly different. If you sp
 
 ### CurrentThreadScheduler
 
-The `CurrentThreadScheduler` is very similar to the `ImmediateScheduler`. The difference is how it handles sources that logically produce multiple such as the [`ToObservable` extension method for `IEnumerable<T>`](03_CreatingObservableSequences.md#from-ienumerablet), or [`Observable.Range`](03_CreatingObservableSequences.md#observablerange)
+The `CurrentThreadScheduler` is very similar to the `ImmediateScheduler`. The difference is how it handles requests to schedule work when an existing work item is already being handled on the current thread. This can happen if you chain together multiple operators that use schedulers to do their work.
 
-These kinds of operators do not use normal `for` or `foreach` loops. They typically schedule a new work item for each iteration. Whereas the `ImmediateScheduler` will run such work immediately, the `CurrentThreadScheduler` checks to see if it is already processing a work item. That happens with this example from earlier:
+To understand what happens, it's helpful to know how sources that produce multiple items in quick succession, such as the [`ToObservable` extension method for `IEnumerable<T>`](03_CreatingObservableSequences.md#from-ienumerablet) or [`Observable.Range`](03_CreatingObservableSequences.md#observablerange), use schedulers. These kinds of operators do not use normal `for` or `foreach` loops. They typically schedule a new work item for each iteration. Whereas the `ImmediateScheduler` will run such work immediately, the `CurrentThreadScheduler` checks to see if it is already processing a work item. That happens with this example from earlier:
 
 ```cs
 Observable
@@ -395,7 +395,7 @@ Observable
         m => Console.WriteLine($"Received {m} on thread: {Environment.CurrentManagedThreadId}"));
 ```
 
-Let's follow exactly what happens here. First, assume that this code is just running normally—perhaps inside the `Main` entry point of a program. When this code calls `Subscribe` on the `IObservable<int>` returned by `SelectMany`, that will in turn will call `Subscribe` on the `IObservable<int>` returned by `Observable.Range`, which will in turn schedule a work item for the generation of the first value in the range (`1`).
+Let's follow exactly what happens here. First, assume that this code is just running normally and not in any unusual context—perhaps inside the `Main` entry point of a program. When this code calls `Subscribe` on the `IObservable<int>` returned by `SelectMany`, that will in turn will call `Subscribe` on the `IObservable<int>` returned by the first `Observable.Range`, which will in turn schedule a work item for the generation of the first value in the range (`1`).
 
 The `Range` operator uses the `CurrentThreadScheduler` by default, and that will ask itself "Am I already in the middle of handling some work item on this thread?" In this case the answer will be no, so it will run the work item immediately (before returning from the `Schedule` call made by the `Range` operator). The `Range` operator will then produce its first value, calling `OnNext` on the `IObserver<int>` that the `SelectMany` operator provided when it subscribed to the range.
 
@@ -403,17 +403,17 @@ The `SelectMany` operator's `OnNext` method will now invoke its lambda, passing 
 
 So once again,the `CurrentThreadScheduler` will ask itself "Am I already in the middle of handling some work item on this thread?" But this time, the answer will be yes. And this is where the behaviour is different than `ImmediateScheduler`. The `CurrentThreadScheduler` maintains a queue of work for each thread that it gets used on, and in this case it just adds the newly scheduled work to the queue, and returns back to the `SelectMany` operators `OnNext`.
 
-`SelectMany` has now completed its handling of this item (the value `1`) from the first `Range`, so its `OnNext` returns. At this point, this `Range` operator schedules another work item. Again, the `CurrentThreadScheduler` will detect that it is currently running a work item, so it just adds this to the queue.
+`SelectMany` has now completed its handling of this item (the value `1`) from the first `Range`, so its `OnNext` returns. At this point, this outer `Range` operator schedules another work item. Again, the `CurrentThreadScheduler` will detect that it is currently running a work item, so it just adds this to the queue.
 
-Having scheduled the work item that is going to generate its second value (`2`), the `Range` operator returns. Remember, the code in the `Range` operator that was running at this point was the callback for the first scheduled work item, so it's returning to the `CurrentThreadScheduler`—we are back inside its `Schedule` method.
+Having scheduled the work item that is going to generate its second value (`2`), the `Range` operator returns. Remember, the code in the `Range` operator that was running at this point was the callback for the first scheduled work item, so it's returning to the `CurrentThreadScheduler`—we are back inside its `Schedule` method (which was invoked by the range operator's `Subscribe` method).
 
-At this point, the `CurrentThreadScheduler` does not return from `Schedule` because it checks its work queue, and will see that there are now two items in the queue. (There's the work item that the nested `Range` observable scheduled to generate its first value, and there's also the work item that the top-level `Range` observable just scheduled to generate its second value.) The `CurrentThreadScheduler` will now execute the first of these—the nested `Range` operator now gets to generate its first value (which will be `10`), so it calls `OnNext` on the observer supplied thanks to the top-level call to `Subscribe` in the example. And that observer will just call the lambda we passed to `Subscribe`, causing our `Console.WriteLine` to run. After that returns, the nested `Range` operator will schedule another work item to generate its second item. Again, the `CurrentThreadScheduler` will realise that it's already in the middle of handling a work item on this thread, so it just puts it in the queue and then returns immediately from `Schedule`. The nested `Range` operator is now done for this iteration so it returns back to the scheduler. The scheduler will now pick up the next item in the queue, which in this case it the work item added by the top-level `Range` to produce the second item.
+At this point, the `CurrentThreadScheduler` does not return from `Schedule` because it checks its work queue, and will see that there are now two items in the queue. (There's the work item that the nested `Range` observable scheduled to generate its first value, and there's also the work item that the top-level `Range` observable just scheduled to generate its second value.) The `CurrentThreadScheduler` will now execute the first of these—the nested `Range` operator now gets to generate its first value (which will be `10`), so it calls `OnNext` on the observer supplied by `SelectMany`, which will then call its observer, which was supplied thanks to the top-level call to `Subscribe` in the example. And that observer will just call the lambda we passed to `Subscribe`, causing our `Console.WriteLine` to run. After that returns, the nested `Range` operator will schedule another work item to generate its second item. Again, the `CurrentThreadScheduler` will realise that it's already in the middle of handling a work item on this thread, so it just puts it in the queue and then returns immediately from `Schedule`. The nested `Range` operator is now done for this iteration so it returns back to the scheduler. The scheduler will now pick up the next item in the queue, which in this case it the work item added by the top-level `Range` to produce the second item.
 
 And so it continues. This queuing of work items when work is already in progress is what enables multiple observable sources to make progress in parallel.
 
 By contrast, the `ImmediateScheduler` runs new work items immediately, which is why we don't see this parallel progress.
 
-(To be strictly accurate, there are certain scenarios in which `ImmediateScheduler` can't run work immediately. In these iterative scenarios, it actually supplies a slightly different scheduler that the operators use to schedule all work after the first item, and this checks whether it's being asked to process multiple work items simultaneously. If it is, it falls back to a queuing strategy similar to `CurrentThreadScheduler`, except it's a queue local to the initial work item, instead of a per-thread queue. This prevents problems either due to multithreading, and it also avoids stack overflows that would otherwise occur when an iterative operator schedules a new work item inside the handler for the current work item. Since the queue is not shared across all work in the thread, this still has the effect of ensuring that any nested work queued up by a work item completes before the call to `Schedule` returns. So even when this queueing kicks in, we typically don't see interleaving of work from separate source like we do with `CurrentThreadScheduler`.)
+(To be strictly accurate, there are certain scenarios in which `ImmediateScheduler` can't run work immediately. In these iterative scenarios, it actually supplies a slightly different scheduler that the operators use to schedule all work after the first item, and this checks whether it's being asked to process multiple work items simultaneously. If it is, it falls back to a queuing strategy similar to `CurrentThreadScheduler`, except it's a queue local to the initial work item, instead of a per-thread queue. This prevents problems due to multithreading, and it also avoids stack overflows that would otherwise occur when an iterative operator schedules a new work item inside the handler for the current work item. Since the queue is not shared across all work in the thread, this still has the effect of ensuring that any nested work queued up by a work item completes before the call to `Schedule` returns. So even when this queueing kicks in, we typically don't see interleaving of work from separate source like we do with `CurrentThreadScheduler`. For example, if we told the nested `Range` to use `ImmediateScheduler`, this queueing behaviour would kick in as `Range` starts to iterate, but because the queue is local to initial work item executed by that nested `Range`, it will end up producing all of the nested `Range` items before returning.)
 
 ### DefaultScheduler
 
@@ -447,7 +447,7 @@ Observable
 
 ### NewThreadScheduler
 
-The `NewThreadScheduler` creates a new thread to execute every work item it is given. This is unlikely to make sense in most scenarios. However, it might be useful in cases where you want to execute some long running work, and represent its completion through an `IObservable<T>`. The `Observable.ToAsync` does exactly this, and will normally use the `DefaultScheduler`, meaning it will run the work on a thread pool thread. But it the work is likely to take more than second or two, the thread pool may not be a good choice, because it is optimized for short execution times, and its heuristics for managing the size of the thread pool are not designed with long-running operations in mind. The `NewThreadScheduler` may be a better choice in this case.
+The `NewThreadScheduler` creates a new thread to execute every work item it is given. This is unlikely to make sense in most scenarios. However, it might be useful in cases where you want to execute some long running work, and represent its completion through an `IObservable<T>`. The `Observable.ToAsync` does exactly this, and will normally use the `DefaultScheduler`, meaning it will run the work on a thread pool thread. But if the work is likely to take more than second or two, the thread pool may not be a good choice, because it is optimized for short execution times, and its heuristics for managing the size of the thread pool are not designed with long-running operations in mind. The `NewThreadScheduler` may be a better choice in this case.
 
 Although each call to `Schedule` creates a new thread, the `NewThreadScheduler` passes a different scheduler into work item callbacks, meaning that anything that attempts to perform iterative work will not create a new thread for every iteration. For example, if you use `NewThreadScheduler` with `Observable.Range`, you will get a new thread each time you subscribe to the resulting `IObservable<int>`, but you won't get a new thread for each item, even though `Range` does schedule a new work item for each value it produces. It schedules these per-value work items through the nested scheduler supplied to the work item callback, and the nested scheduler that `NewThreadScheduler` supplies in these cases invokes all such nested work items on the same thread.
 
@@ -476,6 +476,7 @@ These more specialized types offer two benefits. First, you don't necessarily ha
 ### Test Schedulers
 
 The Rx libraries define several schedulers that virtualize time, including `HistoricalScheduler`, `TestScheduler`, `VirtualTimeScheduler`, and `VirtualTimeSchedulerBase`. We will look at this sort of scheduler in the [Testing chapter](91_TestingRx.md).
+
 
 
 ## SubscribeOn and ObserveOn
@@ -1030,345 +1031,5 @@ The main difference between these overloads, and using the `IScheduler` methods 
 
 As mentioned in the earlier section, although this logically represents recursion, Rx protects us from stack overflows. The schedulers implement this style of recursion by waiting for the method to return before performing the recursive call. (So it is always what's called "tail recursion" where the recursive call occurs right at the end of the current method.)
 
-
-#### Combinations of scheduler features
-
-We have discussed many features that you can use with the `IScheduler` interface. Most of these examples, however, are actually using extension methods to invoke the functionality that we are looking for. The interface itself exposes the richest overloads. The extension methods are effectively just making a trade-off; improving usability/discoverability by reducing the richness of the overload. If you want access to passing state, cancellation, future scheduling and recursion, it is all available directly from the interface methods.
-
-```csharp
-namespace System.Reactive.Concurrency
-{
-    public interface IScheduler
-    {
-
-    // Gets the scheduler's notion of current time.
-    DateTimeOffset Now { get; }
-
-    // Schedules an action to be executed with given state. 
-    // Returns a disposable object used to cancel the scheduled action (best effort).
-    IDisposable Schedule<TState>(
-        TState state, 
-        Func<IScheduler, TState, IDisposable> action);
-
-    // Schedules an action to be executed after dueTime with given state. 
-    // Returns a disposable object used to cancel the scheduled action (best effort).
-    IDisposable Schedule<TState>(
-        TState state, 
-        TimeSpan dueTime, 
-        Func<IScheduler, TState, IDisposable> action);
-
-    // Schedules an action to be executed at dueTime with given state. 
-    // Returns a disposable object used to cancel the scheduled action (best effort).
-    IDisposable Schedule<TState>(
-        TState state, 
-        DateTimeOffset dueTime, 
-        Func<IScheduler, TState, IDisposable> action);
-    }
-}
-```
     
-## Schedulers in-depth
-
-We have largely been concerned with the abstract concept of a scheduler and the `IScheduler` interface. This abstraction allows low-level plumbing to remain agnostic towards the implementation of the concurrency model. As in the file reader example above, there was no need for the code to know which implementation of `IScheduler` was passed, as this is a concern of the consuming code.
-
-Now we take an in-depth look at each implementation of `IScheduler`, consider the benefits and tradeoffs they each make, and when each is appropriate to use.
-
-### ImmediateScheduler
-
-The `ImmediateScheduler` is exposed via the `ImmediateScheduler.Instance` static property. This is the most simple of schedulers as it does not actually schedule anything. If you call `Schedule(Action)` then it will just invoke the action. If you schedule the action to be invoked in the future, the `ImmediateScheduler` will invoke a `Thread.Sleep` for the given period of time and then execute the action. In summary, the `ImmediateScheduler` is synchronous.
-
-### CurrentThreadScheduler
-
-Like the `ImmediateScheduler`, the `CurrentThreadScheduler` is single-threaded. It is exposed via the `Scheduler.Current` static property. The key difference is that the `CurrentThreadScheduler` acts like a message queue or a _Trampoline_. If you schedule an action that itself schedules an action, the `CurrentThreadScheduler` will queue the inner action to be performed later; in contrast, the `ImmediateScheduler` would start working on the inner action straight away. This is probably best explained with an example.
-
-In this example, we analyze how `ImmediateScheduler` and `CurrentThreadScheduler` perform nested scheduling differently.
-
-```csharp
-private static void ScheduleTasks(IScheduler scheduler)
-{
-    Action leafAction = () => Console.WriteLine("----leafAction.");
-    Action innerAction = () =>
-    {
-        Console.WriteLine("--innerAction start.");
-        scheduler.Schedule(leafAction);
-        Console.WriteLine("--innerAction end.");
-    };
-    Action outerAction = () =>
-    {
-        Console.WriteLine("outer start.");
-        scheduler.Schedule(innerAction);
-        Console.WriteLine("outer end.");
-    };
-    scheduler.Schedule(outerAction);
-}
-
-public void CurrentThreadExample()
-{
-    ScheduleTasks(Scheduler.CurrentThread);
-    /*Output: 
-    outer start. 
-    outer end. 
-    --innerAction start. 
-    --innerAction end. 
-    ----leafAction. 
-    */ 
-}
-
-public void ImmediateExample()
-{
-    ScheduleTasks(Scheduler.Immediate);
-    /*Output: 
-    outer start. 
-    --innerAction start. 
-    ----leafAction. 
-    --innerAction end. 
-    outer end. 
-    */ 
-}
-```
-
-Note how the `ImmediateScheduler` does not really "schedule" anything at all, all work is performed immediately (synchronously). As soon as `Schedule` is called with a delegate, that delegate is invoked. The `CurrentThreadScheduler`, however, invokes the first delegate, and, when nested delegates are scheduled, queues them to be invoked later. Once the initial delegate is complete, the queue is checked for any remaining delegates (i.e. nested calls to `Schedule`) and they are invoked. The difference here is quite important as you can potentially get out-of-order execution, unexpected blocking, or even deadlocks by using the wrong one.
-
-### DispatcherScheduler
-
-The `DispatcherScheduler` is found in `System.Reactive.Window.Threading.dll` (for WPF, Silverlight 4 and Silverlight 5). When actions are scheduled using the `DispatcherScheduler`, they are effectively marshaled to the `Dispatcher`'s `BeginInvoke` method. This will add the action to the end of the dispatcher's _Normal_ priority queue of work. This provides similar queuing semantics to the `CurrentThreadScheduler` for nested calls to `Schedule`.
-
-When an action is scheduled for future work, then a `DispatcherTimer` is created with a matching interval. The callback for the timer's tick will stop the timer and re-schedule the work onto the `DispatcherScheduler`. If the `DispatcherScheduler` determines that the `dueTime` is actually not in the future then no timer is created, and the action will just be scheduled normally.
-
-I would like to highlight a hazard of using the `DispatcherScheduler`. You can construct your own instance of a `DispatcherScheduler` by passing in a reference to a `Dispatcher`. The alternative way is to use the static property `DispatcherScheduler.Instance`. This can introduce hard to understand problems if it is not used properly. The static property does not return a reference to a static field, but creates a new instance each time, with the static property `Dispatcher.CurrentDispatcher` as the constructor argument. If you access `Dispatcher.CurrentDispatcher` from a thread that is not the UI thread, it will thus give you a new instance of a `Dispatcher`, but it will not be the instance you were hoping for.
-
-For example, imagine that we have a WPF application with an `Observable.Create` method. In the delegate that we pass to `Observable.Create`, we want to schedule the notifications on the dispatcher. We think this is a good idea because any consumers of the sequence would get the notifications on the dispatcher for free.
-
-```csharp
-var fileLines = Observable.Create<string>(o =>
-{
-    var dScheduler = DispatcherScheduler.Instance;
-    var lines = File.ReadAllLines(filePath);
-
-    foreach (var line in lines)
-    {
-        var localLine = line;
-        dScheduler.Schedule(() => o.OnNext(localLine));
-    }
-
-    return Disposable.Empty;
-});
-```
-
-This code may intuitively seem correct, but actually takes away power from consumers of the sequence. When we subscribe to the sequence, we decide that reading a file on the UI thread is a bad idea. So we add in a `SubscribeOn(Scheduler.NewThread)` to the chain as below:
-
-```csharp
-fileLines
-    .SubscribeOn(Scheduler.ThreadPool)
-    .Subscribe(line => Lines.Add(line));
-```
-
-This causes the create delegate to be executed on a new thread. The delegate will read the file then get an instance of a `DispatcherScheduler`. The `DispatcherScheduler` tries to get the `Dispatcher` for the current thread, but we are no longer on the UI thread, so there isn't one. As such, it creates a new dispatcher that is used for the `DispatcherScheduler` instance. We schedule some work (the notifications), but, as the underlying `Dispatcher` has not been run, nothing happens; we do not even get an exception. I have seen this on a commercial project and it left quite a few people scratching their heads.
-
-This takes us to one of our guidelines regarding scheduling: <q>the use of `SubscribeOn` and `ObserveOn` should only be invoked by the final subscriber</q>. If you introduce scheduling in your own extension methods or service methods, you should allow the consumer to specify their own scheduler. We will see more reasons for this guidance in the next chapter.
-
-### EventLoopScheduler
-
-The `EventLoopScheduler` allows you to designate a specific thread to a scheduler. Like the `CurrentThreadScheduler` that acts like a trampoline for nested scheduled actions, the `EventLoopScheduler` provides the same trampoline mechanism. The difference is that you provide an `EventLoopScheduler` with the thread you want it to use for scheduling instead, of just picking up the current thread.
-
-The `EventLoopScheduler` can be created with an empty constructor, or you can pass it a thread factory delegate.
-
-```csharp
-// Creates an object that schedules units of work on a designated thread.
-public EventLoopScheduler()
-{...}
-
-// Creates an object that schedules units of work on a designated thread created by the 
-// provided factory function.
-public EventLoopScheduler(Func&lt;ThreadStart, Thread> threadFactory)
-{...}
-```
-
-The overload that allows you to pass a factory enables you to customize the thread before it is assigned to the `EventLoopScheduler`. For example, you can set the thread name, priority, culture and most importantly whether the thread is a background thread or not. Remember that if you do not set the thread's property `IsBackground` to false, then your application will not terminate until it the thread is terminated. The `EventLoopScheduler` implements `IDisposable`, and calling Dispose will allow the thread to terminate. As with any implementation of `IDisposable`, it is appropriate that you explicitly manage the lifetime of the resources you create.
-
-This can work nicely with the `Observable.Using` method, if you are so inclined. This allows you to bind the lifetime of your `EventLoopScheduler` to that of an observable sequence - for example, this `GetPrices` method that takes an `IScheduler` for an argument and returns an observable sequence.
-
-```csharp
-private IObservable&lt;Price> GetPrices(IScheduler scheduler)
-{...}
-```
-
-Here we bind the lifetime of the `EventLoopScheduler` to that of the result from the `GetPrices` method.
-
-```csharp
-Observable.Using(() => new EventLoopScheduler(), els => GetPrices(els)).Subscribe(...)
-```
-
-### New Thread
-
-If you do not wish to manage the resources of a thread or an `EventLoopScheduler`, then you can use `NewThreadScheduler`. You can create your own instance of `NewThreadScheduler` or get access to the static instance via the property `Scheduler.NewThread`. Like `EventLoopScheduler`, you can use the parameterless constructor or provide your own thread factory function. If you do provide your own factory, be careful to set the `IsBackground` property appropriately.
-
-When you call `Schedule` on the `NewThreadScheduler`, you are actually creating an `EventLoopScheduler` under the covers. This way, any nested scheduling will happen on the same thread. Subsequent (non-nested) calls to `Schedule` will create a new `EventLoopScheduler` and call the thread factory function for a new thread too.
-
-In this example we run a piece of code reminiscent of our comparison between `Immediate` and `Current` schedulers. The difference here, however, is that we track the `ThreadId` that the action is performed on. We use the `Schedule` overload that allows us to pass the Scheduler instance into our nested delegates. This allows us to correctly nest calls.
-
-```csharp
-private static IDisposable OuterAction(IScheduler scheduler, string state)
-{
-    Console.WriteLine("{0} start. ThreadId:{1}", state, Thread.CurrentThread.ManagedThreadId);
-
-    scheduler.Schedule(state + ".inner", InnerAction);
-
-    Console.WriteLine("{0} end. ThreadId:{1}", state, Thread.CurrentThread.ManagedThreadId);
-
-    return Disposable.Empty;
-}
-
-private static IDisposable InnerAction(IScheduler scheduler, string state)
-{
-    Console.WriteLine("{0} start. ThreadId:{1}", state, Thread.CurrentThread.ManagedThreadId);
-    
-    scheduler.Schedule(state + ".Leaf", LeafAction);
-    
-    Console.WriteLine("{0} end. ThreadId:{1}", state, Thread.CurrentThread.ManagedThreadId);
-
-    return Disposable.Empty;
-}
-
-private static IDisposable LeafAction(IScheduler scheduler, string state)
-{
-    Console.WriteLine("{0}. ThreadId:{1}", state, Thread.CurrentThread.ManagedThreadId);
-
-    return Disposable.Empty;
-}
-```
-
-When executed with the `NewThreadScheduler` like this:
-
-```csharp
-Console.WriteLine("Starting on thread :{0}", Thread.CurrentThread.ManagedThreadId);
-Scheduler.NewThread.Schedule("A", OuterAction);
-```
-
-Output:
-
-```
-Starting on thread :9
-A start. ThreadId:10
-A end. ThreadId:10
-A.inner start . ThreadId:10
-A.inner end. ThreadId:10
-A.inner.Leaf. ThreadId:10
-```
-
-As you can see, the results are very similar to the `CurrentThreadScheduler`, except that the trampoline happens on a separate thread. This is in fact exactly the output we would get if we used an `EventLoopScheduler`. The differences between usages of the `EventLoopScheduler` and the `NewThreadScheduler`start to appear when we introduce a second (non-nested) scheduled task.
-
-```csharp
-Console.WriteLine("Starting on thread :{0}", Thread.CurrentThread.ManagedThreadId);
-Scheduler.NewThread.Schedule("A", OuterAction);
-Scheduler.NewThread.Schedule("B", OuterAction);
-```
-
-Output:
-
-```
-Starting on thread :9
-A start. ThreadId:10
-A end. ThreadId:10
-A.inner start . ThreadId:10
-A.inner end. ThreadId:10
-A.inner.Leaf. ThreadId:10
-B start. ThreadId:11
-B end. ThreadId:11
-B.inner start . ThreadId:11
-B.inner end. ThreadId:11
-B.inner.Leaf. ThreadId:11
-```
-
-Note that there are now three threads at play here. Thread 9 is the thread we started on and threads 10 and 11 are performing the work for our two calls to Schedule.
-
-### Thread Pool
-
-The `ThreadPoolScheduler` will simply just tunnel requests to the `ThreadPool`. For requests that are scheduled as soon as possible, the action is just sent to `ThreadPool.QueueUserWorkItem`. For requests that are scheduled in the future, a `System.Threading.Timer` is used.
-
-As all actions are sent to the `ThreadPool`, actions can potentially run out of order. Unlike the previous schedulers we have looked at, nested calls are not guaranteed to be processed serially. We can see this by running the same test as above but with the `ThreadPoolScheduler`.
-
-```csharp
-Console.WriteLine("Starting on thread :{0}", Thread.CurrentThread.ManagedThreadId);
-Scheduler.ThreadPool.Schedule("A", OuterAction);
-Scheduler.ThreadPool.Schedule("B", OuterAction);
-```
-
-The output
-
-```
-Starting on thread :9
-A start. ThreadId:10
-A end. ThreadId:10
-A.inner start . ThreadId:10
-A.inner end. ThreadId:10
-A.inner.Leaf. ThreadId:10
-B start. ThreadId:11
-B end. ThreadId:11
-B.inner start . ThreadId:10
-B.inner end. ThreadId:10
-B.inner.Leaf. ThreadId:11
-```
-
-Note, that as per the `NewThreadScheduler` test, we initially start on one thread but all the scheduling happens on two other threads. The difference is that we can see that part of the second run "B" runs on thread 11 while another part of it runs on 10.
-
-### TaskPool
-
-The `TaskPoolScheduler` is very similar to the `ThreadPoolScheduler` and, when available (depending on your target framework), you should favor it overthe later. Like the `ThreadPoolScheduler`, nested scheduled actions are not guaranteed to be run on the same thread. Running the same test with the `TaskPoolScheduler` shows us similar results.
-
-```csharp
-Console.WriteLine("Starting on thread :{0}", Thread.CurrentThread.ManagedThreadId);
-Scheduler.TaskPool.Schedule("A", OuterAction);
-Scheduler.TaskPool.Schedule("B", OuterAction);
-```
-
-Output:
-
-```
-Starting on thread :9
-A start. ThreadId:10
-A end. ThreadId:10
-B start. ThreadId:11
-B end. ThreadId:11
-A.inner start . ThreadId:10
-A.inner end. ThreadId:10
-A.inner.Leaf. ThreadId:10
-B.inner start . ThreadId:11
-B.inner end. ThreadId:11
-B.inner.Leaf. ThreadId:10
-```
-
-### TestScheduler
-
-It is worth noting that there is also a `TestScheduler` accompanied by its base classes `VirtualTimeScheduler` and `VirtualTimeSchedulerBase`. The latter two are not really in the scope of an introduction to Rx, but the former is. We will cover all things testing including the `TestScheduler` in the next chapter, [Testing Rx](16_TestingRx.html).
-
-## Selecting an appropriate scheduler
-
-With all of these options to choose from, it can be hard to know which scheduler to use and when. Here is a simple check list to help you in this daunting task:
-
-### UI Applications
-
-- The final subscriber is normally the presentation layer and should control the scheduling.
-- Observe on the `DispatcherScheduler` to allow updating of ViewModels
-- Subscribe on a background thread to prevent the UI from becoming unresponsive
-  - If the subscription will not block for more than 50ms then
-      - Use the `TaskPoolScheduler` if available, or
-      - Use the `ThreadPoolScheduler`
-  - If any part of the subscription could block for longer than 50ms, then you shoulduse the `NewThreadScheduler`. 
-
-### Service layer
-
-* If your service is reading data from a queue of some sort, consider using a dedicated `EventLoopScheduler`. 
-This way, you can preserve order of events
-* If processing an item is expensive (>50ms or requires I/O), then consider using a `NewThreadScheduler`
-* If you just need the scheduler for a timer, e.g. for `Observable.Interval` or `Observable.Timer`, then favor the `TaskPool`. 
-Use the `ThreadPool` if the `TaskPool` is not available for your platform.
-
-> The `ThreadPool` (and the `TaskPool` by proxy) have a time delay beforethey will increase the number of threads that they use. This delay is 500ms. Letus consider a PC with two cores that we will schedule four actions onto. By default,the thread pool size will be the number of cores (2). If each action takes 1000ms, then two actions will be sitting in the queue for 500ms before the thread pool size is increased. Instead of running all four actions in parallel, which would take one second in total, the work is not completed for 1.5 seconds as two of the actions sat in the queue for 500ms. For this reason, you should only schedule work thatis very fast to execute (guideline 50ms) onto the ThreadPool or TaskPool. Conversely,creating a new thread is not free, but with the power of processors today the creation of a thread for work over 50ms is a small cost.
-
-Concurrency is hard. We can choose to make our life easier by taking advantage of Rx and its scheduling features. We can improve it even further by only using Rx where appropriate. While Rx has concurrency features, these should not be mistaken for a concurrency framework. Rx is designed for querying data, and as discussed in [the first chapter](01_WhyRx.html#Could), parallel computations or composition of asynchronous methods is more appropriate for other frameworks.
-
-Rx solves the issues for concurrently generating and consuming data via the `ObserveOn`/`SubscribeOn` methods. By using these appropriately, we can simplify our code base, increase responsiveness and reduce the surface area of our concurrency concerns. Schedulers provide a rich platform for processing work concurrently without the need to be exposed directly to threading primitives. They also help with common troublesome areas of concurrency such as cancellation, passing state and recursion. By reducing the concurrency surface area, Rx provides a (relatively) simple yet powerful set of concurrency features paving the way to the [pit of success](http://blogs.msdn.com/b/brada/archive/2003/10/02/50420.aspx).
-
-
-TODO: IScheduler.Catch extension method?
+This concludes our tour of scheduling and threading. Next, we will look at the boundary between Rx and the rest of the world.
