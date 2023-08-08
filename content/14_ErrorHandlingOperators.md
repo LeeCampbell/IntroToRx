@@ -1,78 +1,21 @@
 ---
-title: Advanced error handling
+title: Error Handling Operators
 ---
 
-TODO: this was originally in the now-defunct Lifetime Management chapter. Do we need to re-integrate it somewhere else?
+Exceptions happen. Some exceptions are inherently avoidable, occurring only because of bugs in our code. For example, we shouldn't normally put the CLR into a situation where it has to raise a `DivideByZeroException`. But there are plenty of exceptions that cannot be prevented with defensive coding. For example, exceptions relating to I/O or networking failures such as like `FileNotFoundException` or `TimeoutException` can be caused by environmental factors outside of our code's control. In these cases, we need to handle the exception gracefully. The kind of handling will depend on the context—it might be appropriate to provide some sort of error message to the user; in some scenarios logging the error might be a more appropriate response. If the failure is likely to be transient, we could try to recover by retrying the operation that failed.
 
-In this example we attempt to catch error using standard .NET Structured Exception Handling:
+The `IObserver<T>` interface defines the `OnError` method so that a source can report an error, but since this terminates the sequence, it provides no direct means of working out what to do next. However, Rx provides operators that provide a variety of error handling mechanisms.
 
-```csharp
-var values = new Subject<int>();
-try
-{
-    values.Subscribe(value => Console.WriteLine("1st subscription received {0}", value));
-}
-catch (Exception ex)
-{
-    Console.WriteLine("Won't catch anything here!");
-}
-    
-values.OnNext(0);
+## Catch
 
-//Exception will be thrown here causing the app to fail.
-values.OnError(new Exception("Dummy exception"));
-```
-
-The correct way to way to handle exceptions is to provide a delegate for `OnError` notifications as in this example.
-
-```csharp
-var values = new Subject<int>();
-    
-values.Subscribe(
-    value => Console.WriteLine("1st subscription received {0}", value),
-    ex => Console.WriteLine("Caught an exception : {0}", ex));
-
-values.OnNext(0);
-values.OnError(new Exception("Dummy exception"));
-```
+Rx defines a `Catch` operator. The name is deliberately reminiscent of C#'s `try`/`catch` syntax because it lets you handle errors from an Rx source in a similar way to exceptions that emerge from normal execution of code. It gives you the option of swallowing an exception, wrapping it in another exception or performing some other logic.
 
 
-TODO end
+### Swallowing exceptions
 
+The most basic (although rarely the best) way to handle an exception is to swallow it. In C#, we could write a `try` block with an empty `catch` block. We can achieve something similar with Rx's `Catch` operator. The basic idea with swallowing exceptions is that we carry on as though nothing had happened. We can represent an exception being swallowed like this with a marble diagram.
 
-# Advanced error handling				
-
-Exceptions happen. Exceptions themselves are not bad or good, however the way we raise or catch them can. Some exceptions are predictable and are due to sloppy code, for example a `DivideByZeroException`. Other exceptions cannot be prevented with defensive coding, for example an I/O exception like `FileNotFoundException` or `TimeoutException`. In these cases, we need to cater for the exception gracefully. Providing some sort of error message to the user, logging the error or perhaps retrying are all potential ways to handle these exceptions.
-
-The `IObserver<T>` interface and `Subscribe` extension methods provide the ability to cater for sequences that terminate in error, however they leave the sequence terminated. They also do not offer a composable way to cater for different `Exception` types. A functional approach that enables composition of error handlers, allowing us to remain in the monad, would be more useful. 
-Again, Rx delivers.
-
-## Control flow constructs				
-
-Using marble diagrams, we will examine various ways to handle different control flows. Just as with normal .NET code, we have flow control constructs such as `try`/`catch`/`finally`. In this chapter we see how they can be applied to observable sequences.
-
-### Catch								
-
-Just like a catch in SEH (Structured Exception Handling), with Rx you have the option of swallowing an exception, wrapping it in another exception or performing some other logic.
-
-We already know that observable sequences can handle erroneous situations with the `OnError` construct. A useful method in Rx for handling an `OnError` notification is the `Catch` extension method. Catch allows you to intercept a specific `Exception` type and then continue with another sequence.
-
-Below is the signature for the simple overload of catch:
-
-```csharp
-public static IObservable<TSource> Catch<TSource>(
-    this IObservable<TSource> first, 
-    IObservable<TSource> second)
-{
-    ...
-}
-```
-
-#### Swallowing exceptions			
-
-With Rx, you can catch and swallow exceptions in a similar way to SEH. It is quite simple; we use the `Catch` extension method and provide an empty sequence as the second value.
-
-We can represent an exception being swallowed like this with a marble diagram.
+TODO: make this a proper diagram.
 
 ```
 S1--1--2--3--X
@@ -80,31 +23,32 @@ S2            -|
 R --1--2--3----|
 ```
 
-Here `S1` represents the first sequence that ends with an error (`X`). `S2` is the continuation sequence, an empty sequence. `R` is the result sequence which starts as `S1`, then continues with `S2` when `S1` terminates.
+Here `S1` represents the first sequence that ends with an error (`X`). If we're swallowing the exception, we want to make it look like the sequence just came to a normal halt. So `S2` here is an empty sequence we will substitute when the first throws an exception. `R` is the result sequence which starts as `S1`, then continues with `S2` when `S1` fails. This code creates the scenario described in that marble diagram:
 
-```csharp
+```cs
 var source = new Subject<int>();
-var result = source.Catch(Observable.Empty<int>());
+IObservable<int> result = source.Catch(Observable.Empty<int>());
 
 result.Dump("Catch"););
 
 source.OnNext(1);
 source.OnNext(2);
+source.OnNext(3);
 source.OnError(new Exception("Fail!"));
 ```
 
 Output:
 
 ```
-Catch --> 1
-Catch --> 2
+Catch-->1
+Catch-->2
+Catch-->3
 Catch completed
 ```
 
-The example above will catch and swallow all types of exceptions. 
-This is somewhat equivalent to the following with SEH:
+This is conceptually similar to the following code:
 
-```csharp
+```cs
 try
 {
     DoSomeWork();
@@ -114,7 +58,11 @@ catch
 }
 ```
 
-Just as it is generally avoided in SEH, you probably also want to limit your use of swallowing errors in Rx. You may, however, have a specific exception you want to handle. Catch has an overload that enables you specify the type of exception. Just as the following code would allow you to catch a `TimeoutException`:
+This kind of catch-and-ignore everything handling is generally discouraged in C#, and you probably also want to limit your use of its equivalent in Rx.
+
+### Swallowing only specific exception types
+
+It's much more common to want to handle a specific exception like this:
 
 ```csharp
 try
@@ -126,65 +74,37 @@ catch (TimeoutException tx)
     //
 }
 ```
+`Catch` has an overload that enables you specify the type of exception:
 
-Rx also offers an overload of `Catch` to cater for this.
-
-```csharp
+```cs
 public static IObservable<TSource> Catch<TSource, TException>(
     this IObservable<TSource> source, 
     Func<TException, IObservable<TSource>> handler) 
     where TException : Exception
-{
-    ...
-}
 ```
 
-The following Rx code allows you to catch a `TimeoutException`. Instead of providing a second sequence, we provide a function that takes the exception and returns a sequence. This allows you to use a factory to create your continuation. In this example, we add the value -1 to the error sequence and then complete it.
+This enables us to write the Rx equivalent to the more selective `catch`, where we only swallow a `TimeoutException`:
 
-```csharp
-var source = new Subject<int>();
-var result = source.Catch<int, TimeoutException>(tx=>Observable.Return(-1));
-
-result.Dump("Catch");
-
-source.OnNext(1);
-source.OnNext(2);
-source.OnError(new TimeoutException());
-```
-
-Output:
-
-```
-Catch-->1
-Catch-->2
-Catch-->-1
-Catch completed
+```cs
+IObservable<int> result = source.Catch<int, TimeoutException>(_ => Observable.Empty());
 ```
 
 If the sequence was to terminate with an `Exception` that could not be cast to a `TimeoutException`, then the error would not be caught and would flow through to the subscriber.
 
-```csharp
-var source = new Subject<int>();
-var result = source.Catch<int, TimeoutException>(tx=>Observable.Return(-1));
+### Examining the exception
 
-result.Dump("Catch");
+Notice that with the overload in the preceding example, we supplied a callback. If an exception of the specified type emerges, this overload of `Catch` will pass it to our callback so that if necessary, we can decide exactly what to return based on information in the exception. If you were to decide that, having inspected the exception, you don't want to swallow it after all, you can use `Observable.Throw` to return an observable that rethrows the exception. (This is effectively the Rx equivalent to a `throw;` statement inside a C# `catch` block.) The following example uses this to swallow all IO exceptions of type IOException or any type derived from that except for `FileNotFoundException`.
 
-source.OnNext(1);
-source.OnNext(2);
-source.OnError(new ArgumentException("Fail!"));
+
+```csh
+IObservable<int> result = source.Catch<int, IOException>(
+    tx => tx is FileNotFoundException ? Observable.Throw(tx) : Observable.Empty());
 ```
 
-Output:
 
-```
-Catch-->1
-Catch-->2
-Catch failed-->Fail!
-```
+## Finally
 
-### Finally							
-
-Similar to the `finally` statement with SEH, Rx exposes the ability to execute code on completion of a sequence, regardless of how it terminates. The `Finally` extension method accepts an `Action` as a parameter. This `Action` will be invoked if the sequence terminates normally or erroneously, or if the subscription is disposed of.
+Similar to a `finally` block in C#, Rx enables us to execute some code on completion of a sequence, regardless of whether it runs to completion naturally, or fails. The `Finally` extension method accepts an `Action` as a parameter. This `Action` will be invoked when the sequence terminates, regardless of whether `OnCompleted` or `OnError` was called. It will also invoke the action if the subscription is disposed of before it completes.
 
 ```csharp
 public static IObservable<TSource> Finally<TSource>(
@@ -243,9 +163,9 @@ Output:
 Finally
 ```
 
-Note that there is an anomaly in the current implementation of `Finally`. If there is no `OnError` handler provided, the error will be promoted to an exception and thrown. This will be done before the `Finally` action is invoked. We can reproduce this behavior easily by removing the `OnError` handler from our examples above.
+Note that if the subscriber's `OnError` throws an exception, and if the source calls `OnNext` without a `try`/`catch` block, the CLR's unhandled exception reporting mechanism kicks in, and in some circumstances this can result in the application shutting down before the `Finally` operator has had an opportunity to invoke the callback. We can create this scenario with the following code:
 
-```csharp
+```cs
 var source = new Subject<int>();
 var result = source.Finally(() => Console.WriteLine("Finally"));
 result.Subscribe(
@@ -256,41 +176,17 @@ source.OnNext(1);
 source.OnNext(2);
 source.OnNext(3);
 
-// Brings the app down. Finally action is not called.
+// Brings the app down. Finally action might not be called.
 source.OnError(new Exception("Fail"));
 ```
 
-Hopefully this will be identified as a bug and fixed by the time you read this in the next release of Rx. Out of academic interest, here is a sample of a `Finally` extension method that would work as expected.
+If you run this directly from the program's entry point, without wrapping it in a `try`/`catch`, you may or may not see the `Finally` message displayed, because exception handling works subtly differently in the case an exception reaches all the way to the top of the stack without being caught. (Oddly, it usually does run, but if you have a debugger attached, the program usually exits without running the `Finally` callback.)
 
-```csharp
-public static IObservable<T> MyFinally<T>(
-    this IObservable<T> source, 
-    Action finallyAction)
-{
-    return Observable.Create<T>(o =>
-    {
-        var finallyOnce = Disposable.Create(finallyAction);
-        var subscription = source.Subscribe(
-            o.OnNext,
-            ex =>
-            {
-                try { o.OnError(ex); }
-                finally { finallyOnce.Dispose(); }
-            },
-            () =>
-            {
-                try { o.OnCompleted(); }
-                finally { finallyOnce.Dispose(); }
-            });
+This is mostly just a curiosity: application frameworks such as ASP.NET Core or WPF typically install their own top-of-stack exception handlers, and in any case you shouldn't be subscribing to a source that you know will call `OnError` without supplying an error callback. This problem only emerges because the delegate-based `Subscribe` overload in use here supplies an `IObserver<T>` implementation that throws in its `OnError`. However, if you're building console applications to experiment with Rx's behaviour you are quite likely to run into this. In practice, `Finally` will do the right thing in more normal situations.
 
-        return new CompositeDisposable(subscription, finallyOnce);
-    });
-}
-```
+## Using
 
-### Using							
-
-The `Using` factory method allows you to bind the lifetime of a resource to the lifetime of an observable sequence. The signature itself takes two factory methods; one to provide the resource and one to provide the sequence. This allows everything to be lazily evaluated.
+The `Using` factory method allows you to bind the lifetime of a resource to the lifetime of an observable sequence. The signature itself takes two callbacks; one to create the disposable resource and one to provide the sequence. This allows everything to be lazily evaluated—these callbacks are invoked when code calls `Subscribe` on the `IObservable<T>` this method returns.
 
 ```csharp
 public static IObservable<TSource> Using<TSource, TResource>(
@@ -302,35 +198,10 @@ public static IObservable<TSource> Using<TSource, TResource>(
 }
 ```
 
-The `Using` method will invoke both the factories when you subscribe to the sequence. The resource will be disposed of when the sequence is terminated gracefully, terminated erroneously or when the subscription is disposed.
+The resource will be disposed of when the sequence terminates either with `OnCompleted` or `OnError`, or when the subscription is disposed.
 
-To provide an example, we will reintroduce the `TimeIt` class from [Chapter 3](03_LifetimeManagement.html#IDisposable). I could use this handy little class to time the duration of a subscription. In the next example we create an observable sequence with the `Using` factory method. We provide a factory for a `TimeIt` resource and a function that returns a sequence.
 
-```csharp
-var source = Observable.Interval(TimeSpan.FromSeconds(1));
-var result = Observable.Using(
-    () => new TimeIt("Subscription Timer"),
-    timeIt => source);
-result.Take(5).Dump("Using");
-```
-
-Output:
-
-```
-Using --> 0
-Using --> 1
-Using --> 2
-Using --> 3
-Using --> 4
-Using completed
-Subscription Timer took 00:00:05.0138199
-```
-
-Due to the `Take(5)` decorator, the sequence completes after five elements and thus the subscription is disposed of. Along with the subscription, the `TimeIt` resource is also disposed of, which invokes the logging of the elapsed time.
-
-This mechanism can find varied practical applications in the hands of an imaginative developer. The resource being an `IDisposable` is convenient; indeed, it makes it so that many types of resources can be bound to, such as other subscriptions, stream reader/writers, database connections, user controls and, with `Disposable.Create(Action)`, virtually anything else.
-
-### OnErrorResumeNext				
+## OnErrorResumeNext
 
 Just the title of this section will send a shudder down the spines of old VB developers! In Rx, there is an extension method called `OnErrorResumeNext` that has similar semantics to the VB keywords/statement that share the same name. This extension method allows the continuation of a sequence with another sequence regardless of whether the first sequence completes gracefully or due to an error. Under normal use, the two sequences would merge as below:
 
@@ -373,70 +244,23 @@ public static IObservable<TSource> OnErrorResumeNext<TSource>(
 
 It is simple to use; you can pass in as many continuations sequences as you like using the various overloads. Usage should be limited however. Just as the `OnErrorResumeNext` keyword warranted mindful use in VB, so should it be used with caution in Rx. It will swallow exceptions quietly and can leave your program in an unknown state. Generally, this will make your code harder to maintain and debug.
 
-### Retry							
+## Retry
 
-If you are expecting your sequence to encounter predictable issues, you might simply want to retry. One such example when you want to retry is when performing I/O (such as web request or disk access). I/O is notorious for intermittent failures. The `Retry` extension method offers the ability to retry on failure a specified number of times or until it succeeds.
+If you are expecting your sequence to encounter predictable failures, you might simply want to retry. For example, if you are running in a cloud environment, it's very common for operations to fail occasionally for no obvious reason. Cloud platforms often relocate services on a fairly regular basis for operational reasons, which means it's not unusual for operations to fail, but for the exact same operation to succeed it you immediately retry it. Rx's `Retry` extension method offers the ability to retry on failure a specified number of times or until it succeeds. This works by resubscribing to the source if it reports an error.
 
-```csharp
-// Repeats the source observable sequence until it successfully terminates.
-public static IObservable<TSource> Retry<TSource>(
-    this IObservable<TSource> source)
-{
-    ...
-}
-
-// Repeats the source observable sequence the specified number of times or until it 
-//  successfully terminates.
-public static IObservable<TSource> Retry<TSource>(
-    this IObservable<TSource> source, int retryCount)
-{
-    ...
-}
-```
-
-In the diagram below, the sequence (`S`) produces values then fails. It is re-subscribed, after which it produces values and fails again; this happens a total of two times. The result sequence (`R`) is the concatenation of all the successive subscriptions to (`S`).
-
-```
-S --1--2--X
-            --1--2--3--X
-                         --1
-R --1--2------1--2--3------1
-```
-
-In the next example, we just use the simple overload that will always retry on any exception.
+This example uses the simple overload, which will always retry on any exception.
 
 ```csharp
 public static void RetrySample<T>(IObservable<T> source)
 {
-    source.Retry().Subscribe(t=>Console.WriteLine(t)); //Will always retry
+    source.Retry().Subscribe(t => Console.WriteLine(t)); // Will always retry
     Console.ReadKey();
 }
 ```
 
-Given the source [0,1,2,X], the output would be:
+Given a source that produces the values 0, 1, and 2, and then calls `OnError`, the output would be the numbers 0, 1, 2 repeating over an over endlessly. This output would continue forever because this example never unsubscribes, and `Retry` will retry forever if you don't tell it otherwise.
 
-```
-0
-1
-2
-0
-1
-2
-0
-1
-2
-```
-
-This output would continue forever, as we throw away the token from the subscribe method. As a marble diagram it would look like this:
-
-```
-S--0--1--2--x
-             --0--1--2--x
-                         --0--
-R--0--1--2-----0--1--2-----0--
-```
-
-Alternatively, we can specify the maximum number of retries. In this example, we only retry once, therefore the error that gets published on the second subscription will be passed up to the final subscription. Note that to retry once you pass a value of 2. Maybe the method should have been called `Try`?
+We can specify the maximum number of retries. In this next example, we only retry once, therefore the error that gets published on the second subscription will be passed up to the final subscription. Note that we tell `Retry` the maximum number of attempts, so if we want it to retry once, you pass a value of 2—that's the initial attempt plus one retry.
 
 ```csharp
 source.Retry(2).Dump("Retry(2)"); 
@@ -464,8 +288,7 @@ R--0--1--2-----0--1--2--x
 
 Proper care should be taken when using the infinite repeat overload. Obviously if there is a persistent problem with your underlying sequence, you may find yourself stuck in an infinite loop. Also, take note that there is no overload that allows you to specify the type of exception to retry on.
 
-A useful extension method to add to your own library might be a "Back Off and Retry" method. The teams I have worked with have found such a feature useful when performing I/O, especially network requests. The concept is to try, and on failure wait for a given period of time and then try again. Your version of this method may take into account the type of `Exception` you want to retry on, as well as the maximum number of times to retry. You may even want to lengthen the to wait period to be less aggressive on each subsequent retry.
 
 <!--TODO: Build BackOffRetry with the reader-->
 
-Requirements for exception management that go beyond simple `OnError` handlers are commonplace. Rx delivers the basic exception handling operators which you can use to compose complex and robust queries. In this chapter we have covered advanced error handling and some more resource management features from Rx. We looked at the `Catch`, `Finally` and `Using` methods as well as the other methods like `OnErrorResumeNext` and `Retry`, that allow you to play a little 'fast and loose'. We have also revisited the use of marble diagrams to help us visualize the combination of multiple sequences. This will help us in our next chapter where we will look at other ways of composing and aggregating observable sequences.
+Requirements for exception management that go beyond simple `OnError` handlers are commonplace. Rx delivers the basic exception handling operators which you can use to compose complex and robust queries. In this chapter we have covered advanced error handling and some more resource management features from Rx. We looked at the `Catch`, `Finally` and `Using` methods as well as the other methods like `OnErrorResumeNext` and `Retry`, that allow you to respond to error scenarios with something more constructive than just terminating.
