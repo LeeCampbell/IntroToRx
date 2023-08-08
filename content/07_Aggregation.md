@@ -14,7 +14,6 @@ We will start with the simplest aggregation functions, which reduce an observabl
 
 Rx supports various standard LINQ operators that reduce all of the values in a sequence down to a single numeric result.
 
-
 ### Count
 
 `Count` tells you how many elements a sequence contains. Although this is a standard LINQ operator, Rx's version deviates from the `IEnumerable<T>` version as Rx will return an observable sequence, not a scalar value. As usual, this is because of the push-related nature of Rx. Rx's `Count` can't demand that its source supply all elements immediately, so it just has to wait until the source says that it has finished.
@@ -88,7 +87,6 @@ Although `Average` can process values of the same numeric types as `Sum`, the ou
 
 As with `Sum`, if the inputs to `Average` are nullable, the output will be too.
 
-
 ### Min and Max
 
 Rx implements the standard LINQ `Min` and `Max` operators which find the element with the highest or lowest value. As with all the other operators in this section, these do not return scalars, and instead return an `IObservable<T>` that produces a single value.
@@ -104,7 +102,6 @@ IObservable<int> widthOfWidestVessel = vesselDimensions
 ```
 
 `Max` returns an `IObservable<int>` here, which will be the width of the widest vessel out of the next 10 messages that report vessel dimensions. But what if you didn't just want to see the width? What if you wanted the whole message?
-
 
 ## MinBy and MaxBy
 
@@ -126,7 +123,6 @@ original items that produce the maximum, and if there were three that all did th
 So unlike the other aggregation operators we've seen so far, an observable returned by `MinBy` or `MaxBy` doesn't necessarily produce just a single value. It might produce several. You might ask whether it really is an aggregation operator, since it's not reducing the input sequence to one output. But it is reducing it to a single value: the minimum (or maximum) returned by the callback. It's just that it presents the result slightly differently—it produces a sequence based on the result of the aggregation process. You could think of it as a combination of aggregation and filtering: it performs aggregation to determine the minimum or maximum, and then filters the source sequence down just to the elements for which the callback produces that value.
 
 **Note**: LINQ to Objects also defines [`MinBy`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.minby) and [`MaxBy`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.maxby) methods, but they are slightly different. These LINQ to Objects versions do in fact arbitrarily pick a single source element—if there are multiple source values all producing the minimum (or maximum) result, LINQ to Objects gives you just one whereas Rx gives you all of them. Rx defined its versions of these operators years before .NET 6.0 added their LINQ to Objects namesakes, so if you're wondering why Rx does it differently, the real question is why did LINQ to Objects not follow Rx's precedent. Presumably the .NET runtime library implementors decided they wanted to make `Min/MaxBy` feel as similar as possible to `Min` and `Max`.
-
 
 ## Simple Boolean Aggregation
 
@@ -260,11 +256,9 @@ all completed
 subject completed
 ```
 
-
 ### IsEmpty
 
 The LINQ `IsEmpty` operator is logically the opposite of the no-arguments `Any` method. It returns `true` if and only if the source completes without producing any elements, and if the source produces an item, `IsEmpty` produces `false` and immediately unsubscribes.
-
 
 ### Contains
 
@@ -301,7 +295,6 @@ Subject completed
 ```
 
 There is also an overload to `Contains` that allows you to specify an implementation of `IEqualityComparer<T>` other than the default for the type. This can be useful if you have a sequence of custom types that may have some special rules for equality depending on the use case.
-
 
 ## Build your own aggregations
 
@@ -344,7 +337,6 @@ c(1, 200) // returns 2
 This particular function completely ignores its second argument (the element from the source). It just adds one to the accumulator each time. So the accumulator is nothing more than a record of the number of times our function has been called.
 
 Now let's look at how we might implement `Sum` using `Aggregate`:
-
 
 ```csharp
 Func<int, int, int> s = (acc, element) => acc + element
@@ -440,7 +432,6 @@ With either of these implementations, `vesselNames` will produce a single value 
 
 I've had to fudge an issue in these last two examples. I've made them work over just the first 10 suitable messages to emerge. Think about what would happen if I didn't have the `Take(10)` in there. The code would compile, but we'd have a problem. The AIS message source I've been using in various examples is an endless source. Ships will continue to move around the oceans for the foreseeable future. Ais.NET does not contain any code designed to detect either the end of civilisation, or the invention of technologies that render the use of ships obsolete, so it will never call `OnCompleted` on its subscribers. The observable returned by `Aggregate` reports nothing until its source either completes or fails. So if we remove that `Take(10)`, the behaviour would be identical `Observable.Never<IReadOnlySet<string>>`. I had to force the input to `Aggregate` to come to an end to make it produce something. But there is another way.
 
-
 ### Scan
 
 While `Aggregate` allows us to reduce complete sequences to a single, final value, sometimes this is not what we need. If we are dealing with an endless source, we might want something more like a running total, updated each time we receive a value. The `Scan` operator is designed for exactly this requirement. The signatures for both `Scan` and `Aggregate` are the same; the difference is that `Scan` doesn't wait for the end of its input. It produces the aggregated value after every item.
@@ -510,6 +501,5 @@ source.Aggregate(0, (acc, current) => acc + current);
 // is equivalent to 
 source.Scan(0, (acc, current) => acc + current).TakeLast();
 ```
-
 
 Aggregation is useful for reducing volumes of data or combining multiple elements to produce averages, or other measure that incorporate information from multiple elements. But to perform some kinds of analysis we will also need to slice up or otherwise restructure our data before calculating aggregated values. So in the next chapter we'll look at the various mechanisms Rx offers for partitioning data.

@@ -34,11 +34,9 @@ Rx is a powerfully productive development tool. It enables developers to work wi
 
 Rx builds on LINQ (Language Integrated Query). This enables us to use the query syntax shown above (or you can use the explicit function call approach that some .NET developers prefer). LINQ is widely used in .NET both for data access (e.g., in Entity Framework Core), but also for working with in-memory collections (with LINQ to Objects), meaning that experienced .NET developers will tend to feel at home with Rx. Crucially, LINQ is a highly composable design: you can connect operators together in any combination you like, expressing potentially complex processing in a straightforward way.
 
-
 ## When is Rx appropriate?
 
 Rx is designed for processing sequences of events, meaning that it suits some scenarios better than others. The next sections describe some of these scenarios, and also cases in which it is a less obvious match but still worth considering. Finally, we describe some cases in which it is possible to use Rx but where alternatives are likely to be better.
-
 
 ### Good Fit with Rx
 
@@ -74,7 +72,6 @@ A very popular use of this is maintaining a responsive UI. (UI event handling ha
 You should consider using Rx if you have an existing `IEnumerable<T>` that is attempting to model live events. 
 While `IEnumerable<T>` _can_ model data in motion (by using lazy evaluation like `yield return`), there's a problem. If the code consuming the collection has reached the point where it wants the next item (e.g., because a `foreach` loop has just completed an iteration) but no item is yet available, the `IEnumerable<T>` implementation would have no choice but to block the calling thread in its `MoveNext` until such time as data is available, which can cause scalability problems in some applications. Even in cases where thread blocking is acceptable (or if you use the newer `IAsyncEnumerable<T>`, which can take advantage of C#'s `await foreach` feature to avoid blocking a thread in these cases) `IEnumerable<T>` and `IAsyncEnumerable<T>` are misleading types for representing live information sources. These interfaces represent a 'pull' programming model: code asks for the next item in the sequence. Rx is a more natural choice for modelling information sources that naturally produce information on their own schedule.
 
-
 ### Possible Fit with Rx
 
 Rx can be used to represent asynchronous operations. .NET's `Task` or `Task<T>` effectively represent a single event, and `IObservable<T>` can be thought if as a generalization of this to a sequence of events. (The relationship between, say, `Task<int>` and `IObservable<int>` is similar to the relationship between `int` and `IEnumerable<int>`.)
@@ -85,7 +82,6 @@ For the first 5 years of its existence, Rx was arguably the best way to represen
 
 Earlier, I mentioned _offloading_: using Rx to push work onto other threads. Although this technique can enable Rx to introduce and manage concurrency for the purposes of _scaling_ or performing _parallel_ computations, other dedicated frameworks like [TPL (Task Parallel Library) Dataflow](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/dataflow-task-parallel-library) or [PLINQ](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/introduction-to-plinq) are more appropriate for performing parallel compute intensive work. However, TPL Dataflow offers some integration with Rx through its [`AsObserver`](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.dataflow.dataflowblock.asobserver) and [`AsObservable`](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.dataflow.dataflowblock.asobservable) extension methods. So it is common to use Rx to integrate TPL Dataflow with the rest of your application.
 
-
 ### Poor Fit with Rx
 
 Rx's `IObservable<T>` is not a replacement for `IEnumerable<T>` or `IAsyncEnumerable<T>`. It would be a mistake to take something that is naturally pull based and force it to be push based.
@@ -93,7 +89,6 @@ Rx's `IObservable<T>` is not a replacement for `IEnumerable<T>` or `IAsyncEnumer
 Also, there are some situations in which the simplicity of Rx's programming model can work against you. For example, although some message queuing technologies such as MSMQ are by definition sequential, and thus might look like a good fit for Rx, these are often chosen for their transaction handling support. Rx does not have any direct way to surface transaction semantics, so in scenarios that require this you might be better off just working directly with the relevant technology's API.
 
 By choosing the best tool for the job your code should be easier to maintain, it will likely provide better performance and you will probably get better support.
-
 
 ## Rx in action
 

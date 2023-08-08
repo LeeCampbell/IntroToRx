@@ -10,7 +10,6 @@ The `IObserver<T>` interface defines the `OnError` method so that a source can r
 
 Rx defines a `Catch` operator. The name is deliberately reminiscent of C#'s `try`/`catch` syntax because it lets you handle errors from an Rx source in a similar way to exceptions that emerge from normal execution of code. It gives you the option of swallowing an exception, wrapping it in another exception or performing some other logic.
 
-
 ### Swallowing exceptions
 
 The most basic (although rarely the best) way to handle an exception is to swallow it. In C#, we could write a `try` block with an empty `catch` block. We can achieve something similar with Rx's `Catch` operator. The basic idea with swallowing exceptions is that we carry on as though nothing had happened. We can represent an exception being swallowed like this with a marble diagram.
@@ -95,12 +94,10 @@ If the sequence was to terminate with an `Exception` that could not be cast to a
 
 Notice that with the overload in the preceding example, we supplied a callback. If an exception of the specified type emerges, this overload of `Catch` will pass it to our callback so that if necessary, we can decide exactly what to return based on information in the exception. If you were to decide that, having inspected the exception, you don't want to swallow it after all, you can use `Observable.Throw` to return an observable that rethrows the exception. (This is effectively the Rx equivalent to a `throw;` statement inside a C# `catch` block.) The following example uses this to swallow all IO exceptions of type IOException or any type derived from that except for `FileNotFoundException`.
 
-
 ```csh
 IObservable<int> result = source.Catch<int, IOException>(
     tx => tx is FileNotFoundException ? Observable.Throw(tx) : Observable.Empty());
 ```
-
 
 ## Finally
 
@@ -200,7 +197,6 @@ public static IObservable<TSource> Using<TSource, TResource>(
 
 The resource will be disposed of when the sequence terminates either with `OnCompleted` or `OnError`, or when the subscription is disposed.
 
-
 ## OnErrorResumeNext
 
 Just the title of this section will send a shudder down the spines of old VB developers! In Rx, there is an extension method called `OnErrorResumeNext` that has similar semantics to the VB keywords/statement that share the same name. This extension method allows the continuation of a sequence with another sequence regardless of whether the first sequence completes gracefully or due to an error. Under normal use, the two sequences would merge as below:
@@ -287,7 +283,6 @@ R--0--1--2-----0--1--2--x
 ```
 
 Proper care should be taken when using the infinite repeat overload. Obviously if there is a persistent problem with your underlying sequence, you may find yourself stuck in an infinite loop. Also, take note that there is no overload that allows you to specify the type of exception to retry on.
-
 
 <!--TODO: Build BackOffRetry with the reader-->
 

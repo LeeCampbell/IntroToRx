@@ -199,7 +199,6 @@ These limitations are sometimes described by saying that .NET events are not _fi
 
 If we represent an event source as a plain old interface, then it _is_ a first class citizen: it can use all of the functionality we expect with other objects and values precisely because it's not something special.
 
-
 ### What about Streams?
 
 I've described `IObservable<T>` as representing a _stream_ of events. This raises an obvious question: .NET already has [`System.IO.Stream`](https://learn.microsoft.com/en-us/dotnet/api/system.io.stream), so why not just use that?
@@ -284,7 +283,6 @@ These three outcomes correspond precisely to the three method defined by `IObser
 * There are no more items
 
 That describes the three things that either can happen next when consuming either an `IEnumerable<T>` or an `IObservable<T>`. The only difference is the means by which consumers discover this. With an `IEnumerable<T>` source, each call to `MoveNext` will tell us which of these three applies. And with an `IObservable<T>` source, it will tell you one of these three things with a call to the corresponding member of your `IObserver<T>` implementation.
-
 
 ## The Fundamental Rules of Rx Sequences
 
@@ -559,6 +557,5 @@ In short, completion bubbles up from the source, through all the operators, and 
 What if we unsubscribe early by calling `subscription.Dispose()`? In that case it all happens the other way round—the `subscription` returned by `filtered.Subscribe` is the first to know that we're unsubscribing, but it will then call `Dispose` on the object that was returned when it called `source.Subscribe` for us.
 
 Either way, everything from the source to the observer, including any operators that were sitting in between, gets shut down in either case.
-
 
 Now that we understand the relationship between an `IObservable<T>` source and the `IObserver<T>` interface that received event notifications, we can look at how we might create an `IObservable<T>` instance to represent events of interest in our application.

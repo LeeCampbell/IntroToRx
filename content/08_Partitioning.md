@@ -4,9 +4,7 @@ title: Partitioning
 
 # Partitioning
 
-
 Rx can split a single sequence into multiple sequences. This can be useful for taking a single sequence and fanning out to many subscribers or perhaps taking aggregates on partitions. You may already be familiar with the standard LINQ operator `GroupBy`. Rx supports this, and also defines some of its own.
-
 
 ## GroupBy
 
@@ -103,9 +101,9 @@ This shows how Rx can tame high volume event sources in ways that are much more 
 
 It probably seems like I'm making too big a deal of this, but it took so little effort to achieve this result that it can be easy to miss just how much work Rx is doing for us here. This code does all of the following:
 
-    * monitors every single ship operating in Norwegian waters
-    * provides per-ship information
-    * reports events at a rate that a human could reasonable cope with
+- monitors every single ship operating in Norwegian waters
+- provides per-ship information
+- reports events at a rate that a human could reasonable cope with
 
 It can take thousands of messages and perform the necessary processing to find the handful that really matter to us.
 
@@ -184,7 +182,6 @@ If we made the same modification to the earlier version, in which these nested s
 
 More generally, if you have lots of sequences coming into existence as part of a single processing chain, it is usually better to get Rx to manage the process from end to end.
 
-
 ## Buffer
 
 The `Buffer` operator is useful if you need to deal with events in batches. This can be useful for performance, especially if you're storing data about events. Take the AIS example. If you wanted to log notifications to a persistent store, the cost of storing a single record is likely to be almost identical to the cost of storing several. Most storage devices operate with blocks of data often several kilobytes in size, so the amount of work required to store a single byte of data is often identical to the amount of work required to store several thousand bytes. The pattern of buffering up data until we have a reasonably large chunk of work crops up all the time in programming—the .NET runtime library's `Stream` class has built-in buffering for exactly the reason, so it's no surprise that it's built into Rx.
@@ -261,7 +258,6 @@ If `source` happened to emit no values during any particular chunk's lifetime, `
 
 The second overload, taking both a `timespan` and a `count`, essentially imposes two upper limits: you'll never have to wait longer than `timespan` between chunks, and you'll never receive a chunk with more than `count` elements. As with the `timespan`-only overload, this can deliver under-full and even empty chunks if the source doesn't produce elements fast enough to fill the buffer within the time specified.
 
-
 ### Overlapping buffers
 
 In the preceding section, I showed an example that collected chunks of 4 `IVesselNavigation` entries for a particular vessel, and calculated the average speed. This sort of averaging over multiple samples can be a useful way of smoothing out slight random variations in readings. So the goal in this case wasn't to process items in batches for efficiency—it was to enable a particular kind of calculation.
@@ -326,7 +322,6 @@ public static IObservable<IList<TSource>> Buffer<TSource>(
 ```
 
 The `timeSpan` determines the length of time covered by each window, and the `timeShift` determines the interval at which new windows are started.
-
 
 ## Window							
 

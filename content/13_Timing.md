@@ -6,7 +6,6 @@ title: Timing
 
 With event sources, timing is often important. In some cases, the only information of interest about some event might the time at which it occurred. The only way in which the core `IObservable<T>` and `IObserver<T>` interfaces address time is that a source can decide when it calls an observer's `OnNext` method. A subscriber knows when an event occurred because it is occurring right now. This isn't always the most convenient way in which to work with timing, so the Rx library provides some timing-related operators. We've already seen a couple of operators that offer optional time-based operation: [`Buffer`](./08_Partitioning.md#buffer) and [`Window`])(08_Partitioning#window). This chapter looks at the various operators that are all about timing.
 
-
 ## Timestamp and TimeInterval		
 
 As observable sequences are asynchronous it can be convenient to know timings for when elements are received. Obviously, a subscriber can always just use `DateTimeOffset.Now`, but if you want to refer to the arrival time as part of a larger query, the `Timestamp` extension method is a handy convenience method that attaches a timestamp to each element. It wraps elements from its source sequence in a light weight `Timestamped<T>` structure. The `Timestamped<T>` type is a struct that exposes the value of the element it wraps, and also a `DateTimeOffset` indicating when `Timestamp` operator received it.
@@ -29,7 +28,7 @@ TimeStamp-->2@07/08/2023 10:04:00 +00:00
 TimeStamp completed
 ```
 
-We can see that the values 0, 1 &amp; 2 were each produced one second apart.
+We can see that the values 0, 1 & 2 were each produced one second apart.
 
 Rx also offers `TimeInterval`. Instead of reporting the time at which items arrived, it reports the interval between items (or, in the case of the first element, how long it took for that to emerge after subscription). Similarly to the `Timestamp` method, elements are wrapped in a light weight structure. But whereas `Timestamped<T>` adorned each item with the arrival time, `TimeInterval` wraps each element with the `TimeInterval<T>` type which adds a `TimeSpan`. We can modify the previous example to use `TimeInterval`:
 
@@ -46,10 +45,10 @@ As you can see, the output now reports the time between elements instead of the 
 TimeStamp-->0@00:00:01.0183771
 TimeStamp-->1@00:00:00.9965679
 TimeStamp-->2@00:00:00.9908958
-TimeStamp completed```
+TimeStamp completed
+```
 
 As you can see from the output, the timings are not exactly one second but are pretty close. Some of this will be measurement noise in the `TimeInterval` operator, but most of this variability is likely to arise from the `Observable.Interval` class. There will always be a limit to the precision with which a scheduler can honour the timing request of it. Some scheduler introduce more variation than others—the schedulers that deliver work via a UI thread are ultimately limited by how quickly that thread's message loop responds. But even in the most favourable condition, schedulers are limited by the fact that .NET is not built for use in real-time systems (and nor are most of the operating systems Rx can be used on). So with all of the operators in this section, you should be aware that timing is always a _best effort_ affair in Rx.
-
 
 ## Delay								
 
@@ -178,7 +177,6 @@ If you looked at these numbers closely, you might have noticed that the interval
 | 3000               | 19           | 19            |
 
 Since the first sample is taken after the source emits five, and two thirds of the way into the gap after which it will produce six, there's a sense in which the "right" current value is something like 5.67, but `Sample` doesn't attempt any such interpolation. It just reports the last value to emerge from the source. A related consequence is that if the sampling interval is short enough that you're asking `Sample` to report values faster than they are emerging from the source, it will just repeat values.
-
 
 ## Throttle							
 
@@ -314,6 +312,5 @@ public static IObservable<TSource> Timeout<TSource>(
     TODO: Observable.GroupByUntil
     TODO: Observable.Merge reprise(has options to take schedulers too)
 -->
-
 
 As we've now seen, Rx provides features to manage timing in a reactive paradigm. Data can be timed, throttled, or sampled to meet your needs. Entire sequences can be shifted in time with the delay feature, and timeliness of data can be asserted with the `Timeout` operator. These simple yet powerful features further extend the developer's tool belt for querying data in motion.
