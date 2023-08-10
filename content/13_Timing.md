@@ -2,7 +2,7 @@
 title: Timing
 ---
 
-# Time-shifted sequences				
+# Time-based sequences				
 
 With event sources, timing is often important. In some cases, the only information of interest about some event might the time at which it occurred. The only way in which the core `IObservable<T>` and `IObserver<T>` interfaces address time is that a source can decide when it calls an observer's `OnNext` method. A subscriber knows when an event occurred because it is occurring right now. This isn't always the most convenient way in which to work with timing, so the Rx library provides some timing-related operators. We've already seen a couple of operators that offer optional time-based operation: [`Buffer`](./08_Partitioning.md#buffer) and [`Window`])(08_Partitioning#window). This chapter looks at the various operators that are all about timing.
 

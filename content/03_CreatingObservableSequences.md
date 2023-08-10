@@ -164,7 +164,7 @@ IObservable<FileSystemEventArgs> fs =
     .RefCount();
 ```
 
-But this is leaping ahead. If you want to build a type that is inherently multi-subscriber-friendly, all you really need to do is keep track of all your subscribers and notify each of them in a loop. Here's a modified version of the filesystem watcher:
+But this is leaping ahead. (These operators are described in [the Publishing Operators chapter](15_PublishingOperators.md).) If you want to build a type that is inherently multi-subscriber-friendly, all you really need to do is keep track of all your subscribers and notify each of them in a loop. Here's a modified version of the filesystem watcher:
 
 ```cs
 public class RxFsEventsMultiSubscriber : IObservable<FileSystemEventArgs>

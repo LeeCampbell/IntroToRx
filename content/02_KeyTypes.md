@@ -76,6 +76,24 @@ Since an `IObservable<T>` cannot supply us with values until we subscribe, the t
 
 Not all sources are _hot_. There's nothing stopping an `IObservable<T>` always supplying the exact same sequence of events to any subscriber no matter when the call to `Subscribe` occurs. (Imagine an `IObservable<Trade>` which, instead of reporting live information, generates notifications based on recorded historical trade data.) Sources where it doesn't matter at all when you subscribe are known as _cold_ source.
 
+Here are some sources that might be represented as hot observables:
+
+* Measurements from a sensor
+* Price ticks from a trading exchange
+* An event source that distributes events immediatly such as Azure Event Grid
+* mouse movements 
+* timer events 
+* broadcasts like ESB channels or UDP network packets. 
+
+And some examples of cold observables:
+
+* An observable representing the contents of a collection (such as is returned by the [`ToObservable` extension method for `IEnumerable<T>`](03_CreatingObservableSequences.md#from-ienumerablet))
+* An observable producing a fixed range of values, such as [`Observable.Range`](03_CreatingObservableSequences.md#observablerange) produces
+* An observable that generates events based on an algorithm, such as [`Observable.Generate`](03_CreatingObservableSequences.md#observablegenerate) produces
+* An observable representing a factory for an asynchronous operation, as [`FromAsync`](03_CreatingObservableSequences.md#from-task) returns
+* An observable of the kind typically created using [`Observable.Create`](03_CreatingObservableSequences.md#observablecreate)
+* An observable representing items from a streaming event provides such as Azure Event Hub or Kafka (or any other streaming-style source which holds onto events from the past to be able to deliver events from a particular moment in the stream; so _not_ an events source in the Azure Event Grid style)
+
 Not all sources are strictly completely _hot_ or _cold_. For example, you could imagine a slight variation on a live `IObservable<Trade>` where the source always reports the most recent trade to new subscribers. Subscribers can count on immediately receiving something, and will then be kept up to date as new information arrives. The fact that new subscribers will always receive (potentially quite old) information is a _cold_-like characteristic, but it's only that first event that is _cold_—it's still likely that a brand new subscriber will have missed lots of information that would have been available to earlier subscribers, making this source more _hot_ than _cold_.
 
 There's an interesting special case in which a source of events has been designed to enable applications to receive every single event in order, exactly once. Event streaming systems such as Kafka or Azure Event Hub have this characteristic—they retain events for a while, to ensure that consumers don't miss out even if they fall behind from time to time. The standard input (_stdin_) for a process also has this characteristic: if you run a command line tool and start typing input before it is ready to process it, the operating system will hold that input in a buffer, to ensure that nothing is lost. Windows does something similar for desktop applications—each application thread gets a message queue so that if you click or type when it's not able to respond, the input will eventually be processed. We might think of these sources as _cold_-then-_host_. They're like _cold_ sources in that we won't miss anything just because it took us some time to start receiving events, but once we start retrieving the data, then we can't generally rewind back to the start. So once we're up and running they are more like _hot_ events.
