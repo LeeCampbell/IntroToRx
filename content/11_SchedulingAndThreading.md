@@ -34,11 +34,13 @@ So when `source` decides to produce an item, it will invoke the `Where` operator
 
 So for the source notifications that make it all the way through to that `Console.WriteLine` in the callback passed to subscribe, we end up with a lot of nested calls on the stack:
 
-* `source` calls:
-  * `Where` observer, which calls:
-    * `Buffer` observer, which calls:
-      * `Take` observer, which calls:
-        * `Subscribe` observer, which calls our lambda
+```
+`source` calls:
+  `Where` observer, which calls:
+    `Buffer` observer, which calls:
+      `Take` observer, which calls:
+        `Subscribe` observer, which calls our lambda
+```
 
 This is all happening on one thread. Most Rx operators don't have any one particular thread that they call home. They just do their work on whatever thread the call comes in on. This makes Rx pretty efficient—passing data from one operator to the next merely involves a method call, and those are pretty fast. (In fact, there are typically a few more layers. Rx tends to add a few wrappers to handle errors and early unsubscription. So the call stack will look a bit more complex than what I've just shown. But it's still typically all just method calls.)
 

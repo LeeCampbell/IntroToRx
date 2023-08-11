@@ -473,9 +473,11 @@ The problem is in the `GoUntilStopped.Stop` method. This calls `OnCompleted` but
 
 This can be a surprisingly tricky problem to solve. Suppose `GoUntilStopped` _did_ detect that there was a call in progress to `OnNext`. What then? In the multithreaded case, we could have solved this by using `lock` or some other synchronization primitive to ensure that calls into the observer happened one at at time, but that won't work here: the call to `Stop` has happened on _the same thread_ that called `OnNext`. The call stack will look something like this at the moment where `Stop` has been called and it wants to call `OnCompleted`:
 
-* `GoUntilStopped.Go`
-  * `MyObserver.OnNext`
-    * `GoUntilStopped.Stop`
+```
+`GoUntilStopped.Go`
+  `MyObserver.OnNext`
+    `GoUntilStopped.Stop`
+```
  
  Our `GoUntilStopped.Stop` method needs to wait for `OnNext` to return before calling `OnCompleted`. But notice that the `OnNext` method can't return until our `Stop` method returns. We've managed to create a deadlock with single-threaded code!
 
