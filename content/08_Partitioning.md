@@ -304,9 +304,12 @@ IDisposable sub = shipStatusChanges.Subscribe(m => Console.WriteLine(
 As the output shows, we can now report the previous state as well as the state just entered:
 
 ```
-Ship 259664000 changed status from UnderwayUsingEngine to Moored at 30/06/2023 13:36:39 +00:00
-Ship 257139000 changed status from AtAnchor to UnderwayUsingEngine at 30/06/2023 13:38:39 +00:00
-Ship 257798800 changed status from UnderwayUsingEngine to Moored at 30/06/2023 13:38:39 +00:00
+Ship 259664000 changed status from UnderwayUsingEngine to Moored at 30/06/2023
+ 13:36:39 +00:00
+Ship 257139000 changed status from AtAnchor to UnderwayUsingEngine at 30/06/20
+23 13:38:39 +00:00
+Ship 257798800 changed status from UnderwayUsingEngine to Moored at 30/06/2023
+ 13:38:39 +00:00
 ```
 
 This change enabled us to remove the `Skip`—the earlier example had that because we can't tell whether the first message we receive from any particular ship after startup represents a change. But since we're telling `Buffer` we want pairs of messages, it won't give us anything for any single ship until it has seen messages with two different statuses.
