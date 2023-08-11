@@ -518,6 +518,77 @@ public static IObservable<T> Throws<T>(Exception exception)
 
 You can see that `Observable.Create` provides the power to build our own factory methods if we wish.
 
+### Observable.Defer
+
+One very useful aspect of `Observable.Create` is that it provides a place to put code that should run only when subscription occurs. Often, libraries will make `IObservable<T>` properties available that won't necessarily be used by all applications, so it can be useful to defer the work involved until you know you will really need it. This deferred initialization is inherent to how `Observable.Create` works, but what if the nature of our source means that `Observable.Create` is not a good fit? How can we perform deferred initialization in that case? Rx providers `Observable.Defer` for this purpose.
+
+I've already used `Defer` once. The `ObserveFileSystem` method returned an `IObservable<FileSystemEventArgs>` reporting changes in a folder. It was not a good candidate for `Observable.Create` because it provided all the notifications we wanted as .NET events, so it made sense to use Rx's event adaptation features. But we still wanted to defer the creation of the `FileSystemWatcher` until the moment of subscription, which is why that example used `Observable.Defer`.
+
+`Observable.Defer` takes a callback that returns an `IObservable<T>`, and `Defer` wraps this with an `IObservable<T>` that invokes that callback upon subscription. To show the effect, I'm first going to show an example that does not use `Defer`:
+
+```cs
+static IObservable<int> WithoutDeferal()
+{
+    Console.WriteLine("Doing some startup work...");
+    return Observable.Range(1, 3);
+}
+
+Console.WriteLine("Calling factory method");
+IObservable<int> s = WithoutDeferal();
+
+Console.WriteLine("First subscription");
+s.Subscribe(Console.WriteLine);
+
+Console.WriteLine("Second subscription");
+s.Subscribe(Console.WriteLine);
+```
+
+This produces the following output:
+
+```
+Calling factory method
+Doing some startup work...
+First subscription
+1
+2
+3
+Second subscription
+1
+2
+3
+```
+
+As you can see, the `"Doing some startup work...` message appears when we call the factory method, and before we've subscribed. So if nothing ever subscribed to the `IObservable<int>` that method returns, the work would be done anyway, wasting time and energy. Here's the `Defer` version:
+
+```cs
+static IObservable<int> WithDeferal()
+{
+    return Observable.Defer(() =>
+    {
+        Console.WriteLine("Doing some startup work...");
+        return Observable.Range(1, 3);
+    });
+}
+```
+
+If we were to use this with similar code to the first example, we'd see this output:
+
+```
+Calling factory method
+First subscription
+Doing some startup work...
+1
+2
+3
+Second subscription
+Doing some startup work...
+1
+2
+3
+```
+
+There are two important differences. First, the `"Doing some startup work..."` message does not appear until we first subscribe, illustrating that `Defer` has done what we wanted. However, notice that the message now appears twice: it will do this work each time we subscribe. If you want this deferred initialization but you'd also like once-only execution, you should look at the operators in the [Publishing Operators chapter](15_PublishingOperators.md), which provide various ways to enable multiple subscribers to share a single subscription to an underlying source.
+
 ## Sequence Generators
 
 The creation methods we've looked at so far are straightforward in that they either produce very simple sequences (such as single-element, or empty sequences), or they rely on our code to tell them exactly what to produce. Now we'll look at some methods that can produce longer sequences.
