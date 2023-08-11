@@ -6,6 +6,21 @@ title : Filtering
 
 Rx provides us with tools to take potentially vast quantities of events and process these to produce higher level insights. This can often involve a reduction in volume—a small number of events may be more useful than a large number if the individual events in that lower-volume stream are, on average, more informative. The simplest mechanisms for achieving this involve simply filtering out events we don't want. Rx defines several operators that can do this.
 
+Just before we move on to introducing the new operators, we will quickly create our own extension method. We will use this 'Dump' extension method to help build our samples.
+
+```csharp
+public static class SampleExtentions
+{
+    public static void Dump<T>(this IObservable<T> source, string name)
+    {
+        source.Subscribe(
+            i=>Console.WriteLine("{0}-->{1}", name, i), 
+            ex=>Console.WriteLine("{0} failed-->{1}", name, ex.Message),
+            ()=>Console.WriteLine("{0} completed", name));
+    }
+}
+```
+
 ## Where
 
 Applying a filter to a sequence is an extremely common exercise and the most straightforward filter in LINQ is the `Where` operator. As usual with LINQ, Rx provides its operators in the form of extension methods. If you are already familiar with LINQ, the signature of Rx's `Where` method will come as no surprise:
@@ -23,20 +38,18 @@ IObservable<int> xs = Observable.Range(0, 10); // The numbers 0-9
 
 IObservable<int> oddNumbers = xs.Where(i => i % 2 == 0);
 
-oddNumbers.Subscribe(
-    Console.WriteLine, 
-    () => Console.WriteLine("Completed"));
+oddNumbers.Dump("Where");
 ```
 
 Output:
 
 ```
-0
-2
-4
-6
-8
-Completed
+Where-->0
+Where-->2
+Where-->4
+Where-->6
+Where-->8
+Where completed
 ```
 
 The `Where` operator is one of the many standard LINQ operators. This and other LINQ operators are common use in the various implementations of query operators, most notably the `IEnumerable<T>` implementation. In most cases the operators behave just as they do in the `IEnumerable<T>` implementations, although there are some exceptions as we'll see later. We will discuss each implementation and explain any variation as we go. By implementing these common operators Rx also gets language support for free via C# query comprehension syntax. For example, we could have written the first statement this way, and it would have compiled to effectively identical code:
@@ -74,29 +87,18 @@ The `IgnoreElements` extension method allows you to receive just the `OnComplete
 IObservable<int> xs = Observable.Range(1, 3);
 IObservable<int> dropEverything = xs.IgnoreElements();
 
-Console.WriteLine("Unfiltered:");
-xs.Subscribe(
-    i => Console.WriteLine("xs.OnNext({0})", i),
-    () => Console.WriteLine("xs.OnCompleted()"));
-
-Console.WriteLine();
-Console.WriteLine("IgnoreElements:");
-dropEverything.Subscribe(
-    i=>Console.WriteLine("dropEverything.OnNext({0})", i),
-    () => Console.WriteLine("dropEverything.OnCompleted()"));
+xs.Dump("Unfiltered");
+dropEverything.Dump("IgnoreElements");
 ```
 
 As the output shows, the `xs` source produces the numbers 1 to 3 then completes, but if we run that through `IgnoreElements`, all we see is the `OnCompleted`.
 
 ```
-Unfiltered:
-xs.OnNext(1)
-xs.OnNext(2)
-xs.OnNext(3)
-xs.OnCompleted()
-
-IgnoreElements:
-dropEverything.OnCompleted()
+Unfiltered-->1
+Unfiltered-->2
+Unfiltered-->3
+Unfiltered completed
+IgnoreElements completed
 ```
 
 ## OfType

@@ -8,22 +8,6 @@ The values from the sequences we consume are not always in the format we need. S
 
 Up until now, we have looked at creation of sequences, transition into sequences, and, the reduction of sequences by filtering. In this chapter we will look at _transforming_ sequences.
 
-TODO: should we move this one chapter earlier? Would it be handy to have this in Filtering?
-
-Just before we move on to introducing the new operators, we will quickly create our own extension method. We will use this 'Dump' extension method to help build our samples.
-
-```csharp
-public static class SampleExtentions
-{
-    public static void Dump<T>(this IObservable<T> source, string name)
-    {
-        source.Subscribe(
-            i=>Console.WriteLine("{0}-->{1}", name, i), 
-            ex=>Console.WriteLine("{0} failed-->{1}", name, ex.Message),
-            ()=>Console.WriteLine("{0} completed", name));
-    }
-}
-```
 
 ## Select							
 
@@ -43,7 +27,7 @@ source.Select(i=>i+3)
       .Dump("+3")
 ```
 
-Output:
+This uses the `Dump` extension method we defined at the start of [the Filtering Chapter](05_Filtering.md). It produces the following output:
 
 ```
 +3 --> 3
