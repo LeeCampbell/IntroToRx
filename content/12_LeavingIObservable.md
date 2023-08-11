@@ -8,7 +8,7 @@ An observable sequence is a useful construct, especially when we have the power 
 
 Rx's compositional nature is the key to its power, but it can look like a problem when you need to integrate with a component that doesn't understand Rx. Most of the Rx library features we've looked at so far express their inputs and outputs as observables. How are you supposed to take some real world source of events and turn that into an observable? How are you supposed to do something meaningful with the output of an observable?
 
-You've already seem some answer to these questions. The [Creating Observable Sequences chapter](03_CreatingObservableSequences.md) showed various ways to create observable sources. But when it comes to handling the items that emerge from an `IObservable<T>`, all we've really seen is how to implement [`IObserver<T>`](02_KeyTypes.md#iobserver), and [how to use the callback based `Subscribe`` extension methods  to subscribe to an `IObservable<T>`](02_KeyTypes.md#iobservable).
+You've already seen some answer to these questions. The [Creating Observable Sequences chapter](03_CreatingObservableSequences.md) showed various ways to create observable sources. But when it comes to handling the items that emerge from an `IObservable<T>`, all we've really seen is how to implement [`IObserver<T>`](02_KeyTypes.md#iobserver), and [how to use the callback based `Subscribe` extension methods  to subscribe to an `IObservable<T>`](02_KeyTypes.md#iobservable).
 
 In this chapter, we will look at the methods in Rx which allow you to leave the `IObservable<T>` world, so you can do some useful work with the notifications that emerge from a source.
 
