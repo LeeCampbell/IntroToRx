@@ -1,77 +1,30 @@
 ---
 title: Testing Rx
 ---
-
+``
 # Testing Rx	
 
-Testing software has its roots in debugging and demonstrating code. Having largely matured past manual tests that try to "break the application", modern quality assurance standards demand a level of automation that can help evaluate and prevent bugs. While teams of testing specialists are common, more and more coders are expected to provide quality guarantees via automated test suites.
+Modern quality assurance standards demand a level of automated testing that can help evaluate and prevent bugs. It is good practice to have a suite of tests that verify correct behaviour and to run this as part of the build process to detect regressions early.
 
-Up to this point, we have covered a broad scope of Rx, and we have almost enough knowledge to start using Rx in anger! Still, many developers would not dream of coding without first being able to write tests. Tests can be used to prove that code is in fact satisfying requirements, provide a safety net against regression and can even help document the code. This chapter makes the assumption that you are familiar with the concepts of dependency injection and unit testing with test-doubles, such as mocks or stubs.
+The `System.Reactive` source code includes a comprehensive tests suite. Testing Rx-based code presents some challenges, especially when time-sensitive operators are involved. Rx.NET's test suite includes many tests designed to exercise awkward edge cases to ensure predictable behaviour under load. This is only possible because Rx.NET was designed to be testable.
 
-Rx poses some interesting problems to our Test-Driven community:
+In this chapters, we'll show how you can take advantage of Rx's testability in your own code.
 
-- Scheduling, and therefore threading, is generally avoided in test scenarios as it can introduce race conditions which may lead to non-deterministic tests
-- Tests should run as fast as possible
-- For many, Rx is a new technology/library. Naturally, as we progress on our journey to mastering Rx, we may want to refactor some of our previous Rx code. We want to use tests to ensure that our refactoring has not altered the internal behavior of our code base
-- Likewise, tests will ensure nothing breaks when we upgrade versions of Rx.
+## Virtual Time
 
-While we do want to test our code, we don't want to introduce slow or non-deterministic tests; indeed, the later would introduce false-negatives or false-positives. If we look at the Rx library, there are plenty of methods that involve scheduling (implicitly or explicitly), so using Rx effectively makes it hard to avoid scheduling. This LINQ query shows us that there are at least 26 extension methods that accept an `IScheduler` as a parameter.
+It's common to deal with timing in Rx. As you've seen, it offers several operators that take time into account, and this presents a challenge. We don't want to introduce slow tests, because that can make test suites take too long to execute, but how might we test an application that waits for the user to stop typing for half a second before submitting a query? Non-deterministic tests can also be a problem: when there are race conditions it can be very hard to recreate these reliably.
 
-```csharp
-var query = from method in typeof(Observable).GetMethods()
-            from parameter in method.GetParameters()
-            where typeof(IScheduler).IsAssignableFrom(parameter.ParameterType)
-            group method by method.Name into m
-            orderby m.Key
-            select m.Key;
-
-foreach (var methodName in query)
-{
-    Console.WriteLine(methodName);
-}
-```
-
-Output:
-
-```
-Buffer
-Delay
-Empty
-Generate
-Interval
-Merge
-ObserveOn
-Range
-Repeat
-Replay
-Return
-Sample
-Start
-StartWith
-Subscribe
-SubscribeOn
-Take
-Throttle
-Throw
-TimeInterval
-Timeout
-Timer
-Timestamp
-ToAsync
-ToObservable
-Window
-```
-
-Many of these methods also have an overload that does not take an `IScheduler` and instead uses a default instance. TDD/Test First coders will want to opt for the overload that accepts the `IScheduler`, so that they can have some control over scheduling in our tests. I will explain why soon.
+ The [Scheduling and Threading](./11_SchedulingAndThreading.md) chapter described how schedulers use a virtualized representation of time. This is critical for enabling tests to validate time-related behaviour. It enables us to control Rx's perception of the progression of time, enabling us to write tests that logically take seconds, but which execute in microseconds.
 
 Consider this example, where we create a sequence that publishes values every second for five seconds.
 
 ```csharp
-var interval = Observable.Interval(TimeSpan.FromSeconds(1))
-                         .Take(5);
+IObservable<long> interval = Observable
+    .Interval(TimeSpan.FromSeconds(1))
+    .Take(5);
 ```
 
-If we were to write a test that ensured that we received five values and they were each one second apart, it would take five seconds to run. That would be no good; I want hundreds if not thousands of tests to run in five seconds. Another very common requirement is to test a timeout. Here, we try to test a timeout of one minute.
+A naive a test to ensure that this produces five values at one second intervals would take five seconds to run. That would be no good; we want hundreds if not thousands of tests to run in five seconds. Another very common requirement is to test a timeout. Here, we try to test a timeout of one minute.
 
 ```csharp
 var never = Observable.Never<int>();
@@ -85,20 +38,17 @@ never.Timeout(TimeSpan.FromMinutes(1))
 Assert.IsTrue(exceptionThrown);
 ```
 
-We have two problems here:
+It looks like we would have no choice but to make our test wait for a minute before running that assert. In practice, we'd want to wait a little over a minute, because if the computer running the test is busy, it might run the relevant code a bit later than we've asked. This kind of scenario is notorious for causing tests to fail occasionally even when there's no real problem in the code being tested.
 
-- either the `Assert` runs too soon, and the test is pointless as it always fails, or
-- we have to add a delay of one minute to perform an accurate test
-
-For this test to be useful, it would therefore take one minute to run. Unit tests that take one minute to run are not acceptable.
+Nobody wants slow, inconsistent tests. So let's look at how Rx helps us to avoid these problems.
 
 ## TestScheduler
 
-To our rescue comes the `TestScheduler`; it introduces the concept of a virtual scheduler to allow us to emulate and control time.
+The [Scheduling and Threading](11_SchedulingAndThreading.md) chapter explained that schedulers determine when and how to execute code, and that they keep track of time. Most of the schedulers we looked at in that chapter addressed various threading concerns, and when it came to timing, they all attempted to run timed work at the time requested. But Rx provides `TestScheduler`, which handles time completely differently. It takes advantage of the fact that schedulers control all time-related behaviour to allow us to emulate and control time.
 
-A virtual scheduler can be conceptualized as a queue of actions to be executed. Each are assigned a point in time when they should be executed. We use the `TestScheduler` as a substitute, or [test double](http://xunitpatterns.com/Test%20Double.html), for the production `IScheduler` types. Using this virtual scheduler, we can either execute all queued actions, or only those up to a specified point in time.
+You can think of any scheduler as a queue of actions to be executed. Each are assigned a point in time when they should be executed. (Sometimes that time is "as soon as possible" but time-based operators will often schedule work to run at some specific time in the future.) If we use the `TestScheduler` it will effectively act as though time stands still until we tell it we want time to move on.
 
-In this example, we schedule a task onto the queue to be run immediately by using the simple overload (`Schedule(Action)`). We then advance the virtual clock forward by one tick. By doing so, we execute everything scheduled up to that point in time. Note that even though we schedule an action to be executed immediately, it will not actually be executed until the clock is manually advanced.
+In this example, we schedule a task to be run immediately by using the simple overload (`Schedule(Action)`). Even though this effectively asks for the work to be run as soon as possible, the `TestScheduler` always waits for us to tell it we're ready before processing newly queued work. We advance the virtual clock forward by one tick, at which point it will execute that queued work. (It runs all newly-queued "as soon as possible" work any time we advance the virtual time. If advancing the time means any work that was previously logically in the future is now runnable, it runs that too.)
 
 ```csharp
 var scheduler = new TestScheduler();
@@ -109,31 +59,11 @@ scheduler.AdvanceBy(1); // execute 1 tick of queued actions
 Assert.IsTrue(wasExecuted);
 ```
 
-> Running and debugging this example may help you to better understand the basics	of the `TestScheduler`.
-
-The `TestScheduler` implements the `IScheduler` interface (naturally) and also extends it to allow us to control and monitor virtual time. We are already familiar with the `IScheduler.Schedule` methods, however the `AdvanceBy(long)`, `AdvanceTo(long)` and `Start()` methods unique to the `TestScheduler` are of most interest. Likewise, the `Clock` property will also be of interest, as it can help us understand what is happening internally.
+The `TestScheduler` implements the `IScheduler` interface and defines methods allowing us to control and monitor virtual time. This shows these additional methods:
 
 ```csharp
 public class TestScheduler : // ...
 {
-    // Implementation of IScheduler
-    public DateTimeOffset Now { get; }
-
-    public IDisposable Schedule<TState>(
-        TState state, 
-        Func<IScheduler, TState, IDisposable> action)
-
-    public IDisposable Schedule<TState>(
-        TState state, 
-        TimeSpan dueTime, 
-        Func<IScheduler, TState, IDisposable> action)
-
-    public IDisposable Schedule<TState>(
-        TState state, 
-        DateTimeOffset dueTime, 
-        Func<IScheduler, TState, IDisposable> action)
-
-    // Useful extensions for testing
     public bool IsEnabled { get; private set; }
     public TAbsolute Clock { get; protected set; }
     public void Start()
@@ -148,7 +78,9 @@ public class TestScheduler : // ...
 
 ### AdvanceTo
 
-The `AdvanceTo(long)` method will execute all the actions that have been scheduled up to the absolute time specified. The `TestScheduler` uses ticks as its measurement of time. In this example, we schedule actions to be invoked now, in 10 ticks, and in 20 ticks.
+The `AdvanceTo(long)` method sets the virtual time to the specified number of ticks. This will execute all the actions that have been scheduled up to that absolute time specified. The `TestScheduler` uses ticks as its measurement of time. In this example, we schedule actions to be invoked now, in 10 ticks, and in 20 ticks.
+
+TODO: are these 100ns ticks or something else?
 
 ```csharp
 var scheduler = new TestScheduler();
