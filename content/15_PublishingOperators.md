@@ -4,11 +4,11 @@ title: Publishing operators
 
 # Publishing operators
 
-Hot sources need to be able to deliver events to multiple subscribers. While we can implement the subscriber tracking ourselves, it can be easier to write a degenerate source that works only for a single subscriber, and then to use in one of Rx's _multicast_ operators to publish it as a multi-subscriber hot source. The example in ["Representing Filesystem Events in Rx"](03_CreatingObservableSequences.md#representing-filesystem-events-in-rx) used this trick, but as you'll see in this chapter there are a few variations on the theme.
+Hot sources need to be able to deliver events to multiple subscribers. While we can implement the subscriber tracking ourselves, it can be easier to write a degenerate source that works only for a single subscriber, and then to use one of Rx's _multicast_ operators to publish it as a multi-subscriber hot source. The example in ["Representing Filesystem Events in Rx"](03_CreatingObservableSequences.md#representing-filesystem-events-in-rx) used this trick, but as you'll see in this chapter there are a few variations on the theme.
 
 ## Multicast
 
-Rx offers three operators enabling us to support multiple subscribers using just a single subscription to some underlying source: [`Publish`](#publish), [`PublishLast`](#publishlast), and [`Replay`](#replay). However, all three of these are wrappers around Rx's `Multicast` operator, which provides the common mechanism at the heart of all of them.
+Rx offers three operators enabling us to support multiple subscribers using just a single subscription to some underlying source: [`Publish`](#publish), [`PublishLast`](#publishlast), and [`Replay`](#replay). All three of these are wrappers around Rx's `Multicast` operator, which provides the common mechanism at the heart of all of them.
 
 `Multicast` turns any `IObservable<T>` into a `IConnectableObservable<T>` which, as you can see, just adds a `Connect` method:
 
@@ -19,7 +19,7 @@ public interface IConnectableObservable<out T> : IObservable<T>
 }
 ```
 
-Since it derives from `IObservable<T>`, you can call `Subscribe` on an `IConnectableObservable<T>`, but it won't call `Subscribe` on the underlying source when you do that. It only calls `Subscribe` on the underlying source when you call `Connect`. So that we can see this in action, let's define a source that prints out a message each time `Subscribe` is called:
+Since it derives from `IObservable<T>`, you can call `Subscribe` on an `IConnectableObservable<T>`, but the implementation returned by `Multicast` won't call `Subscribe` on the underlying source when you do that. It only calls `Subscribe` on the underlying source when you call `Connect`. So that we can see this in action, let's define a source that prints out a message each time `Subscribe` is called:
 
 ```cs
 IObservable<int> src = Observable.Create<int>(obs =>
@@ -32,13 +32,13 @@ IObservable<int> src = Observable.Create<int>(obs =>
 });
 ```
 
-If this is only going to be invoked once no matter how many observers subscribe, what `IObserver<T>` does `Multicast` pass to the source when we call `Connect`? It passes a [Subject](03_CreatingObservableSequences.md#subject). And we are required to pass in the subject as an argument to `Multicast`:
+Since this is only going to be invoked once no matter how many observers subscribe, `Multicast` can't pass on the `IObserver<T>`s handed to its own `Subscribe` method, because there could be any number of them. It uses a [Subject](03_CreatingObservableSequences.md#subject) as the single `IObserver<T>` that is passes to the underlying source, and this subject is also responsible for keeping track of all subscribers. If we call `Multicast` directly, we are required to pass in the subject we want to use:
 
 ```cs
 IConnectableObservable<int> m = src.Multicast(new Subject<int>());
 ```
 
-I can now subscribe to this a few times over:
+We can now subscribe to this a few times over:
 
 ```cs
 m.Subscribe(x => Console.WriteLine($"Sub1: {x}"));
@@ -52,7 +52,7 @@ None of these subscribers will receive anything unless we call `Connect`:
 m.Connect();
 ```
 
-(**Note**: `Connect` returns an `IDisposable`. Calling `Dispose` on that unsubscribes from the underlying source.)
+**Note**: `Connect` returns an `IDisposable`. Calling `Dispose` on that unsubscribes from the underlying source.
 
 This call to `Connect` causes the following output:
 
@@ -68,7 +68,7 @@ Sub3: 2
 
 As you can see, the method we passed to `Create` runs only once, confirming that `Multicast` did only subscribe once, despite us calling `Subscribe` three times over. But each item went to all three subscriptions.
 
-The way `Multicast` works is fairly straightforward: it lets the subject do most of the work. Whenever you call `Subscribe` on an observable returned by `Multicast`, it just calls `Subscribe` on the subject. And when you call `Connect`, it just passes the subject into the underlying source's `Subscribe`. So this code would have had the same effect:
+The way `Multicast` works is fairly straightforward: it gets the subject do most of the work. Whenever you call `Subscribe` on an observable returned by `Multicast`, it just calls `Subscribe` on the subject. And when you call `Connect`, it just passes the subject into the underlying source's `Subscribe`. So this code would have had the same effect:
 
 ```cs
 var s = new Subject<int>();
