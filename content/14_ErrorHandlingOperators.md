@@ -12,7 +12,7 @@ Rx defines a `Catch` operator. The name is deliberately reminiscent of C#'s `try
 
 ### Swallowing exceptions
 
-The most basic (although rarely the best) way to handle an exception is to swallow it. In C#, we could write a `try` block with an empty `catch` block. We can achieve something similar with Rx's `Catch` operator. The basic idea with swallowing exceptions is that we carry on as though nothing had happened. We can represent an exception being swallowed like this with a marble diagram.
+The most basic (although rarely the best) way to handle an exception is to swallow it. In C#, we could write a `try` block with an empty `catch` block. We can achieve something similar with Rx's `Catch` operator. The basic idea with swallowing exceptions is that the process that caused the exception stops, but we act as though nothing had happened—we handle it in the same way as it the process had naturally reached an end. We can represent an exception being swallowed like this with a marble diagram.
 
 TODO: make this a proper diagram.
 
@@ -94,14 +94,38 @@ If the sequence was to terminate with an `Exception` that could not be cast to a
 
 Notice that with the overload in the preceding example, we supplied a callback. If an exception of the specified type emerges, this overload of `Catch` will pass it to our callback so that if necessary, we can decide exactly what to return based on information in the exception. If you were to decide that, having inspected the exception, you don't want to swallow it after all, you can use `Observable.Throw` to return an observable that rethrows the exception. (This is effectively the Rx equivalent to a `throw;` statement inside a C# `catch` block.) The following example uses this to swallow all IO exceptions of type IOException or any type derived from that except for `FileNotFoundException`.
 
-```csh
+```cs
 IObservable<int> result = source.Catch<int, IOException>(
-    tx => tx is FileNotFoundException ? Observable.Throw(tx) : Observable.Empty());
+    x => x is FileNotFoundException ? Observable.Throw(tx) : Observable.Empty());
 ```
+
+### Replacing an exception
+
+So far all the examples using `Catch` have either swallowed the exception by returning `Observable.Empty` or rethrown it with `Observable.Throw`. We can supply any observable we want to `Catch` (as long as its item type matches the source item type). We could use this to replace an exception with, say, a message:
+
+```cs
+IObservable<string> messages = stringSource.Catch<string, IOException>(
+    x => Observable.Return(
+        x is FileNotFoundException fnf
+        ? $"Did not find {fnf.FileName}"
+        : $"Was not expecting exception {tx.GetType().Name}"));
+```
+
+Alternatively, we could handle certain source exceptions by throwing a new exception, with the original one as an inner exception:
+
+```cs
+IObservable<int> result = source.Catch<int, IOException>(
+    x => Observable.Throw<int>(
+        x is FileNotFoundException fnf
+        ? new InvalidOperationException("Config not available", fnf)
+        : x));
+```
+
+No matter what your `Catch` does, remember that you'll see no new items from the source after it produces an error. The basic rules of Rx mean that once a source has called `OnError` on its subscriber, it must not make any further calls.
 
 ## Finally
 
-Similar to a `finally` block in C#, Rx enables us to execute some code on completion of a sequence, regardless of whether it runs to completion naturally, or fails. The `Finally` extension method accepts an `Action` as a parameter. This `Action` will be invoked when the sequence terminates, regardless of whether `OnCompleted` or `OnError` was called. It will also invoke the action if the subscription is disposed of before it completes.
+Similar to a `finally` block in C#, Rx enables us to execute some code on completion of a sequence, regardless of whether it runs to completion naturally or fails. The `Finally` extension method accepts an `Action` as a parameter. This `Action` will be invoked when the sequence terminates, regardless of whether `OnCompleted` or `OnError` was called. It will also invoke the action if the subscription is disposed of before it completes.
 
 ```csharp
 public static IObservable<TSource> Finally<TSource>(
@@ -179,7 +203,7 @@ source.OnError(new Exception("Fail"));
 
 If you run this directly from the program's entry point, without wrapping it in a `try`/`catch`, you may or may not see the `Finally` message displayed, because exception handling works subtly differently in the case an exception reaches all the way to the top of the stack without being caught. (Oddly, it usually does run, but if you have a debugger attached, the program usually exits without running the `Finally` callback.)
 
-This is mostly just a curiosity: application frameworks such as ASP.NET Core or WPF typically install their own top-of-stack exception handlers, and in any case you shouldn't be subscribing to a source that you know will call `OnError` without supplying an error callback. This problem only emerges because the delegate-based `Subscribe` overload in use here supplies an `IObserver<T>` implementation that throws in its `OnError`. However, if you're building console applications to experiment with Rx's behaviour you are quite likely to run into this. In practice, `Finally` will do the right thing in more normal situations.
+This is mostly just a curiosity: application frameworks such as ASP.NET Core or WPF typically install their own top-of-stack exception handlers, and in any case you shouldn't be subscribing to a source that you know will call `OnError` without supplying an error callback. This problem only emerges because the delegate-based `Subscribe` overload in use here supplies an `IObserver<T>` implementation that throws in its `OnError`. However, if you're building console applications to experiment with Rx's behaviour you are quite likely to run into this. In practice, `Finally` will do the right thing in more normal situations. (But in any case, you shouldn't throw exceptions from an `OnError` handler.)
 
 ## Using
 
@@ -199,7 +223,7 @@ The resource will be disposed of when the sequence terminates either with `OnCom
 
 ## OnErrorResumeNext
 
-Just the title of this section will send a shudder down the spines of old VB developers! In Rx, there is an extension method called `OnErrorResumeNext` that has similar semantics to the VB keywords/statement that share the same name. This extension method allows the continuation of a sequence with another sequence regardless of whether the first sequence completes gracefully or due to an error. Under normal use, the two sequences would merge as below:
+Just the title of this section will send a shudder down the spines of old VB developers! (For those not familiar with this murky language feature, the VB language lets you instruct it to ignore any errors that occur during execution, and to just continue with the next statement after any failure.) In Rx, there is an extension method called `OnErrorResumeNext` that has similar semantics to the VB keywords/statement that share the same name. This extension method allows the continuation of a sequence with another sequence regardless of whether the first sequence completes gracefully or due to an error. Under normal use, the two sequences would merge as below:
 
 ```
 S1--0--0--|
@@ -242,7 +266,7 @@ It is simple to use; you can pass in as many continuations sequences as you like
 
 ## Retry
 
-If you are expecting your sequence to encounter predictable failures, you might simply want to retry. For example, if you are running in a cloud environment, it's very common for operations to fail occasionally for no obvious reason. Cloud platforms often relocate services on a fairly regular basis for operational reasons, which means it's not unusual for operations to fail, but for the exact same operation to succeed it you immediately retry it. Rx's `Retry` extension method offers the ability to retry on failure a specified number of times or until it succeeds. This works by resubscribing to the source if it reports an error.
+If you are expecting your sequence to encounter predictable failures, you might simply want to retry. For example, if you are running in a cloud environment, it's very common for operations to fail occasionally for no obvious reason. Cloud platforms often relocate services on a fairly regular basis for operational reasons, which means it's not unusual for operations to fail—you might make a request to a service just before the cloud provider decided to move that service to a different compute node—but for the exact same operation to succeed if you immediately retry it (because the retry request gets routed to the new node). Rx's `Retry` extension method offers the ability to retry on failure a specified number of times or until it succeeds. This works by resubscribing to the source if it reports an error.
 
 This example uses the simple overload, which will always retry on any exception.
 
