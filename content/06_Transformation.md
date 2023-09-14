@@ -2,14 +2,14 @@
 title: Transformation of sequences
 ---
 
-# Transformation of sequences			
+# Transformation of sequences
 
 The values from the sequences we consume are not always in the format we need. Sometimes there is too much noise in the data so we strip the values down. Sometimes each value needs to be expanded either into a richer object or into more values. By composing operators, Rx allows you to control the quality as well as the quantity of values in the observable sequences you consume.
 
 Up until now, we have looked at creation of sequences, transition into sequences, and, the reduction of sequences by filtering. In this chapter we will look at _transforming_ sequences.
 
 
-## Select							
+## Select
 
 The classic transformation method is `Select`. It allows you provide a function that takes a value of `TSource` and return a value of `TResult`. The signature for `Select` is nice and simple and suggests that its most common usage is to transform from one type to another type, i.e. `IObservable<TSource>` to `IObservable<TResult>`.
 
@@ -57,7 +57,7 @@ char --> E
 char completed
 ```
 
-If we really want to take advantage of LINQ we could transform our sequence of integers	to a sequence of anonymous types.
+If we really want to take advantage of LINQ we could transform our sequence of integers to a sequence of anonymous types.
 
 ```csharp
 Observable.Range(1, 5)
@@ -87,7 +87,7 @@ query.Dump("anon");
 
 In Rx, `Select` has another overload. The second overload provides two values to the `selector` function. The additional argument is the element's index in the sequence. Use this method if the index of the element in the sequence is important to your selector function.
 
-## SelectMany						
+## SelectMany
 
 Whereas `Select` produces one output for each input, `SelectMany` enables each input element to be transformed into any number of outputs. To see how this can work, let's first look at an example that uses just `Select`:
 
@@ -178,7 +178,7 @@ it would produce a list with these elements:
 
 The order is less odd. It's worth exploring the reasons for this in a little more detail.
 
-### IEnumerable<T> vs. IObservable<T> SelectMany	
+### IEnumerable<T> vs. IObservable<T> SelectMany
 
 `IEnumerable<T>` is pull based—sequences produce elements only when asked. `Enumerable.SelectMany` pulls items from its sources in a very particular order. It begins by asking its source `IEnumerable<int>` (the one returned by `Range` in the preceding example), and then retrieves the first value. `SelectMany` then invokes our callback, passing this first item, and then enumerates everything in the `IEnumerable<char>` our callback returns. Only when it has exhausted this does it ask the source (`Range`) for a second item. Again, it passes that second item to our callback and then fully enumerates the `IEnumerable<char>`, we return, and so on. So we get everything from the first nested sequence first, then everything from the second, etc.
 
@@ -281,7 +281,7 @@ source.Select(i => (int)i);
 source.Where(i=> i is int).Select(i=>(int)i);
 ```
 
-## Materialize and Dematerialize			
+## Materialize and Dematerialize
 
 The `Materialize` operator transforms a source of `IObservable<T>` into one of type `IObservable<Notification<T>>`. It will provide one `Notification<T>` for each item the source produces, and, if the sourced terminates, it will produce one final `Notification<T>` indicating whether it completed successfully or with an error.
 

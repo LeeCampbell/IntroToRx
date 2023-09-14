@@ -326,7 +326,7 @@ public static IObservable<IList<TSource>> Buffer<TSource>(
 
 The `timeSpan` determines the length of time covered by each window, and the `timeShift` determines the interval at which new windows are started.
 
-## Window							
+## Window
 
 The `Window` operator is very similar to the `Buffer`. It can split the input into chunks based either on element count or time, and it also offers support for overlapping windows. However, it has a different return type. Whereas using `Buffer` on an `IObservable<T>` will return an `IObservable<IList<T>>`, `Window` will return an `IObservable<IObservable<T>>`. This means that `Window` doesn't have to wait until it has filled a complete buffer before producing anything.
 
@@ -344,7 +344,7 @@ TODO: need a good example for when you might actually use `Window`.
 
 TODO: this next bit was imported from Sequences of Coincidence (now dropped), and needs to be edited
 
-### Customizing windows				
+### Customizing windows
 
 The overloads above provide simple ways to break a sequence into smaller nested windows using a count and/or a time span. Now we will look at the other overloads, that provide more flexibility over how windows are managed.
 

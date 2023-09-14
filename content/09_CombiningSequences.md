@@ -834,7 +834,7 @@ var systemStatus = webServerStatus
 
 TODO: these next two sequences were relocated from the now-dropped Sequences of Coincidence chapter. They need editing
 
-## Join								
+## Join
 
 The `Join` operator allows you to logically join two sequences. Whereas the `Zip` operator would pair values from the two sequences together by index, the `Join` operator allows you join sequences by intersecting windows. Like the `Window` overload we just looked at, you can specify when a window should close via an observable sequence; this sequence is returned from a function that takes an opening value. The `Join` operator has two such functions, one for the first source sequence and one for the second source sequence. Like the `Zip` operator, we also need to provide a selector function to produce the result item from the pair of values.
 
@@ -922,7 +922,7 @@ public static IObservable<TResult> MyCombineLatest<TLeft, TRight, TResult>
 
 While the code above is not production quality (it would need to have some gates in place to mitigate race conditions), it shows how powerful `Join` is; we can actually use it to create other operators!
 
-## GroupJoin							
+## GroupJoin
 
 When the `Join` operator pairs up values that coincide within a window, it will pass the scalar values left and right to the `resultSelector`. The `GroupJoin` operator takes this one step further by passing the left (scalar) value immediately to the `resultSelector` with the right (sequence) value. The right parameter represents all of the values from the right sequences that occur within the window. Its signature is very similar to `Join`, but note the difference in the `resultSelector` parameter.
 
