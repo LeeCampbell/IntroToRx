@@ -342,4 +342,165 @@ Nested observables produce their items as and when they become available. They c
 
 TODO: need a good example for when you might actually use `Window`.
 
+TODO: this next bit was imported from Sequences of Coincidence (now dropped), and needs to be edited
+
+### Customizing windows				
+
+The overloads above provide simple ways to break a sequence into smaller nested windows using a count and/or a time span. Now we will look at the other overloads, that provide more flexibility over how windows are managed.
+
+```csharp
+// Projects each element of an observable sequence into consecutive non-overlapping windows.
+// windowClosingSelector : A function invoked to define the boundaries of the produced 
+// windows. A new window is started when the previous one is closed.
+public static IObservable<IObservable<TSource>> Window<TSource, TWindowClosing>
+(
+    this IObservable<TSource> source, 
+    Func<IObservable<TWindowClosing>> windowClosingSelector
+)
+{...}
+```
+
+The first of these complex overloads allows us to control when windows should close. The `windowClosingSelector` function is called each time a window is created. Windows are created on subscription and immediately after a window closes; windows close when the sequence from the `windowClosingSelector` produces a value. The value is disregarded so it doesn't matter what type the sequence values are; in fact you can just complete the sequence from `windowClosingSelector` to close the window instead.
+
+In this example, we create a window with a closing selector. We return the same subject from that selector every time, then notify from the subject whenever a user presses enter from the console.
+
+```csharp
+var windowIdx = 0;
+var source = Observable.Interval(TimeSpan.FromSeconds(1)).Take(10);
+var closer = new Subject<Unit>();
+source.Window(() => closer)
+        .Subscribe(window =>
+        {
+            var thisWindowIdx = windowIdx++;
+            Console.WriteLine("--Starting new window");
+            var windowName = "Window" + thisWindowIdx;
+            window.Subscribe(
+                value => Console.WriteLine("{0} : {1}", windowName, value),
+                ex => Console.WriteLine("{0} : {1}", windowName, ex),
+                () => Console.WriteLine("{0} Completed", windowName));
+        },
+        () => Console.WriteLine("Completed"));
+
+var input = "";
+while (input!="exit")
+{
+    input = Console.ReadLine();
+    closer.OnNext(Unit.Default);
+}
+```
+Output (when I hit enter after '1' and '5' are displayed):
+
+```
+--Starting new window
+window0 : 0
+window0 : 1
+
+window0 Completed
+
+--Starting new window
+window1 : 2
+window1 : 3
+window1 : 4
+window1 : 5
+
+window1 Completed
+
+--Starting new window
+window2 : 6
+window2 : 7
+window2 : 8
+window2 : 9
+
+window2 Completed
+
+Completed
+```
+
+The most complex overload of `Window` allows us to create potentially overlapping windows.
+
+```csharp
+// Projects each element of an observable sequence into zero or more windows.
+// windowOpenings : Observable sequence whose elements denote the creation of new windows.
+// windowClosingSelector : A function invoked to define the closing of each produced window.
+public static IObservable<IObservable<TSource>> Window
+    <TSource, TWindowOpening, TWindowClosing>
+(
+    this IObservable<TSource> source, 
+    IObservable<TWindowOpening> windowOpenings, 
+    Func<TWindowOpening, IObservable<TWindowClosing>> windowClosingSelector
+)
+{...}
+```
+
+This overload takes three arguments
+
+1. The source sequence
+2. A sequence that indicates when a new window should be opened
+3. A function that takes a window opening value, and returns a window closing sequence
+
+This overload offers great flexibility in the way windows are opened and closed. Windows can be largely independent from each other; they can overlap, vary in size and even skip values from the source.
+
+To ease our way into this more complex overload, let's first try to use it to recreate a simpler version of `Window` (the overload that takes a count). To do so, we need to open a window once on the initial subscription, and once each time the source has produced then specified count. The window needs to close each time that count is reached. To achieve this we only need the source sequence. We will share it by using the `Publish` method, then supply 'views' of the source as each of the arguments.
+
+```csharp
+public static IObservable<IObservable<T>> MyWindow<T>(
+    this IObservable<T> source, 
+    int count)
+{
+    var shared = source.Publish().RefCount();
+    var windowEdge = shared
+        .Select((i, idx) => idx % count)
+        .Where(mod => mod == 0)
+        .Publish()
+        .RefCount();
+    return shared.Window(windowEdge, _ => windowEdge);
+}
+```
+
+If we now want to extend this method to offer skip functionality, we need to have two different sequences: one for opening and one for closing. We open a window on subscription and again after the `skip` items have passed. We close those windows after '`count`' items have passed since the window opened.
+
+```csharp
+public static IObservable<IObservable<T>> MyWindow<T>(
+    this IObservable<T> source, 
+    int count, 
+    int skip)
+{
+    if (count <= 0) throw new ArgumentOutOfRangeException();
+    if (skip <= 0) throw new ArgumentOutOfRangeException();
+
+    var shared = source.Publish().RefCount();
+    var index = shared
+        .Select((i, idx) => idx)
+        .Publish()
+        .RefCount();
+ 
+    var windowOpen = index.Where(idx => idx % skip == 0);
+    var windowClose = index.Skip(count-1);
+ 
+    return shared.Window(windowOpen, _ => windowClose);
+}
+```
+
+We can see here that the `windowClose` sequence is re-subscribed to each time a window is opened, due to it being returned from a function. This allows us to reapply the skip (`Skip(count-1)`) for each window. Currently, we ignore the value that the `windowOpen` pushes to the `windowClose` selector, but if you require it for some logic, it is available to you.
+
+As you can see, the `Window` operator can be quite powerful. We can even use `Window` to replicate other operators; for instance we can create our own implementation of `Buffer` that way. We can have the `SelectMany` operator take a single value (the window) to produce zero or more values of another type (in our case, a single `IList<T>`). To create the `IList<T>` without blocking, we can apply the `Aggregate` method and use a new `List<T>` as the seed.
+
+```csharp
+public static IObservable<IList<T>> MyBuffer<T>(this IObservable<T> source, int count)
+{
+    return source.Window(count)
+        .SelectMany(window => 
+            window.Aggregate(
+                new List<T>(), 
+                (list, item) =>
+                {
+                    list.Add(item);
+                    return list;
+                }));
+}
+```
+
+It may be an interesting exercise to try implementing other time shifting methods, like `Sample` or `Throttle`, with `Window`.
+
+
 TODO: summary for this chapter.

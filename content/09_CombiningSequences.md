@@ -832,6 +832,200 @@ var systemStatus = webServerStatus
     .StartWith(false);
 ```
 
+TODO: these next two sequences were relocated from the now-dropped Sequences of Coincidence chapter. They need editing
+
+## Join								
+
+The `Join` operator allows you to logically join two sequences. Whereas the `Zip` operator would pair values from the two sequences together by index, the `Join` operator allows you join sequences by intersecting windows. Like the `Window` overload we just looked at, you can specify when a window should close via an observable sequence; this sequence is returned from a function that takes an opening value. The `Join` operator has two such functions, one for the first source sequence and one for the second source sequence. Like the `Zip` operator, we also need to provide a selector function to produce the result item from the pair of values.
+
+```csharp
+public static IObservable<TResult> Join<TLeft, TRight, TLeftDuration, TRightDuration, TResult>
+(
+    this IObservable<TLeft> left,
+    IObservable<TRight> right,
+    Func<TLeft, IObservable<TLeftDuration>> leftDurationSelector,
+    Func<TRight, IObservable<TRightDuration>> rightDurationSelector,
+    Func<TLeft, TRight, TResult> resultSelector
+)
+```
+
+This is a complex signature to try and understand in one go, so let's take it one parameter at a time.
+
+`IObservable<TLeft> left` is the source sequence that defines when a window starts. This is just like the `Buffer` and `Window` operators, except that every value published from this source opens a new window. In `Buffer` and `Window`, by contrast, some values just fell into an existing window.
+
+I like to think of `IObservable<TRight> right` as the window value sequence. While the left sequence controls opening the windows, the right sequence will try to pair up with a value from the left sequence.
+
+Let us imagine that our left sequence produces a value, which creates a new window. If the right sequence produces a value while the window is open, then the `resultSelector` function is called with the two values. This is the crux of join, pairing two values from a sequence that occur within the same window. This then leads us to our next question; when does the window close? The answer illustrates both the power and the complexity of the `Join` operator.
+
+When `left` produces a value, a window is opened. That value is also passed, at that time, to the `leftDurationSelector` function, which returns an `IObservable<TLeftDuration>`. When that sequence produces a value or completes, the window for that value is closed. Note that it is irrelevant what the type of `TLeftDuration` is. This initially left me with the feeling that `IObservable<TLeftDuration>` was a bit excessive as you effectively just need some sort of event to say 'Closed'. However, by being allowed to use `IObservable<T>`, you can do some clever manipulation as we will see later.
+
+Let us now imagine a scenario where the left sequence produces values twice as fast as the right sequence. Imagine that in addition we never close the windows; we could do this by always returning `Observable.Never<Unit>()` from the `leftDurationSelector` function. This would result in the following pairs being produced.
+
+Left Sequence
+
+<div class="marble">
+<pre class="line">L 0-1-2-3-4-5-</pre>
+</div>
+
+Right Sequence
+
+<div class="marble">
+<pre class="line">R --A---B---C-</pre>
+</div>
+<div class="output">
+<div class="line">0, A</div>
+<div class="line">1, A</div>
+<div class="line">0, B</div>
+<div class="line">1, B</div>
+<div class="line">2, B</div>
+<div class="line">3, B</div>
+<div class="line">0, C</div>
+<div class="line">1, C</div>
+<div class="line">2, C</div>
+<div class="line">3, C</div>
+<div class="line">4, C</div>
+<div class="line">5, C</div>
+</div>
+
+As you can see, the left values are cached and replayed each time the right produces a value.
+
+Now it seems fairly obvious that, if I immediately closed the window by returning `Observable.Empty<Unit>`, or perhaps `Observable.Return(0)`, windows would never be opened thus no pairs would ever get produced. However, what could I do to make sure that these windows did not overlap- so that, once a second value was produced I would no longer see the first value? Well, if we returned the `left` sequence from the `leftDurationSelector`, that could do the trick. But wait, when we return the sequence `left` from the `leftDurationSelector`, it would try to create another subscription and that may introduce side effects. The quick answer to that is to `Publish` and `RefCount` the `left` sequence. If we do that, the results look more like this.
+
+<div class="marble">
+<pre class="line">left  |-0-1-2-3-4-5|</pre>
+<pre class="line">right |---A---B---C|</pre>
+<pre class="line">result|---1---3---5</pre>
+<pre class="line">          A   B   C</pre>
+</div>
+
+The last example is very similar to `CombineLatest`, except that it is only producing a pair when the right sequence changes. We could use `Join` to produce our own version of [`CombineLatest`](12_CombiningSequences.html#CombineLatest). If the values from the left sequence expire when the next value from left was notified, then I would be well on my way to implementing my version of `CombineLatest`. However I need the same thing to happen for the right. Luckily the `Join` operator provides a `rightDurationSelector` that works just like the `leftDurationSelector`. This is simple to implement; all I need to do is return a reference to the same left sequence when a left value is produced, and do the same for the right. The code looks like this.
+
+```csharp
+public static IObservable<TResult> MyCombineLatest<TLeft, TRight, TResult>
+(
+    IObservable<TLeft> left,
+    IObservable<TRight> right,
+    Func<TLeft, TRight, TResult> resultSelector
+)
+{
+    var refcountedLeft = left.Publish().RefCount();
+    var refcountedRight = right.Publish().RefCount();
+
+    return Observable.Join(
+        refcountedLeft,
+        refcountedRight,
+        value => refcountedLeft,
+        value => refcountedRight,
+        resultSelector);
+}
+```
+
+While the code above is not production quality (it would need to have some gates in place to mitigate race conditions), it shows how powerful `Join` is; we can actually use it to create other operators!
+
+## GroupJoin							
+
+When the `Join` operator pairs up values that coincide within a window, it will pass the scalar values left and right to the `resultSelector`. The `GroupJoin` operator takes this one step further by passing the left (scalar) value immediately to the `resultSelector` with the right (sequence) value. The right parameter represents all of the values from the right sequences that occur within the window. Its signature is very similar to `Join`, but note the difference in the `resultSelector` parameter.
+
+```csharp
+public static IObservable<TResult> GroupJoin<TLeft, TRight, TLeftDuration, TRightDuration, TResult>
+(
+    this IObservable<TLeft> left,
+    IObservable<TRight> right,
+    Func<TLeft, IObservable<TLeftDuration>> leftDurationSelector,
+    Func<TRight, IObservable<TRightDuration>> rightDurationSelector,
+    Func<TLeft, IObservable<TRight>, TResult> resultSelector
+)
+```
+
+If we went back to our first `Join` example where we had
+
+* the `left` producing values twice as fast as the right,
+* the left never expiring
+* the right immediately expiring
+
+this is what the result may look like
+
+<div class="marble">
+<pre class="line">left              |-0-1-2-3-4-5|</pre>
+<pre class="line">right             |---A---B---C|</pre>
+<pre class="line">0th window values   --A---B---C|</pre>
+<pre class="line">1st window values     A---B---C|</pre>
+<pre class="line">2nd window values       --B---C|</pre>
+<pre class="line">3rd window values         B---C|</pre>
+<pre class="line">4th window values           --C|</pre>
+<pre class="line">5th window values             C|</pre>
+</div>
+
+We could switch it around and have the left expired immediately and the right never expire. The result would then look like this:
+
+<div class="marble">
+<pre class="line">left              |-0-1-2-3-4-5|</pre>
+<pre class="line">right             |---A---B---C|</pre>
+<pre class="line">0th window values   |</pre>
+<pre class="line">1st window values     A|</pre>
+<pre class="line">2nd window values       A|</pre>
+<pre class="line">3rd window values         AB|</pre>
+<pre class="line">4th window values           AB|</pre>
+<pre class="line">5th window values             ABC|</pre>
+</div>
+
+This starts to make things interesting. Perceptive readers may have noticed that with `GroupJoin` you could effectively re-create your own `Join` method by doing something like this:
+
+```csharp
+public IObservable<TResult> MyJoin<TLeft, TRight, TLeftDuration, TRightDuration, TResult>(
+    IObservable<TLeft> left,
+    IObservable<TRight> right,
+    Func<TLeft, IObservable<TLeftDuration>> leftDurationSelector,
+    Func<TRight, IObservable<TRightDuration>> rightDurationSelector,
+    Func<TLeft, TRight, TResult> resultSelector)
+{
+    return Observable.GroupJoin
+    (
+        left,
+        right,
+        leftDurationSelector,
+        rightDurationSelector,
+        (leftValue, rightValues)=> rightValues.Select(rightValue=>resultSelector(leftValue, rightValue))
+    )
+    .Merge();
+}
+```
+
+You could even create a crude version of `Window` with this code:
+
+```csharp
+public IObservable<IObservable<T>> MyWindow<T>(IObservable<T> source, TimeSpan windowPeriod)
+{
+    return Observable.Create<IObservable<T>>(o =>;
+    {
+        var sharedSource = source
+            .Publish()
+            .RefCount();
+
+        var intervals = Observable.Return(0L)
+            .Concat(Observable.Interval(windowPeriod))
+            .TakeUntil(sharedSource.TakeLast(1))
+            .Publish()
+            .RefCount();
+
+        return intervals.GroupJoin(
+                sharedSource, 
+                _ => intervals, 
+                _ => Observable.Empty<Unit>(), 
+                (left, sourceValues) => sourceValues)
+            .Subscribe(o);
+    });
+}
+```
+
+For an alternative summary of reducing operators to a primitive set see Bart DeSmet's [excellent MINLINQ post](http://blogs.bartdesmet.net/blogs/bart/archive/2010/01/01/the-essence-of-linq-minlinq.aspx "The essence of LINQ - MinLINQ") (and [follow-up video](http://channel9.msdn.com/Shows/Going+Deep/Bart-De-Smet-MinLINQ-The-Essence-of-LINQ "The essence of LINQ - MINLINQ - Channel9") ). Bart is one of the key members of the team that built Rx, so it is great to get some insight on how the creators of Rx think.
+
+Showcasing `GroupJoin` and the use of other operators turned out to be a fun academic exercise. While watching videos and reading books on Rx will increase your familiarity with it, nothing replaces the experience of actually picking it apart and using it in earnest.
+
+`GroupJoin` and other window operators reduce the need for low-level plumbing of state and concurrency. By exposing a high-level API, code that would be otherwise difficult to write, becomes a cinch to put together. For example, those in the finance industry could use `GroupJoin` to easily produce real-time Volume or Time Weighted Average Prices (VWAP/TWAP).
+
+Rx delivers yet another way to query data in motion by allowing you to interrogate sequences of coincidence. This enables you to solve the intrinsically complex problem of managing state and concurrency while performing matching from multiple sources. By encapsulating these low level operations, you are able to leverage Rx to design your software in an expressive and testable fashion. Using the Rx operators as building blocks, your code effectively becomes a composition of many simple operators. This allows the complexity of the domain code to be the focus, not the otherwise incidental supporting code.
+
 
 ### And-Then-When
 
