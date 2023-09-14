@@ -1,4 +1,4 @@
-# What's Wrong with Classic IO Streams
+# Appendix A: What's Wrong with Classic IO Streams
 
 In the [Key Types](02_KeyTypes.md#what-about-streams) chapter, I stated that `System.IO.Stream` is not a good fit for modelling the kinds of event streams we work with in Rx. This appendix explains why.
 
