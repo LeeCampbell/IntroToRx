@@ -321,11 +321,11 @@ Both of these apply both transforms, and flatten out the extra layers of contain
 
 #### Why these laws matter
 
-These three laws directly reflect laws that hold true for composition of straightforward functions over numbers. If we have two functions, _f_, and _g_, we could write a new function _h_, defined as _g(f(x))_. This way of combining function is called _composition_, and is often written as _g_ ∘ _f_. If the identity function is called _id_, then the following statements are true:
+These three laws directly reflect laws that hold true for composition of straightforward functions over numbers. If we have two functions, $f$, and $g$, we could write a new function _h_, defined as $g(f(x))$. This way of combining function is called _composition_, and is often written as $g \circ f$. If the identity function is called _id_, then the following statements are true:
 
-*  _id_ ∘ _f_ is equivalent to just _f_
-*  _f_ ∘ _id_ is equivalent to just _f_
-* (_f_ ∘ _g_) ∘ _s_ is equivalent to _f_ ∘ (_g_ ∘ _s_)
+*  $id \circ f$ is equivalent to just $f$
+*  $f \circ id$ is equivalent to just $f$
+* $(f \circ g) \circ s$ is equivalent to $f \circ (g \circ s)$
 
 These correspond directly to the three monad laws. Informally speaking, this reflects the fact that the monadic bind operation (`SelectMany`) has deep structurally similarity to function composition. This is why we can combine LINQ operators together freely.
 
