@@ -325,7 +325,7 @@ These three laws directly reflect laws that hold true for composition of straigh
 
 * $id \circ f$ is equivalent to just $f$
 * $f \circ id$ is equivalent to just $f$
-* $(f \circ g) \circ s$ is equivalent to $f \circ (g \circ _s_)
+* $(f \circ g) \circ s$ is equivalent to $f \circ (g \circ s)$
 
 These correspond directly to the three monad laws. Informally speaking, this reflects the fact that the monadic bind operation (`SelectMany`) has deep structurally similarity to function composition. This is why we can combine LINQ operators together freely.
 
