@@ -1,0 +1,9 @@
+PWD c:\_Projects\OSS\reactive-extensions\IntroToRx\templates
+INPUT C:\Users\HowardvanRooijen\AppData\Local\MiKTeX\miktex\data\le\pdftex\pdflatex.fmt
+INPUT c:\_Projects\OSS\reactive-extensions\IntroToRx\templates\eisvogel.tex
+OUTPUT eisvogel.log
+INPUT C:\Users\HowardvanRooijen\AppData\Local\Programs\MiKTeX\tex\latex\hyperref\hyperref.sty
+INPUT C:\Users\HowardvanRooijen\AppData\Local\Programs\MiKTeX\tex\latex\url\url.sty
+INPUT C:\Users\HowardvanRooijen\AppData\Local\Programs\MiKTeX\tex\latex\xcolor\xcolor.sty
+INPUT C:\Users\HowardvanRooijen\AppData\Local\Programs\MiKTeX\tex\xelatex\bidi\bidi.sty
+INPUT C:\Users\HowardvanRooijen\AppData\Local\Programs\MiKTeX\tex\xelatex\xecjk\xeCJK.sty
