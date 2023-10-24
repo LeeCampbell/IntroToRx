@@ -8,7 +8,7 @@ Rx is a .NET library for processing event streams. Why might you want that?
 
 ## Why Rx?
 
-Users want timely information. If you're expecting a parcel, live reports of the delivery van's progress give you more freedom than a suspect 2 hour delivery window. Financial applications depend on continuous streams of up-to-date data. We expect our phones and computers to provide us with all sorts of important notifications. And some applications simply can't work without live information—online collaboration tools and multiplayer games absolutely depend on the rapid distribution and delivery of data.
+Users want timely information. If you're waiting for a parcel to arrive, live reports of the delivery van's progress give you more freedom than a suspect 2 hour delivery window. Financial applications depend on continuous streams of up-to-date data. We expect our phones and computers to provide us with all sorts of important notifications. And some applications simply can't work without live information—online collaboration tools and multiplayer games absolutely depend on the rapid distribution and delivery of data.
 
 In short, our systems need to react when interesting things happen.
 
@@ -20,7 +20,7 @@ The [Reactive Extensions for .NET](https://github.com/dotnet/reactive) (Rx.NET o
 
 (A brief grammatical aside: although the phrase "Reactive Extensions" is plural, when we reduce it to just Rx.NET or Rx, we treat it as a singular noun. This is inconsistent, but saying "Rx are..." sounds plain weird.)
 
-For example, C# has integrated query features that we might use to find all of the entries in a list that meet some criteria. If we have some `List<Trade> trades` variable, we might write this:
+For example, C# offers integrated query features that we might use to find all of the entries in a list that meet some criteria. If we have some `List<Trade> trades` variable, we might write this:
 
 ```cs
 var bigTrades =
@@ -28,11 +28,11 @@ var bigTrades =
     where trade.Volume > 1_000_000;
 ```
 
-With Rx, we could use this exact same code with live data. Instead of being a `List<Trade>`, the `trades` variable could be an `IObservable<Trade>`. (`IObservable<T>` is the fundamental abstraction in Rx. It is essentially a live version of `IEnumerable<T>`.) In this case, `bigTrades` would also be an `IObservable<Trade>`, a live data source able to notify us of all trades whose `Volume` exceeds one million. Crucially, it will report each such trade immediately—this is what we mean by a 'live' data source.
+With Rx, we could use this exact same code with live data. Instead of being a `List<Trade>`, the `trades` variable could be an `IObservable<Trade>`. `IObservable<T>` is the fundamental abstraction in Rx. It is essentially a live version of `IEnumerable<T>`. In this case, `bigTrades` would also be an `IObservable<Trade>`, a live data source able to notify us of all trades whose `Volume` exceeds one million. Crucially, it can report each such trade immediately—this is what we mean by a 'live' data source.
 
-Rx is a powerfully productive development tool. It enables developers to work with live event streams using language features familiar to all .NET developers. It enables an elegant, declarative approach that often allows us to express complex behaviour more elegantly and with less code than would be possible without Rx.
+Rx is a powerfully productive development tool. It enables developers to work with live event streams using language features familiar to all .NET developers. It enables a declarative approach that often allows us to express complex behaviour more elegantly and with less code than would be possible without Rx.
 
-Rx builds on LINQ (Language Integrated Query). This enables us to use the query syntax shown above (or you can use the explicit function call approach that some .NET developers prefer). LINQ is widely used in .NET both for data access (e.g., in Entity Framework Core), but also for working with in-memory collections (with LINQ to Objects), meaning that experienced .NET developers will tend to feel at home with Rx. Crucially, LINQ is a highly composable design: you can connect operators together in any combination you like, expressing potentially complex processing in a straightforward way.
+Rx builds on LINQ (Language Integrated Query). This enables us to use the query syntax shown above (or you can use the explicit function call approach that some .NET developers prefer). LINQ is widely used in .NET both for data access (e.g., in Entity Framework Core), but also for working with in-memory collections (with LINQ to Objects), meaning that experienced .NET developers will tend to feel at home with Rx. Crucially, LINQ is a highly composable design: you can connect operators together in any combination you like, expressing potentially complex processing in a straightforward way. This composability arises from the mathematical foundations of its design, but although you can learn about this aspect of LINQ if you want, it's not a prerequisite: developers who aren't interested in the mathematics behind it can just enjoy the fact that LINQ providers such as Rx provide a set of building blocks that can be plugged together in endless different ways, and it all just works.
 
 ## When is Rx appropriate?
 
@@ -55,7 +55,7 @@ Rx is also good way to model domain events—these may occur as a result of some
 - Property or state changes on domain objects such as "Order Status Updated", or "Registration Accepted"
 - Changes to collections of domain objects, such as "New Registration Created"
 
-Events might also represent insights derived from incoming events and historical data such as:
+Events might also represent insights derived from incoming events (or historical data being analyzed at a later date) such as:
 
 - A broadband customer might have become an unwitting participant in a DDoS attack
 - [CNC](https://en.wikipedia.org/wiki/Numerical_control) [Milling Machine](https://en.wikipedia.org/wiki/Milling_(machining)) MFZH12's number 4 axis bearing is exhibiting signs of wear at a significantly higher rate than the nominal profile
@@ -92,7 +92,7 @@ By choosing the best tool for the job your code should be easier to maintain, it
 
 ## Rx in action
 
-You can get up and running with a simple Rx example very quickly. If you have the .NET SDK installed. Run the following at a command line:
+You can get up and running with a simple Rx example very quickly. If you have the .NET SDK installed, you can run the following at a command line:
 
 ```ps1
 mkdir TryRx
@@ -118,4 +118,4 @@ ticks.Subscribe(
 Console.ReadLine();
 ```
 
-If this doesn't seem very exciting, it's because it's about as basic an example as it's possible to create, and at its heart, Rx has a very simple programming model. The power comes from composition—we can use the building blocks in the `System.Reactive` library to describe the processing that will takes us from raw, low-level events to high-value insights. But to do that, we must first understand [Rx's key types, `IObservable<T>` and `IObserver<T>`](01_WhyRx.md).
+If this doesn't seem very exciting, it's because it's about as basic an example as it's possible to create, and at its heart, Rx has a very simple programming model. The power comes from composition—we can use the building blocks in the `System.Reactive` library to describe the processing that will takes us from raw, low-level events to high-value insights. But to do that, we must first understand [Rx's key types, `IObservable<T>` and `IObserver<T>`](02_KeyTypes.md).
