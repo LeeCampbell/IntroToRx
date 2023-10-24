@@ -14,7 +14,7 @@ var bigTrades =
     where trade.Volume > 1_000_000;
 ```
 
-Most .NET developers will be familiar with [LINQ](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/basic-linq-query-operations) in at least one of its many popular forms such as [LINQ to Objects](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/linq-to-objects), or [Entity Framework Core queries](https://learn.microsoft.com/en-us/ef/core/querying/). Most LINQ implementations allow you to query _data at rest_—LINQ to Objects works on arrays or other collections; LINQ queries in Entity Framework Core run against data in a database. But Rx is different: it offers the ability to define queries over live event streams—what you might call _data in motion_.
+Most .NET developers will be familiar with [LINQ](https://learn.microsoft.com/en-us/dotnet/csharp/linq/) in at least one of its many popular forms such as [LINQ to Objects](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/linq-to-objects), or [Entity Framework Core queries](https://learn.microsoft.com/en-us/ef/core/querying/). Most LINQ implementations allow you to query _data at rest_—LINQ to Objects works on arrays or other collections; LINQ queries in Entity Framework Core run against data in a database. But Rx is different: it offers the ability to define queries over live event streams—what you might call _data in motion_.
 
 If you don't like the query expression syntax, you can write exactly equivalent code by invoking LINQ operators directly:
 
@@ -32,16 +32,14 @@ But let's make it clear what the code means by being explicit about the type:
 IObservable<Trade> bigTrades = trades.Where(trade => trade.Volume > 1_000_000);
 ```
 
-This removes all ambiguity. It is now clear that we're not dealing with data at rest. We're working with an `IObservable<Trade>`. But what exactly is that?
+This removes the ambiguity. It is now clear that we're not dealing with data at rest. We're working with an `IObservable<Trade>`. But what exactly is that?
 
 
 ## IObservable<T>
     
-The [`IObservable<T>` interface](https://learn.microsoft.com/en-us/dotnet/api/system.iobservable-1 "IObservable<T> interface - Microsoft Learn") represents Rx's fundamental abstraction: a sequence of values of some type `T`. In a very abstract sense, this means it represents the same thing as `IEnumerable<T>`. The difference is in how code consumes those values. Whereas `IEnumerable<T>` enables code to retrieve values (typically with a `foreach` loop), an `IObservable<T>` provides values when they become available. This distinction is sometimes characterised as _push_ vs _pull_. We can _pull_ values out of an `IEnumerable<T>` by executing a `foreach` loop, but and `IObservable<T>` will _push_ values into our code.
+The [`IObservable<T>` interface](https://learn.microsoft.com/en-us/dotnet/api/system.iobservable-1 "IObservable<T> interface - Microsoft Learn") represents Rx's fundamental abstraction: a sequence of values of some type `T`. In a very abstract sense, this means it represents the same thing as [`IEnumerable<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1). The difference is in how code consumes those values. Whereas `IEnumerable<T>` enables code to retrieve values (typically with a `foreach` loop), an `IObservable<T>` provides values when they become available. This distinction is sometimes characterised as _push_ vs _pull_. We can _pull_ values out of an `IEnumerable<T>` by executing a `foreach` loop, but an `IObservable<T>` will _push_ values into our code.
 
-How can an `IObservable<T>` push its values into our code? If we want these values, our code must _subscribe_ to the `IObservable<T>`, which means providing it with some methods it can invoke.
-
-In fact, subscription is the only operation an `IObservable<T>` directly supports. Here's the entire definition of the interface:
+How can an `IObservable<T>` push its values into our code? If we want these values, our code must _subscribe_ to the `IObservable<T>`, which means providing it with some methods it can invoke. In fact, subscription is the only operation an `IObservable<T>` directly supports. Here's the entire definition of the interface:
 
 ```cs
 public interface IObservable<out T>
@@ -68,35 +66,35 @@ That's passing a delegate, and not the `IObserver<T>` that `IObservable<T>.Subsc
 public static IDisposable Subscribe<T>(this IObservable<T> source, Action<T> onNext)
 ```
 
-This is a helper method that wraps a delegate in an implementation of `IObserver<T>` and then passes that to `IObservable<T>.Subscribe`. The effect is that we can write just a simple method (instead of a complete implementation of `IObserver<T>`) and the observable source will invoke our callback each time it wants to supply a value.
+This is a helper method that wraps a delegate in an implementation of `IObserver<T>` and then passes that to `IObservable<T>.Subscribe`. The effect is that we can write just a simple method (instead of a complete implementation of `IObserver<T>`) and the observable source will invoke our callback each time it wants to supply a value. It's more common to use this kind of helper than to implement Rx's interfaces ourselves.
 
 ### Hot and Cold Sources
 
 Since an `IObservable<T>` cannot supply us with values until we subscribe, the time at which we subscribe can be important. Imagine an `IObservable<Trade>` describing trades occurring in some market. If the information it supplies is live, it's not going to tell you about any trades that occurred before you subscribed. In Rx, sources of this kind are described as being _hot_.
 
-Not all sources are _hot_. There's nothing stopping an `IObservable<T>` always supplying the exact same sequence of events to any subscriber no matter when the call to `Subscribe` occurs. (Imagine an `IObservable<Trade>` which, instead of reporting live information, generates notifications based on recorded historical trade data.) Sources where it doesn't matter at all when you subscribe are known as _cold_ source.
+Not all sources are _hot_. There's nothing stopping an `IObservable<T>` always supplying the exact same sequence of events to any subscriber no matter when the call to `Subscribe` occurs. (Imagine an `IObservable<Trade>` which, instead of reporting live information, generates notifications based on recorded historical trade data.) Sources where it doesn't matter at all when you subscribe are known as _cold_ sources.
 
 Here are some sources that might be represented as hot observables:
 
 * Measurements from a sensor
 * Price ticks from a trading exchange
-* An event source that distributes events immediatly such as Azure Event Grid
-* mouse movements 
-* timer events 
-* broadcasts like ESB channels or UDP network packets. 
+* An event source that distributes events immediately such as Azure Event Grid
+* mouse movements
+* timer events
+* broadcasts like ESB channels or UDP network packets
 
-And some examples of cold observables:
+And some examples of some sources that might make good cold observables:
 
-* An observable representing the contents of a collection (such as is returned by the [`ToObservable` extension method for `IEnumerable<T>`](03_CreatingObservableSequences.md#from-ienumerablet))
-* An observable producing a fixed range of values, such as [`Observable.Range`](03_CreatingObservableSequences.md#observablerange) produces
-* An observable that generates events based on an algorithm, such as [`Observable.Generate`](03_CreatingObservableSequences.md#observablegenerate) produces
-* An observable representing a factory for an asynchronous operation, as [`FromAsync`](03_CreatingObservableSequences.md#from-task) returns
-* An observable of the kind typically created using [`Observable.Create`](03_CreatingObservableSequences.md#observablecreate)
-* An observable representing items from a streaming event provides such as Azure Event Hub or Kafka (or any other streaming-style source which holds onto events from the past to be able to deliver events from a particular moment in the stream; so _not_ an events source in the Azure Event Grid style)
+* the contents of a collection (such as is returned by the [`ToObservable` extension method for `IEnumerable<T>`](03_CreatingObservableSequences.md#from-ienumerablet))
+* a fixed range of values, such as [`Observable.Range`](03_CreatingObservableSequences.md#observablerange) produces
+* events generated based on an algorithm, such as [`Observable.Generate`](03_CreatingObservableSequences.md#observablegenerate) produces
+* a factory for an asynchronous operation, such as [`FromAsync`](03_CreatingObservableSequences.md#from-task) returns
+* events produced by running conventional code such as a loop; you can create such sources with [`Observable.Create`](03_CreatingObservableSequences.md#observablecreate)
+* a streaming event provides such as Azure Event Hub or Kafka (or any other streaming-style source which holds onto events from the past to be able to deliver events from a particular moment in the stream; so _not_ an event source in the Azure Event Grid style)
 
-Not all sources are strictly completely _hot_ or _cold_. For example, you could imagine a slight variation on a live `IObservable<Trade>` where the source always reports the most recent trade to new subscribers. Subscribers can count on immediately receiving something, and will then be kept up to date as new information arrives. The fact that new subscribers will always receive (potentially quite old) information is a _cold_-like characteristic, but it's only that first event that is _cold_—it's still likely that a brand new subscriber will have missed lots of information that would have been available to earlier subscribers, making this source more _hot_ than _cold_.
+Not all sources are strictly completely _hot_ or _cold_.  For example, you could imagine a slight variation on a live `IObservable<Trade>` where the source always reports the most recent trade to new subscribers. Subscribers can count on immediately receiving something, and will then be kept up to date as new information arrives. The fact that new subscribers will always receive (potentially quite old) information is a _cold_-like characteristic, but it's only that first event that is _cold_—it's still likely that a brand new subscriber will have missed lots of information that would have been available to earlier subscribers, making this source more _hot_ than _cold_.
 
-There's an interesting special case in which a source of events has been designed to enable applications to receive every single event in order, exactly once. Event streaming systems such as Kafka or Azure Event Hub have this characteristic—they retain events for a while, to ensure that consumers don't miss out even if they fall behind from time to time. The standard input (_stdin_) for a process also has this characteristic: if you run a command line tool and start typing input before it is ready to process it, the operating system will hold that input in a buffer, to ensure that nothing is lost. Windows does something similar for desktop applications—each application thread gets a message queue so that if you click or type when it's not able to respond, the input will eventually be processed. We might think of these sources as _cold_-then-_host_. They're like _cold_ sources in that we won't miss anything just because it took us some time to start receiving events, but once we start retrieving the data, then we can't generally rewind back to the start. So once we're up and running they are more like _hot_ events.
+There's an interesting special case in which a source of events has been designed to enable applications to receive every single event in order, exactly once. Event streaming systems such as Kafka or Azure Event Hub have this characteristic—they retain events for a while, to ensure that consumers don't miss out even if they fall behind from time to time. The standard input (_stdin_) for a process also has this characteristic: if you run a command line tool and start typing input before it is ready to process it, the operating system will hold that input in a buffer, to ensure that nothing is lost. Windows does something similar for desktop applications—each application thread gets a message queue so that if you click or type when it's not able to respond, the input will eventually be processed. We might think of these sources as _cold_-then-_hot_. They're like _cold_ sources in that we won't miss anything just because it took us some time to start receiving events, but once we start retrieving the data, then we can't generally rewind back to the start. So once we're up and running they are more like _hot_ events.
 
 This kind of _cold_-then-_hot_ source can present a problem if we want to attach multiple subscribers. If the source starts providing events as soon as subscription occurs, then that's fine for the very first subscriber: it will receive any events that were backed up waiting for us to start. But if we wanted to attach multiple subscribers, we've got a problem: that first subscriber might receive all the notifications that were sitting waiting in some buffer before we manage to attach the second subscriber. The second subscriber will miss out.
 
@@ -118,9 +116,9 @@ Since `IObservable<T>` defines just one method, `Subscribe`, you might be wonder
 
 So far I've shown only a very simple LINQ example, using the `Where` operator to filter events down to ones that meet certain criteria. To give you a flavour of how we can build more advanced functionality through composition, I'm going to introduce an example scenario.
 
-Suppose you want to write a program that watches some folder on a filesystem, and performs automatic processing any time something in that folder changes. For example, web developers often want to trigger automatic rebuilds of their client side code when they save changes in the editor so they can quickly see the effect of their changes. Often in these cases, filesystem changes often come in bursts—text editors might perform a few distinct operations when saving a file. (Some save modifications to a new file, then perform a couple of renames once this is complete, because this avoids data loss if a power failure or system crash happens to occur at the moment you save the file.) So you typically won't want to take action as soon as you detect file activity. It would be better to give it a moment to see if any more activity occurs, and take action only after everything has settled down.
+Suppose you want to write a program that watches some folder on a filesystem, and performs automatic processing any time something in that folder changes. For example, web developers often want to trigger automatic rebuilds of their client side code when they save changes in the editor so they can quickly see the effect of their changes. Filesystem changes often come in bursts—text editors might perform a few distinct operations when saving a file. (Some save modifications to a new file, then perform a couple of renames once this is complete, because this avoids data loss if a power failure or system crash happens to occur at the moment you save the file.) So you typically won't want to take action as soon as you detect file activity. It would be better to give it a moment to see if any more activity occurs, and take action only after everything has settled down.
 
-So we should not react directly to filesystem activity. We want take action at those moments when everything goes quiet after a flurry of activity. The following code defines an Rx operator that detects and reports such things. If you're new to Rx (which seems likely if you're reading this) it probably won't be instantly obvious how this works, so I'll walk through it.
+So we should not react directly to filesystem activity. We want take action at those moments when everything goes quiet after a flurry of activity. The following code defines an Rx operator that detects and reports such things. If you're new to Rx (which seems likely if you're reading this) it probably won't be instantly obvious how this works. This is a significant step up in complexity from the examples I've shown so far because this came from a real application. But I'll walk through it step by step, so all will become clear.
 
 ```cs
 static class RxExt
@@ -143,29 +141,62 @@ static class RxExt
 
 The first thing to say about this is that we are effectively defining a custom LINQ-style operator: this is an extension method which, like all of the LINQ operators Rx supplies, takes an `IObservable<T>` as its implicit argument, and produces another observable source as its result. The return type is slightly different: it's `IObservable<IList<T>>`. That's because once we return to a state of inactivity, we will want to process everything that just happened, so this operator will produce a list containing every value that the source reported in its most recent flurry of activity.
 
-When we want to show how an Rx operator behaves, we typically draw a 'marble' diagram. This is a diagram showing one or more `IObservable<T>` event sources, with each one being illustrated by a horizontal line. Each event that a source produces is illustrated by a circle (or 'marble') on that line, with the horizontal position representing timing. Typically, the line has a vertical bar on its left indicating the instant at which the source comes into existence, unless it happens to produce events from the very instant it is created, in which case it will start with a marble. If the line has an arrowhead on the right, that indicates that the observable's lifetime extends beyond the diagram. Here's a diagram showing how the `Quiescent` operator above response to a particular input:
+When we want to show how an Rx operator behaves, we typically draw a 'marble' diagram. This is a diagram showing one or more `IObservable<T>` event sources, with each one being illustrated by a horizontal line. Each event that a source produces is illustrated by a circle (or 'marble') on that line, with the horizontal position representing timing. Typically, the line has a vertical bar on its left indicating the instant at which the application subscribed to the source, unless it happens to produce events immediately, in which case it will start with a marble. If the line has an arrowhead on the right, that indicates that the observable's lifetime extends beyond the diagram. Here's a diagram showing how the `Quiescent` operator above response to a particular input:
 
 <figure>
     <img src="GraphicsIntro/Ch02-Quiescent-Marbles-Input-And-Output.svg"
-         alt="An Rx marble diagram illustrating two observables. The first is labelled 'source', and it shows six events, labelled numerically. These fall into three groups: events 1 and 2 occur close together, and are followed by a gap. Then events 3, 4, and 5 are close together. And then after another gap event 6 occurs, not close to any. The second observable is labelled 'source.Quiescent(TimeSpan.FromSeconds(2), Scheduler.Default). It shows three events. The first is labelled '[1, 2], and its horizontal position shows that it occurs a little bit after the '2' event on the 'source' observable. The second event on the second observable is labelled '[3,4,5]' and occurs a bit after the '5' event on the 'source' observable. The third event from on the second observable is labelled '[6]', and occurs a bit after the '6' event on the 'source' observable. The image conveys the idea that each time the source produces some events and then stops, the second observable will produce an event shortly after the source stops, which will contain a list with all of the events from the source's most recent burst of activity.">
+         alt="An Rx marble diagram illustrating two observables. The first is labelled 'source', and it shows six events, labelled numerically. These fall into three groups: events 1 and 2 occur close together, and are followed by a gap. Then events 3, 4, and 5 are close together. And then after another gap event 6 occurs, not close to any. The second observable is labelled 'source.Quiescent(TimeSpan.FromSeconds(2), Scheduler.Default). It shows three events. The first is labelled '[1, 2], and its horizontal position shows that it occurs a little bit after the '2' event on the 'source' observable. The second event on the second observable is labelled '[3,4,5]' and occurs a bit after the '5' event on the 'source' observable. The third event from on the second observable is labelled '[6]', and occurs a bit after the '6' event on the 'source' observable. The image conveys the idea that each time the source produces some events and then stops, the second observable will produce an event shortly after the source stops, which will contain a list with all of the events from the source's most recent burst of activity."/>
     <figcaption>An Rx marble diagram illustrating two observables.</figcaption>
 </figure>
 
-This shows that the source produced a couple of events (the values `1` and `2`, in this example), and then stopped for a bit. A little while after it stopped, the observable returned by the `Quiescent` operator produced a single event with a list containing both of those events (`[1,2]`). Then the source started up again, producing the values `3`, `4`, and `5` in fairly quick succession, and then going quiet for a bit. Again, once the quiet spell had gone on for long enough, the source returned by `Quiescent` produced a single event containing all of the source events from this second burst of activity (`[3,4,5]`). And then the final bit of source activity shown in this diagram consists of a single event, `6`, followed by more inactivity, and again, once the inactivity has gone on for long enough the `Quiescent` source produces a single event to report this. And since that last 'burst' of activity from the source contained only a single event, the list reported by this final output from the `Quiescent` observable is a list with a single value: `[6]`.
+This shows that the source (the top line) produced a couple of events (the values `1` and `2`, in this example), and then stopped for a bit. A little while after it stopped, the observable returned by the `Quiescent` operator (the lower line) produced a single event with a list containing both of those events (`[1,2]`). Then the source started up again, producing the values `3`, `4`, and `5` in fairly quick succession, and then going quiet for a bit. Again, once the quiet spell had gone on for long enough, the source returned by `Quiescent` produced a single event containing all of the source events from this second burst of activity (`[3,4,5]`). And then the final bit of source activity shown in this diagram consists of a single event, `6`, followed by more inactivity, and again, once the inactivity has gone on for long enough the `Quiescent` source produces a single event to report this. And since that last 'burst' of activity from the source contained only a single event, the list reported by this final output from the `Quiescent` observable is a list with a single value: `[6]`.
 
 So how does the code shown achieve this? The first thing to notice about the `Quiescent` method is that it's just using other Rx LINQ operators (the `Return`, `Scan`, `Where`, and `Buffer` operators are explicitly visible, and the query expression will be using the `SelectMany` operator, because that's what C# query expressions do when they contain two `from` clauses in a row) in a combination that produces the final `IObservable<IList<T>>` output.
 
 This is Rx's _compositional_ approach, and it is how we normally use Rx. We use a mixture of operators, combined (_composed_) in a way that produces the effect we want.
 
-But how is this producing the effect we want? There are a few ways we could get the behaviour that we're looking for from a `Quiescent` operator, but the basic idea of this particular implementation is that it keeps count of how many events have happened recently, and then produces a result every time that number drops back to zero. The `oustanding` variable refers to the `IObservable<int>` that tracks the number of recent events, and this marble diagram shows what it produces in response to the same `source` events as were shown on the preceding diagram:
+But how does this particular combination produce the effect we want? There are a few ways we could get the behaviour that we're looking for from a `Quiescent` operator, but the basic idea of this particular implementation is that it keeps count of how many events have happened recently, and then produces a result every time that number drops back to zero. The `oustanding` variable refers to the `IObservable<int>` that tracks the number of recent events, and this marble diagram shows what it produces in response to the same `source` events as were shown on the preceding diagram:
 
-![](GraphicsIntro/Ch02-Quiescent-Marbles-Outstanding.svg)
+<figure>
+    <img src="GraphicsIntro/Ch02-Quiescent-Marbles-Outstanding.svg"
+         alt="An Rx marble diagram illustrating two observables. The first is labelled 'source',
+         and it shows the same six events as the preceding figure, labelled numerically, but this
+         time also color-coded so that each event has a different color. As before, these events
+         fall into three groups: events 1 and 2 occur close together, and are followed by a gap.
+         Then events 3, 4, and 5 are close together. And then after another gap event 6 occurs,
+         not close to any. The second observable is labelled 'outstanding' and for each of the
+         events on the 'source' observable, it shows two events. Each such pair has the same
+         color as on the 'source' line; the coloring is just to make it easier to see
+         how events on this line are associated with events on the 'source' line. The first of
+         each pair appears directly below its corresponding event on the 'source' line, and
+         has a number that is always one higher than its immediate precedecessor; the very first
+         item shows a number of 1. The first item from the second pair is the next to appear on
+         this line, and therefore has a number of 2. But then the second item from the first
+         pair appears, and this lowers the number back to 1, and it's followed by the second
+         item from the second pair, which shows 0. Since the second batch of events on the
+         first line appear fairly close together, we see values of 1, 2, 1, 2, 1, and then 0
+         for these. The final event on the first line, labelled 6, has a corresponding pair
+         on the second line reporting values of 1 and then 0. The overall effect is that
+         each value on the second, 'outstanding' line tells us how many items have emerged
+         from the 'source' line in the last 2 seconds."/>
+    <figcaption>How the Quiescent operator counts the number of outstanding events.</figcaption>
+</figure>
 
-I've colour coded the events this time so that I can show the relationship between `source` events and corresponding events produced by `outstanding`. Each time `source` produces an event, `oustanding` produces an event at the same time, in which the value is one higher than the preceding value produced by `outstanding`. But each such `source` event also causes `outstanding` to produce a second event two seconds later. (It's two seconds because in these examples, I've presumed that the first argument to `Quiescent` is `TimeSpan.FromSeconds(2)`, as shown on the first marble diagram.) That second event always produces a value that is one lower than whatever the preceding value was.
+I've colour coded the events this time so that I can show the relationship between `source` events and corresponding events produced by `outstanding`. Each time `source` produces an event, `outstanding` produces an event at the same time, in which the value is one higher than the preceding value produced by `outstanding`. But each such `source` event also causes `outstanding` to produce another event two seconds later. (It's two seconds because in these examples, I've presumed that the first argument to `Quiescent` is `TimeSpan.FromSeconds(2)`, as shown on the first marble diagram.) That second event always produces a value that is one lower than whatever the preceding value was.
 
 This means that each event to emerge from `outstanding` tells us how many events `source` produced within the last two seconds. This diagram shows that same information in a slightly different form—it shows the most recent value produced by `outstanding` as a graph. You can see the value goes up by one each time `source` produces a new value. And two seconds after each value produced by `source`, it drops back down by one.
 
-![](GraphicsIntro/Ch02-Quiescent-Marbles-Outstanding-Value.svg)
+<figure>
+    <img src="GraphicsIntro/Ch02-Quiescent-Marbles-Outstanding-Value.svg"
+         alt="An Rx marble diagram illustrating the 'source' observables, and the second
+         observable from the preceding diagram this time illustrated as a bar graph showing
+         the latest value. This makes it easier to see that the 'outstanding' value goes up
+         each time a new value emerges from 'source', and then goes down again two seconds
+         later, and that when values emerge close together this running total goes higher.
+         It also makes it clear that the value drops to zero between the 'bursts' of
+         activity." />
+    <figcaption>The number of outstanding events as a graph.</figcaption>
+</figure>
 
 In simple cases like the final event `6`, in which it's the only event that happens at around that time, the `outstanding` value goes up by one when the event happens, and drops down again two seconds later. Over on the left of the picture it's a little more complex: we get two events in fairly quick succession, so the `outstanding` value goes up to one and then up to two, before falling back down to one and then down to zero again. The middle section looks a little more messy—the count goes up by one when the `source` produces event `3`, and then up to two when event `4` comes in. It then drops down to one again once two seconds have passed since the `3` event, but then another event, `5`, comes in taking the total back up to two. Shortly after that it drops back to one again because it has now been two seconds since the `4` event happened. And then a bit later, two seconds after the `5` event it drops back to zero again.
 
@@ -183,7 +214,20 @@ I said Rx is all about composition, and that's certainly the case here. We are u
 
 Although this produces a brand new `IObservable<int>` for each `source` event, the `from` clause shown above is part of a query expression of the form `from ... from .. select`, which the C# compiler turns into a call to `SelectMany`, which has the effect of flattening those all back into a single observable, which is what the `onoffs` variable refers to. This marble diagram illustrates that:
 
-![](GraphicsIntro/Ch02-Quiescent-Marbles-On-Offs.svg)
+<figure>
+    <img src="GraphicsIntro/Ch02-Quiescent-Marbles-On-Offs.svg"
+         alt="Several Rx marble diagrams, starting with the 'source' observable from earlier figures,
+         followed by one labelled with the LINQ query expression in the preceding example,
+         which shows 6 separate marble diagrams, one for each of the elements produced by
+         'source'. Each consists of two events: one with value 1, positioned directly beneath
+         the corresponding event on 'source' to indicate that they happen simultaneously, and
+         then one with the value -1 two seconds later. Beneath this is a marble diagram labelled
+         'onoffs' which contains all the same events from the preceding 6 diagrams, but merged
+         into a single sequence. These are all colour coded ot make it easier to see how these
+         events correspond to the original events on 'source'. Finally, we have the 'outstanding'
+         marble diagram which is exactly the same as in the preceding figure." />
+    <figcaption>The number of outstanding events as a graph.</figcaption>
+</figure>
 
 This also shows the `outstanding` observable again, but we can now see where that comes from: it is just the running total of the values emitted by the `onoffs` observable. This running total observable is created with this code:
 
@@ -191,7 +235,7 @@ This also shows the `outstanding` observable again, but we can now see where tha
 IObservable<int> outstanding = onoffs.Scan(0, (total, delta) => total + delta);
 ```
 
-Rx's `Scan` operator works much like the standard LINQ [`Aggregate`](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/aggregation-operations) operator, in that it cumulatively applies an operation (adding, in this case) to every single item in a sequence. The different is that whereas `Aggregate` produces just the final result once it reaches the end of the sequence, `Scan` shows all of its working, producing the accumulated value so far after each input. So this means that `outstanding` will produce an event every time `onoffs` produces one, and that event's value will be the running total—the sum total of every value from `onoffs` so far.
+Rx's `Scan` operator works much like the standard LINQ [`Aggregate`](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/aggregation-operations) operator, in that it cumulatively applies an operation (addition, in this case) to every single item in a sequence. The different is that whereas `Aggregate` produces just the final result once it reaches the end of the sequence, `Scan` shows all of its working, producing the accumulated value so far after each input. So this means that `outstanding` will produce an event every time `onoffs` produces one, and that event's value will be the running total—the sum total of every value from `onoffs` so far.
 
 So that's how `outstanding` comes to tell us how many events `source` produced within the last two seconds (or whatever `minimumActivityPeriod` has been specified).
 
@@ -199,7 +243,7 @@ The final piece of the puzzle is how we go from the `zeroCrossings` (which produ
 
 (One last detail, just in case you saw it and were wondering, is that this method requires an `IScheduler`. This is an Rx abstraction for dealing with timing and concurrency. We need it because we need to be able to generate events after a one second delay, and that sort of time-driven activity requires a scheduler.)
 
-We'll get into all of these operators, and the workings of schedulers, in more detail in later chapters. For now, the key point is that we typically use Rx by creating a combination of LINQ operators that process and combine `IObservable<T>` sources to define the logic that we require.
+We'll get into all of these operators and the workings of schedulers in more detail in later chapters. For now, the key point is that we typically use Rx by creating a combination of LINQ operators that process and combine `IObservable<T>` sources to define the logic that we require.
 
 Notice that nothing in that example actually called the one and only method that `IObservable<T>` defines (`Subscribe`). There will always be something somewhere that ultimately consumes the events, but most of the work of using Rx tends to entail declaratively defining the `IObservable<T>`s we need.
 
@@ -239,7 +283,7 @@ Now that we've seen why `IObservable<T>` needs to exist, we need to look at its 
 
 ## IObserver<T>
 
-Earlier, I showed the definition of `IObservable<T>`. As you saw, it has just one method, `Subscribe`. And this method takes just one argument, of type [`IObserver<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.iobserver-1). So if you want to observe the events that an `IObservable<T>` has to offer, you must supply it with an `IObserver<T>`. In the examples so far, we've just supplied a simple callback, and Rx has wrapped that in an implementation of `IObserver<T>` for us, but to use Rx effectively you need to understand `IObserver<T>`. It is not a complex interface:
+Earlier, I showed the definition of `IObservable<T>`. As you saw, it has just one method, `Subscribe`. And this method takes just one argument, of type [`IObserver<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.iobserver-1). So if you want to observe the events that an `IObservable<T>` has to offer, you must supply it with an `IObserver<T>`. In the examples so far, we've just supplied a simple callback, and Rx has wrapped that in an implementation of `IObserver<T>` for us, but even though this is very often the way we will receive notifications in practice, you still need to understand `IObserver<T>` to use Rx effectively. It is not a complex interface:
 
 ```cs
 public interface IObserver<in T>
@@ -298,7 +342,7 @@ To see what that means, think about what happens when you iterate over an `IEnum
 * `MoveNext` could throw an exception
 * `MoveNext` could return `false` to indicate that you've reached the end of the collection
 
-These three outcomes correspond precisely to the three method defined by `IObserver<T>`. We could describe these in slightly more abstract terms:
+These three outcomes correspond precisely to the three methods defined by `IObserver<T>`. We could describe these in slightly more abstract terms:
 
 * Here's another item
 * It has all gone wrong
@@ -334,7 +378,7 @@ public static void WrongOnErrorAndOnCompleted(IObserver<int> obs)
     obs.OnNext(1);
     obs.OnError(new ArgumentException("A connected series of statements was not supplied"));
 
-    // This next call is against the rule because we reported an error, and you're not
+    // This next call is against the rules because we reported an error, and you're not
     // allowed to make any further calls after you did that.
     obs.OnCompleted();
 }
@@ -353,9 +397,9 @@ public static void WrongOnCompletedAndOnError(IObserver<int> obs)
 These correspond in a pretty straightforward way to things we already know about `IEnumerable<T>`:
 
 * `WrongOnError`: if an enumerator throws from `MoveNext`, it's done and you mustn't call `MoveNext` again, so you won't be getting any more items out of it
-* `WrongOnCompleted`: If an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again, so you won't be getting any more items out of it
-* `WrongOnErrorAndOnCompleted` If an enumerator throws from `MoveNext`, that means its done, it's done and you mustn't call `MoveNext` again, meaning it won't have any opportunity to tell that it's done by returning `false` from `MoveNext`
-* `WrongOnCompletedAndOnError` If an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again,  meaning it won't have any opportunity to also throw an exception
+* `WrongOnCompleted`: if an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again, so you won't be getting any more items out of it
+* `WrongOnErrorAndOnCompleted`: if an enumerator throws from `MoveNext`, that means its done, it's done and you mustn't call `MoveNext` again, meaning it won't have any opportunity to tell that it's done by returning `false` from `MoveNext`
+* `WrongOnCompletedAndOnError`: if an enumerator returns `false` from `MoveNext`, it's done and you mustn't call `MoveNext` again,  meaning it won't have any opportunity to also throw an exception
 
 Because `IObservable<T>` is push-based, the onus for obeying all of these rules fall on the observable source. With `IEnumerable<T>`, which is pull-based, it's up to the code using the `IEnumerator<T>` (e.g. a `foreach` loop) to obey these rules. But they are essentially the same rules.
 
@@ -368,7 +412,7 @@ public static void EverythingEverywhereAllAtOnce(IEnumerable<int> obs)
     for (int i = 0; i < 10000; ++i)
     {
         int v = r.Next();
-        Task.Run(() => obs.OnNext(v));
+        Task.Run(() => obs.OnNext(v)); // Against the rules!
     }}
 ```
 
@@ -485,9 +529,9 @@ This can be a surprisingly tricky problem to solve. Suppose `GoUntilStopped` _di
  
  Our `GoUntilStopped.Stop` method needs to wait for `OnNext` to return before calling `OnCompleted`. But notice that the `OnNext` method can't return until our `Stop` method returns. We've managed to create a deadlock with single-threaded code!
 
-In this case it's not all that hard to fix: we could modify `Stop` so it just sets the `running` field to `false`, and then move the call to `OnComplete` into the `Go` method, after the `for` loop. But more generally this can be a hard problem to fix, and it's one of the reasons for using the `System.Reactive` library instead of just attempting to implement `IObservable<T>` and `IObserver<T>` directly. Rx has general purpose mechanisms for solving exactly this kind of problem. (We'll see these when we look at [Scheduling](15_SchedulingAndThreading.md).) Moreover, all of the implementations Rx provides take advantage of these mechanisms for you. If you're using Rx by composing its built-in operators in a declarative way, you never have to think about these rules, because all of Rx's operators obey the rules.
+In this case it's not all that hard to fix: we could modify `Stop` so it just sets the `running` field to `false`, and then move the call to `OnComplete` into the `Go` method, after the `for` loop. But more generally this can be a hard problem to fix, and it's one of the reasons for using the `System.Reactive` library instead of just attempting to implement `IObservable<T>` and `IObserver<T>` directly. Rx has general purpose mechanisms for solving exactly this kind of problem. (We'll see these when we look at [Scheduling](11_SchedulingAndThreading.md).) Moreover, all of the implementations Rx provides take advantage of these mechanisms for you. If you're using Rx by composing its built-in operators in a declarative way, you never have to think about these rules, because all of Rx's operators obey the rules.
 
-So as long as you're using Rx to build the observable sources you need, you get to depend on these rules in your callbacks that receive the events, but it's mostly Rx's problem to keep to the rules. So the main effect of these rules is that it makes life simpler for code that consumes events.
+So as long as you're using Rx to build the observable sources you need, you get to depend on these rules in your callbacks that receive the events, and it's mostly Rx's problem to keep to the rules. So the main effect of these rules is that it makes life simpler for code that consumes events.
 
 These rules are sometimes expressed as a _grammar_. For example, consider this regular expression:
 
@@ -505,7 +549,7 @@ So you might argue that this is a slightly better way to describe the rules form
 (OnNext)*(OnError|OnComplete)?
 ```
 
-More subtly, observable sources are allowed to do nothing at all. In fact there's a built-in implementation to save developers from the effort of writing a source that does nothing: if you call `Observable.Never<int>()` it will return an `IObservable<int>`, and if you subscribe to that, it will never call any methods on your observer. This might not look immediately useful—it is logically equivalent to an `IEnumerable<T>` in which the enumerator's `MoveNext` method never returns. That might not be usefully distinguishable from crashing. It's slightly different with Rx, because when we model this "no items emerge ever" behaviour, we don't need to block a thread forever to do it. We can just decide never to call any methods on the observer. This may seem daft, but as you've seen with the `Quiescent` example, sometimes we create observable sources not because we want the actual items that emerge from it, but because we're interested in the instants when interesting things happen. It can sometimes be useful to be able to model "nothing interesting ever happens" cases.
+More subtly, observable sources are allowed to do nothing at all. In fact there's a built-in implementation to save developers from the effort of writing a source that does nothing: if you call `Observable.Never<int>()` it will return an `IObservable<int>`, and if you subscribe to that, it will never call any methods on your observer. This might not look immediately useful—it is logically equivalent to an `IEnumerable<T>` in which the enumerator's `MoveNext` method never returns, which might not be usefully distinguishable from crashing. It's slightly different with Rx, because when we model this "no items emerge ever" behaviour, we don't need to block a thread forever to do it. We can just decide never to call any methods on the observer. This may seem daft, but as you've seen with the `Quiescent` example, sometimes we create observable sources not because we want the actual items that emerge from it, but because we're interested in the instants when interesting things happen. It can sometimes be useful to be able to model "nothing interesting ever happens" cases.
 
 We're not quite done with the Rx's rules, but the last one applies only when we choose to unsubscribe from a source before it comes to a natural end.
 
@@ -557,7 +601,7 @@ In short, if you unsubscribe, then a source is not obliged to tell you when thin
 
 ### Subscription Lifetime and Composition
 
-We typically combine multiple LINQ operators to express our processing requirements in Rx. What does this mean for subscription lifetime.
+We typically combine multiple LINQ operators to express our processing requirements in Rx. What does this mean for subscription lifetime?
 
 For example, consider this:
 
@@ -578,6 +622,6 @@ In short, completion bubbles up from the source, through all the operators, and 
 
 What if we unsubscribe early by calling `subscription.Dispose()`? In that case it all happens the other way round—the `subscription` returned by `filtered.Subscribe` is the first to know that we're unsubscribing, but it will then call `Dispose` on the object that was returned when it called `source.Subscribe` for us.
 
-Either way, everything from the source to the observer, including any operators that were sitting in between, gets shut down in either case.
+Either way, everything from the source to the observer, including any operators that were sitting in between, gets shut down.
 
 Now that we understand the relationship between an `IObservable<T>` source and the `IObserver<T>` interface that received event notifications, we can look at how we might create an `IObservable<T>` instance to represent events of interest in our application.
