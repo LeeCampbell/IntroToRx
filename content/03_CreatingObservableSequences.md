@@ -965,8 +965,6 @@ IObservable<string> source = Observable.FromAsync(async () =>
 
 There is a subtle difference with this though. When I used `Task.Run` the lambda ran on a task pool thread from the start. But when I write it this way, the lambda will begin to run on whatever thread calls `Subscribe`. It's only when it hits the first `await` that it returns (and the call to `Subscribe` will then return), with the remainder of the method running on the thread pool.
 
-TODO: read through to here.
-
 ### From IEnumerable&lt;T&gt;
 
 Rx defines another extension method called `ToObservable`, this time for `IEnumerable<T>`. In earlier chapters I described how `IObservable<T>` was designed to represent the same basic abstraction as `IEnumerable<T>`, with the only difference being the mechanism we use to obtain the elements in the sequence: with `IEnumerable<T>`, we write code that _pulls_ values out of the collection (e.g., a `foreach` loop), whereas `IObservable<T>` _pushes_ values to us by invoking `OnNext` on our `IObserver<T>`.
@@ -992,7 +990,7 @@ public static IObservable<T> ToObservableOversimplified<T>(this IEnumerable<T> s
 }
 ```
 
-This crude implementation conveys the basic idea, but it is naive. It does not attempt to handle unsubscription, and it's not easy to fix that when using `Observable.Create` for this particular scenario. And as we will see later in the book, it does not have a very nice concurrency model. The implementation that Rx supplies does of course cater for all of these tricky details. That makes it rather more complex, but that's Rx's problem; you can think of it as being logically equivalent to the code shown above, but without the shortcomings.
+This crude implementation conveys the basic idea, but it is naive. It does not attempt to handle unsubscription, and it's not easy to fix that when using `Observable.Create` for this particular scenario. And as we will see later in the book, Rx sources that might try to deliver large numbers of events in quick succession should integrated with Rx's concurrency model. The implementation that Rx supplies does of course cater for all of these tricky details. That makes it rather more complex, but that's Rx's problem; you can think of it as being logically equivalent to the code shown above, but without the shortcomings.
 
 When transitioning from `IEnumerable<T>` to `IObservable<T>`, you should carefully consider what you are really trying to achieve. Consider that the blocking synchronous (pull) nature of `IEnumerable<T>` does always not mix well with the asynchronous (push) nature of `IObservable<T>`. As soon as something subscribes to an `IObservable<T>` created in this way, it is effectively asking to iterate over the `IEnumerable<T>`, immediately producing all of the values. The call to `Subscribe` might not return until it has reached the end of the `IEnumerable<T>`, making it similar to the very simple example shown [at the start of this chapter](#a-very-basic-iobservablet-implementation). (I say "might" because as we'll see when we get to schedulers, the exact behaviour depends on the context.) `ToObservable` can't work magic—something somewhere has to execute what amounts to a `foreach` loop.
 
@@ -1002,7 +1000,7 @@ So although this can be a convenient way to bring sequences of data into an Rx w
 
 Rx provides support for the ancient [.NET Asynchronous Programming Model (APM)](https://learn.microsoft.com/en-us/dotnet/standard/asynchronous-programming-patterns/asynchronous-programming-model-apm). Back in .NET 1.0, this was the only pattern for representing asynchronous operations. It was superseded in 2010 when .NET 4.0 introduced the [Task-based Asynchronous Pattern (TAP)](https://learn.microsoft.com/en-us/dotnet/standard/asynchronous-programming-patterns/task-based-asynchronous-pattern-tap). The old APM offers no benefits over the TAP. Moreover, C#'s `async` and `await` keywords (and equivalents in other .NET languages) only support the TAP, meaning that the APM is best avoided. However, the TAP was fairly new back in 2011 when Rx 1.0 was released, so it offered adapters for presenting an APM implementation as an `IObservable<T>`.
 
-Nobody should be using the APM today, but for completeness (and just in case you have to use an ancient library that only offers the APM) I will provide a very brief explanation.
+Nobody should be using the APM today, but for completeness (and just in case you have to use an ancient library that only offers the APM) I will provide a very brief explanation of Rx's support for it.
 
 The result of the call to `Observable.FromAsyncPattern` does _not_ return an observable sequence. It returns a delegate that returns an observable sequence. (So it is essentially a factory factory) The signature for this delegate will match the generic arguments of the call to `FromAsyncPattern`, except that the return type will be wrapped in an observable sequence. The following example wraps the `Stream` class's `BeginRead`/`EndRead` methods (which are an implementation of the APM).
 
@@ -1025,7 +1023,7 @@ bytesReadStream.Subscribe(byteCount =>
 
 ## Subjects
 
-So far, this chapter has explored various factory methods that return `IObservable<T>` implementations. There is another way though: `System.Reactive` defines various types that implement `IObservable<T>` that we can instantiate directly. But how do we determine what values these types produce? We're able to do that because they also implement `IObserver<T>`.
+So far, this chapter has explored various factory methods that return `IObservable<T>` implementations. There is another way though: `System.Reactive` defines various types that implement `IObservable<T>` that we can instantiate directly. But how do we determine what values these types produce? We're able to do that because they also implement `IObserver<T>`, enabling us to push values into them, and those very same values we push in will be the ones seen by observers.
 
 Types that implement both `IObservable<T>` and `IObserver<T>` are called _subjects_ in Rx. There's an an `ISubject<T>` to represent this. (This is in the `System.Reactive` NuGet package, unlike `IObservable<T>` and `IObserver<T>`, which are both built into the .NET runtime libraries.) `ISubject<T>` looks like this:
 
@@ -1045,15 +1043,15 @@ public interface ISubject<in TSource, out TResult> : IObserver<TSource>, IObserv
 
 As you can see the `ISubject` interfaces don't define any members of their own. They just inherit from `IObserver<T>` and `IObservable<T>`—these interfaces are nothing more than a direct expression of the fact that a subject is both an observer and an observable.
 
-But what is this for? You can think of the `IObserver<T>` and the `IObservable<T>` as the 'reader' and 'writer' or, 'consumer' and 'publisher' interfaces respectively. A subject, then is both a reader and a writer, a consumer and a publisher. Data flows both into and out of a subject.
+But what is this for? You can think of `IObserver<T>` and the `IObservable<T>` as the 'consumer' and 'publisher' interfaces respectively. A subject, then is both a consumer and a publisher. Data flows both into and out of a subject.
 
-Rx offers a few subject implementations that can occasionally be useful in code that wants to make an `IObservable<T>` available. Although `Observable.Create` is usually the preferred way to do this, there's one important case where a subject might make more sense: if you have some code that discovers events of interest (e.g., by using the client API for some messaging technology) and wants to make them available through an `IObservable<T>`, subjects can sometimes provide a more convenient way to to this than wither `Observable.Create` or a custom implementation.
+Rx offers a few subject implementations that can occasionally be useful in code that wants to make an `IObservable<T>` available. Although `Observable.Create` is usually the preferred way to do this, there's one important case where a subject might make more sense: if you have some code that discovers events of interest (e.g., by using the client API for some messaging technology) and wants to make them available through an `IObservable<T>`, subjects can sometimes provide a more convenient way to to this than with `Observable.Create` or a custom implementation.
 
 Rx offers a few subject types. We'll start with the most straightforward one to understand.
 
 ### Subject<T>
 
-The `Subject<T>` type immediately forwards any calls to `IObserver<T>` methods on to all of the observers currently subscribed to it. This example shows its basic operation:
+The `Subject<T>` type immediately forwards any calls made to its `IObserver<T>` methods on to all of the observers currently subscribed to it. This example shows its basic operation:
 
 ```cs
 Subject<int> s = new();
@@ -1177,11 +1175,11 @@ Sub1: 4
 Sub2: 4
 ```
 
-Alternatively, you can specify a time-based limit by passing a `TimeSpan to the `ReplaySubject<T>` constructor.
+Alternatively, you can specify a time-based limit by passing a `TimeSpan` to the `ReplaySubject<T>` constructor.
 
 ## BehaviorSubject<T>
 
-Like `ReplaySubject<T>`, `BehaviorSubject<T>` also has a memory, but it remembers exactly one value. However, it's not quite the same as a `ReplaySubject<T>` with a buffer size of 1, because a `ReplaySubject<T>` starts off in a state where it has nothing in its memory. But `BehaviorSubject<T>` always remembers _exactly_ one item. How can that work before we've made our first call to `OnNext`? `BehaviorSubject<T>` enforces this by requiring us to supply the initial value when we construct it.
+Like `ReplaySubject<T>`, `BehaviorSubject<T>` also has a memory, but it remembers exactly one value. However, it's not quite the same as a `ReplaySubject<T>` with a buffer size of 1. Whereas a `ReplaySubject<T>` starts off in a state where it has nothing in its memory, `BehaviorSubject<T>` always remembers _exactly_ one item. How can that work before we've made our first call to `OnNext`? `BehaviorSubject<T>` enforces this by requiring us to supply the initial value when we construct it.
 
 So you can think of `BehaviorSubject<T>` as a subject that _always_ has a value available. If you subscribe to a `BehaviorSubject<T>` it will instantly produce a single value. (It may then go on to produce more values, but it always produces one right away.) As it happens, it also makes that value available through a property called `Value`, so you don't need to subscribe an `IObserver<T>` to it just to retrieve the value.
 
@@ -1190,8 +1188,6 @@ A `BehaviorSubject<T>` could be thought of an as observable property. Like a nor
 This analogy falls down slightly when it comes to completion. If you call `OnCompleted`, it immediately calls `OnCompleted` on all of its observers, and if any new observers subscribe, they will also immediately be completed—it does not first supply the last value. (So this is another way in which it is different from a `ReplaySubject<T>` with a buffer size of 1.)
 
 Similarly, if you call `OnError`, all current observers will receive an `OnError` call, and any subsequent subscribers will also receive nothing but an `OnError` call.
-
-backing fields to properties.
 
 ## AsyncSubject<T>
 
@@ -1237,13 +1233,15 @@ Finally it is worth making you aware that you can also create a subject via a fa
 ```csharp
 //Creates a subject from the specified observer used to publish messages to the subject
 //  and observable used to subscribe to messages sent from the subject
-public static ISubject>TSource, TResult< Create>TSource, TResult<(
+public static ISubject<TSource, TResult> Create<TSource, TResult>(
     IObserver<TSource> observer, 
     IObservable<TResult> observable)
 {...}
 ```
 
-Subjects provide a convenient way to poke around Rx, and are occasionally useful in production scenarios, but they are not recommended for most cases. An explanation is in the [Usage Guidelines](18_UsageGuidelines.md) in the appendix. Instead of using subjects, favour the factory methods  shown earlier in this chapter..
+Note that unlike all of the other subjects just discussed, this creates a subject where there is no inherent relationship between the input and the output. This just takes whatever `IObserver<TSource>` and `IObserver<TResult>` implementations you supply and wraps them up in a single object. All calls made to the subject's `IObserver<TSource>` methods will be passed directly to the observer you supplied. If you want values to emerge to subscribers to the corresponding `IObservable<TResult>`, it's up to you to make that happen. This really combines the two objects you supply with the absolute minimum of glue.
+
+Subjects provide a convenient way to poke around Rx, and are occasionally useful in production scenarios, but they are not recommended for most cases. An explanation is in the [Usage Guidelines appendix](C_UsageGuidelines.md). Instead of using subjects, favour the factory methods shown earlier in this chapter..
 
 ## Summary
 
@@ -1257,12 +1255,13 @@ As a quick recap:
   - Observable.Never
   - Observable.Throw
   - Observable.Create
+  - Observable.Defer
 
 - Generative methods
   - Observable.Range
+  - Observable.Generate
   - Observable.Interval
   - Observable.Timer
-  - Observable.Generate
 
 - Adaptation
   - Observable.Start
