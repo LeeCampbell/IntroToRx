@@ -790,15 +790,13 @@ public static IObservable<long> Interval(TimeSpan period)
 
 This shows how you can use `Observable.Generate` to produce infinite sequences. I will leave it up to you the reader, as an exercise using `Observable.Generate`, to produce values at variable rates.
 
-TODO: read through to here
-
 ## Adapting Common Type to IObservable&lt;T&gt;
 
 Although we've now seen two very general ways to produce arbitrary sequences—`Create` and `Generate`—what if you already have an existing source of information in some other form that you'd like to make available as an `IObservable<T>`? Rx provides a few adapters for common source types.
 
 ### From delegates
 
-The `Observable.Start` method allows you to turn a long running `Func<T>` or `Action` into a single value observable sequence. By default, the processing will be done asynchronously on a ThreadPool thread. If the overload you use is a `Func<T>` then the return type will be `IObservable<T>`. When the function returns its value, that value will be published and then the sequence completed. If you use the overload that takes an `Action`, then the returned sequence will be of type `IObservable<Unit>`. The `Unit` type is represents the absence of information, so it's somewhat analogous to `void`, except you can have an instance of the `Unit` type. It's particularly useful in Rx because we often care only about when something has happened, and there might not be any information besides timing. In these cases, we often use an `IObservable<Unit>` so that it's possible to produce definite events even though there's no meaningful data in them. (The name comes from the world of functional programming, where this kind of construct is used a lot.) In this case `Unit` is used to publish an acknowledgement that the `Action` is complete, because an `Action` does not return any information. The `Unit` type itself has no value; it just serves as an empty payload for the `OnNext` notification. Below is an example of using both overloads.
+The `Observable.Start` method allows you to turn a long running `Func<T>` or `Action` into a single value observable sequence. By default, the processing will be done asynchronously on a ThreadPool thread. If the overload you use is a `Func<T>` then the return type will be `IObservable<T>`. When the function returns its value, that value will be published and then the sequence completed. If you use the overload that takes an `Action`, then the returned sequence will be of type `IObservable<Unit>`. The `Unit` type represents the absence of information, so it's somewhat analogous to `void`, except you can have an instance of the `Unit` type. It's particularly useful in Rx because we often care only about when something has happened, and there might not be any information besides timing. In these cases, we often use an `IObservable<Unit>` so that it's possible to produce definite events even though there's no meaningful data in them. (The name comes from the world of functional programming, where this kind of construct is used a lot.) In this case, `Unit` is used to publish an acknowledgement that the `Action` is complete, because an `Action` does not return any information. The `Unit` type itself has no value; it just serves as an empty payload for the `OnNext` notification. Below is an example of using both overloads.
 
 ```csharp
 static void StartAction()
@@ -837,13 +835,13 @@ static void StartFunc()
 }
 ```
 
-Note the difference between `Observable.Start` and `Observable.Return`. `Start` invokes our callback only upon subscription, so it is an example of a 'lazy' operation. Conversely, `Return` requires us to supply the value up front.
+Note the difference between `Observable.Start` and `Observable.Return`. The `Start` method invokes our callback only upon subscription, so it is an example of a 'lazy' operation. Conversely, `Return` requires us to supply the value up front.
 
-The observable returned by `Start` may seem to have a superficial resemblance to `Task` or `Task<T>` (depending on whether you use the `Action` or `Func<T>` overload). Each represents work that may take some time before eventually completing, perhaps producing a result. However, there's a significant difference: `Start` doesn't begin the work until you subscribe to it. And it will re-execute the callback every time you subscribe to it. So it is more like a factory for a task-like entity.
+The observable returned by `Start` may seem to have a superficial resemblance to `Task` or `Task<T>` (depending on whether you use the `Action` or `Func<T>` overload). Each represents work that may take some time before eventually completing, perhaps producing a result. However, there's a significant difference: `Start` doesn't begin the work until you subscribe to it. Moreover, it will re-execute the callback every time you subscribe to it. So it is more like a factory for a task-like entity.
 
 ### From events
 
-As we discussed early in the book, .NET has a model for events that is baked into its type system. This predates Rx (not least because Rx wasn't feasible until .NET got generics in .NET 2.0) so it's common for types to support events but not Rx. To be able to integrate with the existing event model, Rx provides methods to take an event and turn it into an observable sequence. I showed this briefly in the file system watcher example earlier, but let's look in a bit more detail. There are several different varieties you can use. This show the most succinct form:
+As we discussed early in the book, .NET has a model for events that is baked into its type system. This predates Rx (not least because Rx wasn't feasible until .NET got generics in .NET 2.0) so it's common for types to support events but not Rx. To be able to integrate with the existing event model, Rx provides methods to take an event and turn it into an observable sequence. I showed this briefly in the file system watcher example earlier, but let's examine this in a bit more detail. There are several different varieties you can use. This show the most succinct form:
 
 ```cs
 FileSystemWatcher watcher = new (@"c:\temp");
@@ -851,11 +849,11 @@ IObservable<EventPattern<FileSystemEventArgs>> changeEvents = Observable
     .FromEventPattern<FileSystemEventArgs>(watcher, nameof(watcher.Changed));
 ```
 
-If you have an object that provides an event you can use this overload of `FromEventPattern`, passing in the object and the name of the event that you'd like to use with Rx. There are a few problems with this.
+If you have an object that provides an event, you can use this overload of `FromEventPattern`, passing in the object and the name of the event that you'd like to use with Rx. Although this is the simplest way to adapt events into Rx's world, it has a few problems.
 
 Firstly, why do I need to pass the event name as a string? Identifying members with strings is an error-prone technique—the compiler won't notice if there's a mismatch between the first and second argument (e.g., if I passed the arguments `(somethingElse, nameof(watcher.Changed))` by mistake). Couldn't I just pass `watcher.Changed` itself? Unfortunately not—this is an example of the issue I mentioned in the first chapter: .NET events are not first class citizens. We can't use them in the way we can use other objects or values. For example, we can't pass an event as an argument to a method. In fact the only thing you can do with a .NET event is attach and remove event handlers. If I want to get some other method to attach handlers to the event of my choosing (e.g., here I want Rx to handle the events), then the only way to do that is to specify the event's name so that the method (`FromEventPattern`) can then use reflection to attach its own handlers.
 
-This is a problem for some deployment scenarios. It is increasingly common in .NET to do extra work at build time to optimize runtime behaviour, and reliance on reflection can compromise these techniques. For example, instead of relying on Just In Time (JIT) compilation of code, we might use Ahead of time (AoT) mechanisms. .NET's Ready to Run (R2R) system enables you to include pre-compiled code targeting specific CPU types alongside the normal IL, avoiding having to wait for .NET to compile the IL into runnable code. This can have a significant effect on startup times, making it an important technique both in client side applications, where it can fix problems where applications are sluggish when they first start up, and also in server-side applications, especially in cloud environments where code may be moved from one compute node to another fairly frequently, making it important to minimize cold start costs. There are also scenarios where JIT compilation is not even an option, in which case AoT compilation isn't simply an optimization: it's the only means by which code can run at all.
+This is a problem for some deployment scenarios. It is increasingly common in .NET to do extra work at build time to optimize runtime behaviour, and reliance on reflection can compromise these techniques. For example, instead of relying on Just In Time (JIT) compilation of code, we might use Ahead of time (AoT) mechanisms. .NET's Ready to Run (R2R) system enables you to include pre-compiled code targeting specific CPU types alongside the normal IL, avoiding having to wait for .NET to compile the IL into runnable code. This can have a significant effect on startup times, making it an important technique both in client side applications, where it can fix problems where applications are sluggish when they first start up. It can also be important in server-side applications, especially in cloud environments where code may be moved from one compute node to another fairly frequently, making it important to minimize cold start costs. There are also scenarios where JIT compilation is not even an option, in which case AoT compilation isn't merely an optimization: it's the only means by which code can run at all.
 
 The problem with reflection is that it makes it difficult for the build tools to work out what code will execute at runtime. When they inspect this call to `FromEventPattern` they will just see arguments of type `object` and `string`. It's not self-evident that this is going to result in reflection-driven calls to the `add` and `remove` methods for `FileSystemWatcher.Changed` at runtime. There are attributes that can be used to provide hints, but there are limits to how well these can work. Sometimes the build tools will be unable to determine what code would need to be AoT compiled to enable this method to execute without relying on runtime JIT.
 
@@ -874,7 +872,7 @@ This is code that AoT and trimming tools can understand easily. We've written me
 
 The downside is that this is a pretty cumbersome bit of code to write. If you've not already bought into the idea of using Rx, this might well be enough to make you think "I'll just stick with ordinary .NET events, thanks. But the cumbersome nature is a symptom of what is wrong with .NET events. We wouldn't have had to write anything so ugly if events had been first class citizens in the first place.
 
-Not only has that second-class status meant we couldn't just pass the event itself as an argument, it has also meant that we've had to state type arguments explicitly. The relationship between an event's delegate type (`FileSystemEventHandler` in this example) and its event argument type (`FileSystemEventArgs` here) is, in general, not something that C#'s type inference can determine automatically, which is why we've had to specify both types explicitly. (Events that use the generic `EventHandler<T>` type are more amenable to type inference, and can use a slightly less verbose version of `FromEventPattern`. Unfortunately, relatively few events actually use that. Some events provide information besides the fact that something just happened, and use the base `EventHandler` type, and for those kinds of events, you can in fact omit the type arguments completely, making the code slightly less ugly. You still need to provide the add and remove callbacks though.)
+Not only has that second-class status meant we couldn't just pass the event itself as an argument, it has also meant that we've had to state type arguments explicitly. The relationship between an event's delegate type (`FileSystemEventHandler` in this example) and its event argument type (`FileSystemEventArgs` here) is, in general, not something that C#'s type inference can determine automatically, which is why we've had to specify both types explicitly. (Events that use the generic `EventHandler<T>` type are more amenable to type inference, and can use a slightly less verbose version of `FromEventPattern`. Unfortunately, relatively few events actually use that. Some events provide no information besides the fact that something just happened, and use the base `EventHandler` type, and for those kinds of events, you can in fact omit the type arguments completely, making the code slightly less ugly. You still need to provide the add and remove callbacks though.)
 
 Notice that the return type of `FromEventPattern` in this example is `IObservable<EventPattern<FileSystemEventArgs>>`. The `EventPattern<T>` type encapsulates the information that the event passes to handlers. Most .NET events follow a common pattern in which handler methods take two arguments: an `object sender`, which just tells you which object raised the event (useful if you attach one event handler to multiple objects) and then a second argument of some type derived from `EventArgs` that provides information about the event. `EventPattern<T>` just packages these two arguments into a single object that offers `Sender` and `EventArgs` properties. In cases where you don't in fact want to attach one handler to multiple sources, you only really need that `EventArgs` property, which is why the earlier `FileSystemWatcher` examples went on to extract that just that, to get a simpler result of type `IObservable<FileSystemEventArgs>`. It did this with the `Select` operator, which we'll get to in more detail later:
 
@@ -886,9 +884,9 @@ It is very common to want to expose property changed events as observable sequen
 
 ### From Task
 
-The `Task` and `Task<T>` types are very widely used in .NET. Widely used .NET languages have built-in support for working with them (e.g., C#'s `async` and `await` keywords). There's some conceptual overlap between tasks an `IObservable<T>`: both represent some sort of work that might take a while to complete. There is a sense in which an `IObservable<T>` is a generalization of a `Task<T>`—both represent potentially long-running work, but an `IObservable<T>` can produce multiple results whereas `Task<T>` can produce just one.
+The `Task` and `Task<T>` types are very widely used in .NET. Mainstream .NET languages have built-in support for working with them (e.g., C#'s `async` and `await` keywords). There's some conceptual overlap between tasks an `IObservable<T>`: both represent some sort of work that might take a while to complete. There is a sense in which an `IObservable<T>` is a generalization of a `Task<T>`—both represent potentially long-running work, but an `IObservable<T>` can produce multiple results whereas `Task<T>` can produce just one.
 
-Since `IObservable<T>` is the more general abstraction, we should be able to represent a `Task<T>` as an `IObservable<T>`. And Rx defines various extension methods for `Task` and `Task<T>` to do this. These methods are all called `ToObservable()`, and it offers various overloads offering control of the details where required, and simplicity for the most common scenarios.
+Since `IObservable<T>` is the more general abstraction, we should be able to represent a `Task<T>` as an `IObservable<T>`. Rx defines various extension methods for `Task` and `Task<T>` to do this. These methods are all called `ToObservable()`, and it offers various overloads offering control of the details where required, and simplicity for the most common scenarios.
 
 Although they are conceptually similar, `Task<T>` does a few things differently in the details. For example, you can retrieve its [`Status` property](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task.status), which might report that it is in a cancelled or faulted state. `IObservable<T>` doesn't provide a way to ask a source for its state; it just tells you things. So `ToObservable` makes some decisions about how to present status in a way that makes makes sense in an Rx world:
 
@@ -898,7 +896,7 @@ Although they are conceptually similar, `Task<T>` does a few things differently 
 
 It does not matter whether the task is already in a final state at the moment that you call `ToObservable`. If it has finished, `ToObservable` will just return a sequence representing that state. (In fact, it uses either the `Return` or `Throw` creation methods you saw earlier.) If the task has not yet finished, `ToObservable` will attach a continuation to the task to detect the outcome once it does complete.
 
-Tasks come in two forms: `Task<T>`, which produces a result, and `Task`, which does not. But in Rx, there is only `IObservable<T>`—there isn't a no-result form. We've already seen this problem once before, when the `Observable.Start` method needed to be able to [adapt a delegate as an `IObservable<T>`](#from-delegates) even when the delegate was an `Action` that produced no result. The solution was to return an `IObservable<Unit>`, and that's also exactly what you get when you call `ToObservable` on a `Task`.
+Tasks come in two forms: `Task<T>`, which produces a result, and `Task`, which does not. But in Rx, there is only `IObservable<T>`—there isn't a no-result form. We've already seen this problem once before, when the `Observable.Start` method needed to be able to [adapt a delegate as an `IObservable<T>`](#from-delegates) even when the delegate was an `Action` that produced no result. The solution was to return an `IObservable<Unit>`, and that's also exactly what you get when you call `ToObservable` on a plain `Task`.
 
 The extension method is simple to use:
 
@@ -927,7 +925,7 @@ Test
 completed
 ```
 
-Notice that even with two subscribers, the task runs only once. That shouldn't be surprising since we only created a single task. If the task has not yet finished, then all subscribers will receive the result when it does. If the task has finished, the `IObservable<T>` effectively becomes a single-value cold observable. But there's a different way to wrap a task: `Observable.FromAsync`.
+Notice that even with two subscribers, the task runs only once. That shouldn't be surprising since we only created a single task. If the task has not yet finished, then all subscribers will receive the result when it does. If the task has finished, the `IObservable<T>` effectively becomes a single-value cold observable.
 
 #### One Task per subscription
 
@@ -941,7 +939,7 @@ IObservable<string> source = Observable.FromAsync(() => Task.Run(() =>
 }));
 ```
 
-I get slightly different output now when subscribing twice:
+Subscribing twice to this produces slightly different output:
 
 ```
 Task running...
@@ -966,6 +964,8 @@ IObservable<string> source = Observable.FromAsync(async () =>
 ```
 
 There is a subtle difference with this though. When I used `Task.Run` the lambda ran on a task pool thread from the start. But when I write it this way, the lambda will begin to run on whatever thread calls `Subscribe`. It's only when it hits the first `await` that it returns (and the call to `Subscribe` will then return), with the remainder of the method running on the thread pool.
+
+TODO: read through to here.
 
 ### From IEnumerable&lt;T&gt;
 
