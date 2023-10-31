@@ -9,3 +9,28 @@ The first part of this book focused on the basic ideas and types of Rx. In the s
 This _purity_ can help us understand what our code will do. It means we don't need to know about the state of the rest of our program in order to understand how one particular part functions. However, code that is completely detached from the outside world is unlikely to achieve anything useful. In practice, we need to connect these pure computations with more pragmatic concerns. The [Creating Observable Sequences chapter](03_CreatingObservableSequences.md) already showed how to define observable streams, so we've already looked at how to connect real world inputs into the world of Rx. But what about the other end? How do we do something useful with the results of our processing?
 
 In some cases, it might be enough to do work inside `IObserver` implementations, or using the callback-based subscription mechanisms you've already seen. However, some situations will demand something more sophisticated. So in this third part of the book, we will look at some of the features Rx offers to help connect processes of the kind we looked at in part 2 with the rest of the world.
+
+
+Notes:
+
+* Schedulers
+
+* Leaving IObservable
+    * Do
+    * For
+* Timing
+    * TimeStamp TimeInterval
+    * TakeUntil (time-based)
+    * Delay
+    * Sample
+    * Throttle
+    * Timeout
+* Error Handling
+    * Catch
+    * Finally
+    * Using
+    * Retry
+    * OnErrorResumeNext
+
+Check these to see if there's anything in them not now covered earlier:
+* SequencesOfCoincidence
