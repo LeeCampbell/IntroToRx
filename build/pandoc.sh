@@ -1,6 +1,6 @@
 #/bin/sh
 # To be run inside the container
-pandoc -o intro-to-rx.epub metadata.md -s \
+pandoc -o /output/intro-to-rx.epub metadata.md -s \
     ./content/01_WhyRx.md \
     ./content/02_KeyTypes.md \
     ./content/03_CreatingObservableSequences.md \
@@ -25,7 +25,7 @@ pandoc -o intro-to-rx.epub metadata.md -s \
     --toc --toc-depth 4 \
     --resource-path "./content/"
 
-pandoc -o intro-to-rx.docx -s \
+pandoc -o /output/intro-to-rx.docx -s \
     ./content/01_WhyRx.md \
     ./content/02_KeyTypes.md \
     ./content/03_CreatingObservableSequences.md \
@@ -51,7 +51,7 @@ pandoc -o intro-to-rx.docx -s \
     --metadata title="Introduction to Rx .NET" \
     --toc --toc-depth 4
 
-pandoc -o intro-to-rx.pdf metadata.md -s \
+pandoc -o /output/intro-to-rx.pdf metadata.md -s \
     ./content/01_WhyRx.md \
     ./content/02_KeyTypes.md \
     ./content/03_CreatingObservableSequences.md \
