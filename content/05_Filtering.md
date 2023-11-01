@@ -9,7 +9,7 @@ Rx provides us with tools to take potentially vast quantities of events and proc
 Just before we move on to introducing the new operators, we will quickly define an extension method to help illuminate several of the examples. This `Dump` extension method subscribes to any `IObservable<T>` with handlers that display messages for each notification the source produces. This method takes a `name` argument, which will be shown as part of each message, enabling us to see where events came from in examples that subscribe to more than one source.
 
 ```csharp
-public static class SampleExtentions
+public static class SampleExtensions
 {
     public static void Dump<T>(this IObservable<T> source, string name)
     {

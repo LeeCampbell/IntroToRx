@@ -4,26 +4,26 @@ title: Transformation of sequences
 
 # Transformation of sequences
 
-The values from the sequences we consume are not always in the format we need. Sometimes there is too much noise in the data so we strip the values down. Sometimes each value needs to be expanded either into a richer object or into more values. By composing operators, Rx allows you to control the quality as well as the quantity of values in the observable sequences you consume.
+The values from the sequences we consume are not always in the format we need. Sometimes there is more information that we need, and we need to pick out just the values of interest. Sometimes each value needs to be expanded either into a richer object or into more values.
 
 Up until now, we have looked at creation of sequences, transition into sequences, and, the reduction of sequences by filtering. In this chapter we will look at _transforming_ sequences.
 
 
 ## Select
 
-The classic transformation method is `Select`. It allows you provide a function that takes a value of `TSource` and return a value of `TResult`. The signature for `Select` is nice and simple and suggests that its most common usage is to transform from one type to another type, i.e. `IObservable<TSource>` to `IObservable<TResult>`.
+The most straightforward transformation method is `Select`. It allows you provide a function that takes a value of `TSource` and return a value of `TResult`. The signature for `Select` reflects its ability to transform a sequence's elements from one type to another type, i.e. `IObservable<TSource>` to `IObservable<TResult>`.
 
-```csharp
+```cs
 IObservable<TResult> Select<TSource, TResult>(
     this IObservable<TSource> source, 
     Func<TSource, TResult> selector)
 ```
 
-Note that there is no restriction that prevents `TSource` and `TResult` being the same thing. So for our first example, we will take a sequence of integers and transform each value by adding 3, resulting in another sequence of integers.
+You don't have to change the type—`TSource` and `TResult` can be the same if you want. This first example transforms a sequence of integers by adding 3, resulting in another sequence of integers.
 
-```csharp
-var source = Observable.Range(0, 5);
-source.Select(i=>i+3)
+```cs
+IObservable<int> source = Observable.Range(0, 5);
+source.Select(i => i+3)
       .Dump("+3")
 ```
 
@@ -38,11 +38,11 @@ This uses the `Dump` extension method we defined at the start of [the Filtering 
 +3 completed
 ```
 
-While this can be useful, more common use is to transform values from one type to another. In this example we transform integer values to characters.
+This next example transforms values in a way that changes their type. It converts integer values to characters.
 
-```csharp
+```cs
 Observable.Range(1, 5);
-          .Select(i =>(char)(i + 64))
+          .Select(i => (char)(i + 64))
           .Dump("char");
 ```
 
@@ -57,7 +57,7 @@ char --> E
 char completed
 ```
 
-If we really want to take advantage of LINQ we could transform our sequence of integers to a sequence of anonymous types.
+This example transforms our sequence of integers to a sequence where the elements have an anonymous type:
 
 ```csharp
 Observable.Range(1, 5)
@@ -76,7 +76,7 @@ anon --> { Number = 5, Character = E }
 anon completed
 ```
 
-To further leverage LINQ we could write the above query using [query comprehension syntax](http://www.albahari.com/nutshell/linqsyntax.aspx).
+`Select` is one of the standard LINQ operators supported by C#'s query expression syntax, so we could have written that last example like this:
 
 ```csharp
 var query = from i in Observable.Range(1, 5)
@@ -85,7 +85,7 @@ var query = from i in Observable.Range(1, 5)
 query.Dump("anon");
 ```
 
-In Rx, `Select` has another overload. The second overload provides two values to the `selector` function. The additional argument is the element's index in the sequence. Use this method if the index of the element in the sequence is important to your selector function.
+In Rx, `Select` has another overload, in which the `selector` function takes two values. The additional argument is the element's index in the sequence. Use this method if the index of the element in the sequence is important to your selector function.
 
 ## SelectMany
 
@@ -180,15 +180,15 @@ The order is less odd. It's worth exploring the reasons for this in a little mor
 
 ### IEnumerable<T> vs. IObservable<T> SelectMany
 
-`IEnumerable<T>` is pull based—sequences produce elements only when asked. `Enumerable.SelectMany` pulls items from its sources in a very particular order. It begins by asking its source `IEnumerable<int>` (the one returned by `Range` in the preceding example), and then retrieves the first value. `SelectMany` then invokes our callback, passing this first item, and then enumerates everything in the `IEnumerable<char>` our callback returns. Only when it has exhausted this does it ask the source (`Range`) for a second item. Again, it passes that second item to our callback and then fully enumerates the `IEnumerable<char>`, we return, and so on. So we get everything from the first nested sequence first, then everything from the second, etc.
+`IEnumerable<T>` is pull based—sequences produce elements only when asked. `Enumerable.SelectMany` pulls items from its sources in a very particular order. It begins by asking its source `IEnumerable<int>` (the one returned by `Range` in the preceding example) for the first value. `SelectMany` then invokes our callback, passing this first item, and then enumerates everything in the `IEnumerable<char>` our callback returns. Only when it has exhausted this does it ask the source (`Range`) for a second item. Again, it passes that second item to our callback and then fully enumerates the `IEnumerable<char>`, we return, and so on. So we get everything from the first nested sequence first, then everything from the second, etc.
 
 `Enumerable.SelectMany` is able to proceed in this way for two reasons. First, the pull-based nature of `IEnumerable<T>` enables it to decide on the order in which it processes things. Second, with `IEnumerable<T>` it is normal for operations to block, i.e., not to return until they have something for us. When the preceding example calls `ToList`, it won't return until it has fully populated a `List<T>` with all of the results.
 
-Rx is not like that. First, consumers don't get to tell sources when to produce each item—sources emit items when they are ready to. Second, Rx typically models ongoing processes, so we don't expect method calls to block until they are done. There are some cases where Rx sequences will naturally produce all of their items very quickly and complete as soon as they can, but kinds of information sources that we tend to want model with Rx typically don't behave that way. So most operations in Rx do not block—they immediately return something (such as an `IObservable<T>`, or an `IDisposable` representing a subscription) and will then produce values later.
+Rx is not like that. First, consumers don't get to tell sources when to produce each item—sources emit items when they are ready to. Second, Rx typically models ongoing processes, so we don't expect method calls to block until they are done. There are some cases where Rx sequences will naturally produce all of their items very quickly and complete as soon as they can, but the kinds of information sources that we tend to want model with Rx typically don't behave that way. So most operations in Rx do not block—they immediately return something (such as an `IObservable<T>`, or an `IDisposable` representing a subscription) and will then produce values later.
 
-The Rx version of the example we're currently examining is in fact one of these unusual cases where each of the sequences emits items as soon as it can. Logically speaking, all of the nested `IObservable<char>` sequences are in progress concurrently. The result is a mess because each of the observable sources here attempts to produce every element as quickly as the source can consume them. The fact that they end up being interleaved has to do with the way these kinds of observable sources use Rx's _scheduler_ system, which we will describe in chapter XXX. Schedulers ensure that even when we are modelling logically concurrent processes, the rules of Rx are maintained, and observers of the output of `SelectMany` will only be given one item at a time. The following marble diagram shows the events that lead to the scrambled output we see:
+The Rx version of the example we're currently examining is in fact one of these unusual cases where each of the sequences emits items as soon as it can. Logically speaking, all of the nested `IObservable<char>` sequences are in progress concurrently. The result is a mess because each of the observable sources here attempts to produce every element as quickly as the source can consume them. The fact that they end up being interleaved has to do with the way these kinds of observable sources use Rx's _scheduler_ system, which we will describe in the [Scheduling and Threading chapter](11_SchedulingAndThreading.md). Schedulers ensure that even when we are modelling logically concurrent processes, the rules of Rx are maintained, and observers of the output of `SelectMany` will only be given one item at a time. The following marble diagram shows the events that lead to the scrambled output we see:
 
-![An Rx marble diagram showing 7 observables. The first illustrates the Range operator producing the values 1 through 5. These are colour coded as follows: green, blue, yellow, red, and pink. These colour correspond to observables further down in the diagram, as will be described shortly. The items in this first observable are not evenly spaced—the 2nd value immediately follows the 1st, but there are gaps before the 3rd, 4th, and 5th items. These gaps correspond with activity shown further down in the diagram. Beneath the first observable is code invoking the SelectMany operator, passing this lamba: "i => new string((char)(i+64),i).ToObservable()". Beneath this are 6 more observables. The first 5 show the individual observables that the lambda produces for each of the inputs. These are colour coded to show how they correspond—the first observable's item is green, to indicate that this observable corresponds to the first item emitted by Range, the second observable's items are blue showing that it corresponds to the second item emitted by Range, and so on with the same colour sequence as described earlier for Range. Each observable's first item is aligned horizontally with the corresponding item from Range, signifying the fact that each one of these observables starts when the Range observable emits a value. These 5 observables show the values produced by the observable returned by the lambda for each of the 5 values from Range. The first of these child observables shows a single item with value 'A', vertically aligned with the value 1 from the Range observable to indicate that this item is produced immediately when Range produces its first value. This child observable then immediately ends, indicating that only one item was produced. The second child observable contains two 'B' values, the third three 'C' values, the fourth four 'D' values and the fifth give 'E' values. The horizontal positioning of these items indicates that all of first 6 observables in the diagram (the Range observable, and the 5 observables produced by the lambda) overlap to some extent. Initially this overlap is minimal: the first of the lambda-produced observables starts at the same time the Range produces its first value so these two observables overlap, but since this first child completes immediately it overlaps with nothing else. The second child starts when Range produces its second value, and manages to produce two values and then completes before anything else happens, so thus far, the child observables produced by the lambda overlap only with the Range one, and not with each other. However, when Range produces its third value, the resulting child observable produces two 'C' values, but the next thing that happens (as denoted by the horizontal position of the items) is that Range manages to produce its 4th value and its corresponding child observable produces the first of its 'D' values next. After this, the third child observable produces its third and final 'C'—so this third child overlaps not just with the Range observable, but also with the fourth child. Then the fourth observable produces its second 'D'. Then the Range produces its fifth and final value, and the corresponding child observable produces its first 'E'. Then the fourth and fifth child observable alternate, producing 'D', 'E' and 'D', at which point the fourth child observable is complete, and now the fifth child observable produces its final three 'E' values without interruption, because by this time it is the only observable still running. At the bottom of the diagram is the 7th observable representing the output of the SelectMany. This shows all the of the values from each of the 5 child observables each with the exact same horizontal position (signifying that the observable returned by SelectMany produces a value whenever any of its child observables produces a value). So we can see that this output observable produces the sequence 'ABBCCDCDEDEDEEE', which is exactly what we saw in the example output earlier.](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles.svg)
+![An Rx marble diagram showing 7 observables. The first illustrates the Range operator producing the values 1 through 5. These are colour coded as follows: green, blue, yellow, red, and pink. These colours correspond to observables further down in the diagram, as will be described shortly. The items in this first observable are not evenly spaced—the 2nd value immediately follows the 1st, but there are gaps before the 3rd, 4th, and 5th items. These gaps correspond with activity shown further down in the diagram. Beneath the first observable is code invoking the SelectMany operator, passing this lamba: "i => new string((char)(i+64),i).ToObservable()". Beneath this are 6 more observables. The first 5 show the individual observables that the lambda produces for each of the inputs. These are colour coded to show how they correspond—the first observable's item is green, to indicate that this observable corresponds to the first item emitted by Range, the second observable's items are blue showing that it corresponds to the second item emitted by Range, and so on with the same colour sequence as described earlier for Range. Each observable's first item is aligned horizontally with the corresponding item from Range, signifying the fact that each one of these observables starts when the Range observable emits a value. These 5 observables show the values produced by the observable returned by the lambda for each of the 5 values from Range. The first of these child observables shows a single item with value 'A', vertically aligned with the value 1 from the Range observable to indicate that this item is produced immediately when Range produces its first value. This child observable then immediately ends, indicating that only one item was produced. The second child observable contains two 'B' values, the third three 'C' values, the fourth four 'D' values and the fifth give 'E' values. The horizontal positioning of these items indicates that all of first 6 observables in the diagram (the Range observable, and the 5 observables produced by the lambda) overlap to some extent. Initially this overlap is minimal: the first of the lambda-produced observables starts at the same time the Range produces its first value so these two observables overlap, but since this first child completes immediately it overlaps with nothing else. The second child starts when Range produces its second value, and manages to produce two values and then completes before anything else happens, so thus far, the child observables produced by the lambda overlap only with the Range one, and not with each other. However, when Range produces its third value, the resulting child observable produces two 'C' values, but the next thing that happens (as denoted by the horizontal position of the items) is that Range manages to produce its 4th value and its corresponding child observable produces the first of its 'D' values next. After this, the third child observable produces its third and final 'C'—so this third child overlaps not just with the Range observable, but also with the fourth child. Then the fourth observable produces its second 'D'. Then the Range produces its fifth and final value, and the corresponding child observable produces its first 'E'. Then the fourth and fifth child observable alternate, producing 'D', 'E' and 'D', at which point the fourth child observable is complete, and now the fifth child observable produces its final three 'E' values without interruption, because by this time it is the only observable still running. At the bottom of the diagram is the 7th observable representing the output of the SelectMany. This shows all the of the values from each of the 5 child observables each with the exact same horizontal position (signifying that the observable returned by SelectMany produces a value whenever any of its child observables produces a value). So we can see that this output observable produces the sequence 'ABBCCDCDEDEDEEE', which is exactly what we saw in the example output earlier.](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles.svg)
 
 We can make a small tweak to prevent the child sequences all from trying to run at the same time. (This also uses `Observable.Repeat` instead of the rather indirect route of constructing a `string` and then calling `ToObserable` on that. I did that in earlier examples to emphasize the similarity with the LINQ to Objects example, but you wouldn't really do it that way in Rx.)
 
@@ -222,7 +222,9 @@ chars completed
 
 This clarifies that `SelectMany` lets you produce a sequence for each item that the source produces, and to have all of the items from all of those new sequences flattened back out into one sequence that contains everything. While that might make it easier to understand, you wouldn't want to introduce this sort of delay in reality purely for the goal of making it easier to understand. These delays mean it will take about a second and a half for all the elements to emerge. This marble diagram shows that the code above produces a sensible-looking ordering by making each child observable produce a little bunch of items, and we've just introduced dead time to get the separation:
 
-![](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles-Delay.svg)
+TODO: fix the spacing on the Rang observable!
+
+![An Rx marble diagram which, like the preceding diagram, shows 7 observables. The first illustrates the Range operator producing the values 1 through 5. These are colour coded as follows: green, blue, yellow, red, and pink. These colours correspond to observables further down in the diagram, as will be described shortly.](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles-Delay.svg)
 
 I introduced these gaps purely to provide a slightly less confusing example, but if you really wanted this sort of strictly-in-order handling, you wouldn't use `SelectMany` in this way in practice. For one thing, it's not completely guaranteed to work. (If you try this example, but modify it to use shorter and shorter timespans, eventually you reach a point where the items start getting jumbled up again. And since .NET is not a real-time programming system, there's actually no safe timespan you can specific here that absolutely guarantees the ordering.)  If you absolutely need all the items from the first child sequence before seeing any from the second, there's actually a robust way to ask for that:
 
