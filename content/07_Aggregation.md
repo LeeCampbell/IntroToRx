@@ -16,23 +16,16 @@ Rx supports various standard LINQ operators that reduce all of the values in a s
 
 ### Count
 
-`Count` tells you how many elements a sequence contains. Although this is a standard LINQ operator, Rx's version deviates from the `IEnumerable<T>` version as Rx will return an observable sequence, not a scalar value. As usual, this is because of the push-related nature of Rx. Rx's `Count` can't demand that its source supply all elements immediately, so it just has to wait until the source says that it has finished.
-
-The sequence that `Count` returns will always be of type `IObservable<int>`, regardless of the source's element type. This will produce nothing until the source completes, at which point it will produce a single value reporting how many elements the source produced, and then it will in turn immediately complete. This example uses `Count` with `Range`, because `Range` produces all of its values as quickly as possible and then completes, meaning we get a result from `Count` immediately:
+`Count` tells you how many elements a sequence contains. Although this is a standard LINQ operator, Rx's version deviates from the `IEnumerable<T>` version as Rx will return an observable sequence, not a scalar value. As usual, this is because of the push-related nature of Rx. Rx's `Count` can't demand that its source supply all elements immediately, so it just has to wait until the source says that it has finished. The sequence that `Count` returns will always be of type `IObservable<int>`, regardless of the source's element type. This will do nothing until the source completes, at which point it will emit a single value reporting how many elements the source produced, and then it will in turn immediately complete. This example uses `Count` with `Range`, because `Range` generates all of its values as quickly as possible and then completes, meaning we get a result from `Count` immediately:
 
 ```csharp
 IObservable<int> numbers = Observable.Range(0,3);
-numbers.Dump("numbers");
 numbers.Count().Dump("count");
 ```
 
 Output:
 
 ```
-numbers-->1
-numbers-->2
-numbers-->3
-numbers Completed
 count-->3
 count Completed
 ```
@@ -45,19 +38,12 @@ The `Sum` operator adds together all the values in its source, producing the tot
 
 ```cs
 IObservable<int> numbers = Observable.Range(1,5);
-numbers.Dump("numbers");
 numbers.Sum().Dump("sum");
 ```
 
-The output shows the numbers produced by the source, and also the single result produced by `Sum`:
+The output shows the single result produced by `Sum`:
 
 ```
-numbers-->1
-numbers-->2
-numbers-->3
-numbers-->4
-numbers-->5
-numbers completed
 sum-->15
 sum completed
 ```
@@ -83,7 +69,7 @@ IObservable<int> totalVesselWidths = vesselDimensions
 
 The standard LINQ operator `Average` effectively calculates the value that `Sum` would calculate, and then divides it by the value that `Count` would calculate. And once again, whereas most LINQ implementations would return a scalar, Rx's `Average` produces an observable.
 
-Although `Average` can process values of the same numeric types as `Sum`, the output type will be different in some cases. If the source is `IObservable<int>`, or if you use one of the overloads that takes a lambda that extracts the value from the source, and that lambda returns an `int`, the result will be a `double.` This is because the average of a set of whole numbers is not necessarily a whole number. Likewise, averaging `long` values produces a `double`. However, inputs of type `decimal` produce outputs of type `decimal`, and likewise `float` inputs produce a `float output.
+Although `Average` can process values of the same numeric types as `Sum`, the output type will be different in some cases. If the source is `IObservable<int>`, or if you use one of the overloads that takes a lambda that extracts the value from the source, and that lambda returns an `int`, the result will be a `double.` This is because the average of a set of whole numbers is not necessarily a whole number. Likewise, averaging `long` values produces a `double`. However, inputs of type `decimal` produce outputs of type `decimal`, and likewise `float` inputs produce a `float` output.
 
 As with `Sum`, if the inputs to `Average` are nullable, the output will be too.
 
@@ -130,7 +116,7 @@ LINQ defines several standard operators that reduce entire sequences to a single
 
 ### Any
 
-There are two ways to use `Any`. First we can look at the parameterless overload for the extension method `Any`. This effectively asks the question "are there any elements in this sequence?" It returns an observable sequence that will produce a single value of `false` if the source completes without emitting any values. If the source does produce a value however, then when the first value is produced, the result sequence will immediately produce `true` and then complete. If the first notification it gets is an error, then it will pass that error on.
+The `Any` operator has two forms. The parameterless overload effectively asks the question "are there any elements in this sequence?" It returns an observable sequence that will produce a single value of `false` if the source completes without emitting any values. If the source does produce a value however, then when the first value is produced, the result sequence will immediately produce `true` and then complete. If the first notification it gets is an error, then it will pass that error on.
 
 ```csharp
 var subject = new Subject<int>();
@@ -177,9 +163,27 @@ subject.OnError(new Exception());
 Output:
 
 ```
-subject OnError : System.Exception: Fail
-.Any() OnError : System.Exception: Fail
+subject OnError : System.Exception: Exception of type 'System.Exception' was thrown.
+.Any() OnError : System.Exception: Exception of type 'System.Exception' was thrown.
 ```
+
+But if the source were to generate a value before an exception, e.g.:
+
+```cs
+subject.OnNext(42);
+subject.OnError(new Exception());
+```
+
+we'd see this output instead:
+
+```
+42
+The subject has any values? True
+.Any() completed
+subject OnError : System.Exception: Exception of type 'System.Exception' was thrown.
+```
+
+Although the handler that subscribed directly to the source subject still sees the error, our `any` observable reported a value of `True` and then completed, meaning it did not report the error that followed.
 
 The `Any` method also has an overload that takes a predicate. This effectively asks a slightly different question: "are there any elements in this sequence that meet these criteria?" The effect is similar to using `Where` followed by the no-arguments form of `Any`.
 
@@ -189,43 +193,12 @@ IObservable<bool> any = subject.Any(i => i > 2);
 IObservable<bool> longWindedAny = subject.Where(i => i > 2).Any();
 ```
 
-As an exercise, write your own version of the two `Any` extension method overloads. While the answer may not be immediately obvious, we have covered enough material for you to create this using the methods you know...
-
-Example of the `Any` extension methods written with `Observable.Create`:
-
-```csharp
-public static IObservable<bool> MyAny<T>(this IObservable<T> source)
-{
-    return Observable.Create<bool>(
-        o =>
-        {
-            var hasValues = false;
-            return source
-                .Take(1)
-                .Subscribe(
-                    _ => hasValues = true,
-                    o.OnError,
-                    () =>
-                    {
-                        o.OnNext(hasValues);
-                        o.OnCompleted();
-                    });
-        });
-}
-
-public static IObservable<bool> MyAny<T>(
-    this IObservable<T> source, 
-    Func<T, bool> predicate)
-{
-    return source
-        .Where(predicate)
-        .MyAny();
-}
-```
 
 ### All
 
-The `All` operator is similar to the `Any` method that takes a predicate, except that all values must meet the predicate. As soon as a value does not meet the predicate a `false` value is returned then the output sequence completed. If the source reaches its end without producing any elements that do not satisfy the predicate, then `All` will push `true` as its value. (A consequence of this is that if you use `All` on an empty sequence, the result will be a sequence that produces `true`. This is consistent with how `All` works in other LINQ providers, but it might be surprising for anyone not familiar with the formal logic convention known as [vacuous truth](https://en.wikipedia.org/wiki/Vacuous_truth).)
+The `All` operator is similar to the `Any` method that takes a predicate, except that all values must satisfy the predicate. As soon as the predicate rejects a value, the observable returned by `All` produces a `false` value and then completes. If the source reaches its end without producing any elements that do not satisfy the predicate, then `All` will push `true` as its value. (A consequence of this is that if you use `All` on an empty sequence, the result will be a sequence that produces `true`. This is consistent with how `All` works in other LINQ providers, but it might be surprising for anyone not familiar with the formal logic convention known as [vacuous truth](https://en.wikipedia.org/wiki/Vacuous_truth).)
+
+TODO: read through to here.
 
 Once `All` decides to produce a `false` value, it immediately unsubscribes from the source (just like `Any` does as soon as it determines that it can produce `true`.) If the source produces an error before this happens, the error will be passed along to the subscriber of the `All` method. 
 
