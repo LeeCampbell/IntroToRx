@@ -1026,4 +1026,4 @@ The main difference between these overloads, and using the `IScheduler` methods 
 
 As mentioned in the earlier section, although this logically represents recursion, Rx protects us from stack overflows. The schedulers implement this style of recursion by waiting for the method to return before performing the recursive call. (So it is always what's called "tail recursion" where the recursive call occurs right at the end of the current method.)
     
-This concludes our tour of scheduling and threading. Next, we will look at the boundary between Rx and the rest of the world.
+This concludes our tour of scheduling and threading. Next, we will look at the related topic of timing.

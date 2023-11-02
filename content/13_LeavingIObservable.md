@@ -530,5 +530,3 @@ could not sabotage
 ```
 
 While I have used words like 'evil' and 'sabotage' in these examples, it is more often than not an oversight rather than malicious intent that causes problems. The failing falls first on the programmer who designed the leaky class. Designing interfaces is hard, but we should do our best to help consumers of our code fall into [the pit of success](http://blogs.msdn.com/b/brada/archive/2003/10/02/50420.aspx) by giving them discoverable and consistent types. Types become more discoverable if we reduce their surface area to expose only the features we intend our consumers to use. In this example we reduced the type's surface area. We did so by removing the property setter and returning a simpler type via the `AsObservable` method.
-
-TODO: swap this and the next chapter over? timing follows naturally from scheduling.

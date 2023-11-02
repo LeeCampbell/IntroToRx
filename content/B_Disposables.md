@@ -52,6 +52,7 @@ Rx leverages the existing `IDisposable` interface for subscription management. T
     </dd>
 </dl>
 
+<!-- 
 TODO: we recently made SingleAssignmentDisposableValue public after a request to do so.
 
 
@@ -98,4 +99,4 @@ Being disposed.
 Calling again...
 ```
 
-Note that "Being disposed." is only printed once.
+Note that "Being disposed." is only printed once. -->

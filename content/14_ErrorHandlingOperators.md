@@ -14,8 +14,6 @@ Rx defines a `Catch` operator. The name is deliberately reminiscent of C#'s `try
 
 The most basic (although rarely the best) way to handle an exception is to swallow it. In C#, we could write a `try` block with an empty `catch` block. We can achieve something similar with Rx's `Catch` operator. The basic idea with swallowing exceptions is that the process that caused the exception stops, but we act as though nothing had happened—we handle it in the same way as it the process had naturally reached an end. We can represent an exception being swallowed like this with a marble diagram.
 
-TODO: make this a proper diagram.
-
 ```
 S1--1--2--3--X
 S2            -|

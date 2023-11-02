@@ -314,3 +314,5 @@ public static IObservable<TSource> Timeout<TSource>(
 -->
 
 As we've now seen, Rx provides features to manage timing in a reactive paradigm. Data can be timed, throttled, or sampled to meet your needs. Entire sequences can be shifted in time with the delay feature, and timeliness of data can be asserted with the `Timeout` operator. These simple yet powerful features further extend the developer's tool belt for querying data in motion.
+
+Next we will look at the boundary between Rx and the rest of the world.
