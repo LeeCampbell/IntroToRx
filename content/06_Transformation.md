@@ -222,11 +222,9 @@ chars completed
 
 This clarifies that `SelectMany` lets you produce a sequence for each item that the source produces, and to have all of the items from all of those new sequences flattened back out into one sequence that contains everything. While that might make it easier to understand, you wouldn't want to introduce this sort of delay in reality purely for the goal of making it easier to understand. These delays mean it will take about a second and a half for all the elements to emerge. This marble diagram shows that the code above produces a sensible-looking ordering by making each child observable produce a little bunch of items, and we've just introduced dead time to get the separation:
 
-TODO: fix the spacing on the Rang observable!
-
 ![An Rx marble diagram which, like the preceding diagram, shows 7 observables. The first illustrates the Range operator producing the values 1 through 5. These are colour coded as follows: green, blue, yellow, red, and pink. These colours correspond to observables further down in the diagram, as will be described shortly.](GraphicsIntro/Ch06-Transformation-MarblesSelect-Many-Marbles-Delay.svg)
 
-I introduced these gaps purely to provide a slightly less confusing example, but if you really wanted this sort of strictly-in-order handling, you wouldn't use `SelectMany` in this way in practice. For one thing, it's not completely guaranteed to work. (If you try this example, but modify it to use shorter and shorter timespans, eventually you reach a point where the items start getting jumbled up again. And since .NET is not a real-time programming system, there's actually no safe timespan you can specific here that absolutely guarantees the ordering.)  If you absolutely need all the items from the first child sequence before seeing any from the second, there's actually a robust way to ask for that:
+I introduced these gaps purely to provide a slightly less confusing example, but if you really wanted this sort of strictly-in-order handling, you wouldn't use `SelectMany` in this way in practice. For one thing, it's not completely guaranteed to work. (If you try this example, but modify it to use shorter and shorter timespans, eventually you reach a point where the items start getting jumbled up again. And since .NET is not a real-time programming system, there's actually no safe timespan you can specific here that guarantees the ordering.) If you absolutely need all the items from the first child sequence before seeing any from the second, there's actually a robust way to ask for that:
 
 ```cs
 Observable
@@ -236,7 +234,7 @@ Observable
     .Dump("chars");
 ```
 
-However, that would not have been a good way to show what `SelectMany` does, since this no longer uses it. (It uses `Concat`, which will be discussed in Chapter XXX.) We use `SelectMany` either when we know we're unwrapping a single-valued sequence, or when we don't have specific ordering requirements, and want to take elements as and when they emerge from child observables.
+However, that would not have been a good way to show what `SelectMany` does, since this no longer uses it. (It uses `Concat`, which will be discussed in the [Combining Sequences](09_CombiningSequences.md) chapter.) We use `SelectMany` either when we know we're unwrapping a single-valued sequence, or when we don't have specific ordering requirements, and want to take elements as and when they emerge from child observables.
 
 ### The Significance of SelectMany
 
@@ -253,11 +251,11 @@ IObservable<int> onoffs =
 
 As you may recall, this example worked by creating a new, short-lived `IObservable<int>` for each item produced by `src`. (These child sequences, represented by the `delta` range variable in the example, produce the value `1`, and then after the specified `minimumActivityPeriod`, they produce `-1`. This enabled us to keep count of the number of recent events emitted.) This is the _fanning out_ part, where items in a source sequence produce new observable sequences. `SelectMany` is crucial in these scenarios because it enables all of those new sequences to be flattened back out into a single output sequence.
 
-The second place I used `SelectMany` was slightly different: it was the final example of the [**Representing Filesystem Events in Rx** section in Chapter 3](./03_CreatingObservableSequences.md#representing-filesystem-events-in-rx). Although that example also combined multiple observable sources into a single observable, that list of observables was fixed: there was one for each of the different events from `FileSystemWatcher`. It used a different operator `Merge` (which we'll get to in XXX), which was simpler to use in that scenario because you just pass it the list of all the observables you'd like to combine. However, because of a few other things this code wanted to do (including deferred startup, automated disposal, and sharing a single source when multiple subscribers were active), the particular combination of operators used to achieve this meant our merging code that returned an `IObservable<FileSystemEventArgs>`, needed to be invoked as a transforming step. If we'd just used `Select`, the result would have been an `IObservable<IObservable<FileSystemEventArgs>>`. The structure of the code meant that it would only ever produce a single `IObservable<FileSystemEventArgs>`, so the double-wrapped type would be rather inconvenient. `SelectMany` is very useful in these scenarios—if composition of operators has introduced an extra layer of observables-in-observables that you don't want, `SelectMany` can unwrap one layer for you.
+The second place I used `SelectMany` was slightly different: it was the final example of the [**Representing Filesystem Events in Rx** section in Chapter 3](./03_CreatingObservableSequences.md#representing-filesystem-events-in-rx). Although that example also combined multiple observable sources into a single observable, that list of observables was fixed: there was one for each of the different events from `FileSystemWatcher`. It used a different operator `Merge` (which we'll get to in [Combining Sequences](09_CombiningSequences.md)), which was simpler to use in that scenario because you just pass it the list of all the observables you'd like to combine. However, because of a few other things this code wanted to do (including deferred startup, automated disposal, and sharing a single source when multiple subscribers were active), the particular combination of operators used to achieve this meant our merging code that returned an `IObservable<FileSystemEventArgs>`, needed to be invoked as a transforming step. If we'd just used `Select`, the result would have been an `IObservable<IObservable<FileSystemEventArgs>>`. The structure of the code meant that it would only ever produce a single `IObservable<FileSystemEventArgs>`, so the double-wrapped type would be rather inconvenient. `SelectMany` is very useful in these scenarios—if composition of operators has introduced an extra layer of observables-in-observables that you don't want, `SelectMany` can unwrap one layer for you.
 
 These two cases—fanning out then back in, and removing or avoiding a layer of observables of observables—come up quite often, which makes `SelectMany` an important method. (It's not surprising that I was unable to avoid using it in earlier examples.)
 
-As it happens, `SelectMany` is also a particularly important operator in the mathematical theory that Rx is based on. It is a fundamental operator, in the sense that it is possible to build many other Rx operators with it. [Section XXX in Appendix C](./C_AlgebraicUnderpinnings) shows how you can implement `Select` and `Where` using `SelectMany`.
+As it happens, `SelectMany` is also a particularly important operator in the mathematical theory that Rx is based on. It is a fundamental operator, in the sense that it is possible to build many other Rx operators with it. [Section 'Recreating other operators with `SelectMany`' in Appendix D](./D_AlgebraicUnderpinnings.md#recreating-other-operators-with-selectmany) shows how you can implement `Select` and `Where` using `SelectMany`.
 
 ## Cast
 
@@ -269,7 +267,7 @@ IObservable<IVesselNavigation> type3 = receiverHost.Messages
     .Cast<IVesselNavigation>();
 ```
 
-This uses `Cast`, a standard LINQ operator that we can use whenever we know that the items in some collection are of some more specific type than the type system ahs been able to deduce.
+This uses `Cast`, a standard LINQ operator that we can use whenever we know that the items in some collection are of some more specific type than the type system has been able to deduce.
 
 The difference between `Cast` and the [`OfType` operator shown in Chapter 5](./05_Filtering.md#oftype) is the way in which they handle items that are not of the specified type. `OfType` is a filtering operator, so it just filters out any items that are not of the specified type. But with `Cast` (as with a normal C# cast expression) we are asserting that we expect the source items to be of the specified type, so the observable returned by `Cast` will invoke its subscriber's `OnError` if its source produces an item that is not compatible with the specified type.
 
@@ -280,7 +278,7 @@ This distinction might be easier to see if we recreate the functionality of `Cas
 source.Select(i => (int)i);
 
 // source.OfType<int>();
-source.Where(i=> i is int).Select(i=>(int)i);
+source.Where(i => i is int).Select(i => (int)i);
 ```
 
 ## Materialize and Dematerialize
@@ -313,7 +311,7 @@ Note that when the source sequence completes, the materialized sequence produces
  * OnErrorNotification
  * OnCompletedNotification
 
-`Notification<T>` exposes four public properties to help you discover it: `Kind`, `HasValue`, `Value` and `Exception`. Obviously only `OnNextNotification` will return true for `HasValue` and have a useful implementation of `Value`. It should also be obvious that `OnErrorNotification` is the only implementation that will have a value for `Exception`. The `Kind` property returns an `enum` which should allow you to know which methods are appropriate to use.
+`Notification<T>` exposes four public properties to help you inspect it: `Kind`, `HasValue`, `Value` and `Exception`. Obviously only `OnNextNotification` will return true for `HasValue` and have a useful implementation of `Value`. Similarly, `OnErrorNotification` is the only implementation that will have a value for `Exception`. The `Kind` property returns an `enum` which allows you to know which methods are appropriate to use.
 
 ```csharp
 public enum NotificationKind
