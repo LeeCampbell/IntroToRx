@@ -35,23 +35,13 @@ IDisposable sub = c.Subscribe(Console.WriteLine, x => Console.WriteLine("Error: 
 
 This marble diagram shows the items emerging from the two sources, `s1` and `s2`, and how `Concat` combines them into the result, `c`:
 
-TODO: draw properly
-```
-s1 0-1-2|
-s2       5-6-7-8-9|
-c  0-1-2-5-6-7-8-9|
-```
+![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Marbles.svg)
 
 Rx's `Concat` does nothing with its sources until something subscribes to the `IObservable<T>` it returns. So in this case, when we call `Subscribe` on `c` (the source returned by `Concat`) it will subscribe to its first input, `s1`, and each time that produces a value, the `c` observable will emit that same value to its subscriber. If we went on to call `sub.Dispose()` before `s1` completes, `Concat` would unsubscribe from the first source, and would never subscribe to `s2`. If `s1` were to report an error, `c` would report that same error to is subscriber, and again, it will never subscribe to `s2`. Only if `s1` completes will the `Concat` operator subscribe to `s2`, at which point it will forward any items that second input produces until either the second source completes or fails, or the application unsubscribes from the concatenated observable.
 
 Although Rx's `Concat` has the same logical behaviour as the [LINQ to Objects `Concat`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.concat), there are some Rx-specific details to be aware of. In particular, timing is often more significant in Rx than with other LINQ implementations. For example, in Rx we distinguish between [_hot_ and _cold_ source](02_KeyTypes.md#hot-and-cold-sources). With a cold source it typically doesn't matter exactly when you subscribe, but hot sources are essentially live, so you only get notified of things that happen while you are subscribed. This can mean that hot sources might not be a good fit with `Concat` The following marble diagram illustrates a scenario in which this produces results that have the potential to surprise:
 
-TODO: create marble diagram like this:
-```
-cold              |--0--1--2-|
-hot               |---A---B---C---D---E-|
-Concat(cold, hot) |--0--1--2--C---D---E-|
-```
+![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Hot-Marbles.svg)
 
 Since `Concat` doesn't subscribe to its second input until the first has finished, it won't see the first couple of items that the `hot` source would deliver to any subscribers that been listening from the start. This might not be the behaviour you would expect: it certainly doesn't look like this concatenated all of the items from the first sequence with all of the items from the second one. It looks like it missed out `A` and `B` from `hot`.
 
@@ -313,14 +303,7 @@ A common use case for `Amb` is when you want to produce some sort of result as q
 
 To illustrate `Amb`'s behaviour, here's a marble diagram showing three sequences, `s1`, `s2`, and `s3`, each able to produce a sequence values. The line labelled `r` shows the result of passing all three sequences into `Amb`. As you can see, `r` provides exactly the same notifications as `s1`. This is because in this example, `s1` was the first sequence to produce a value.
 
-TODO: draw properly.
-
-```
-s1 -1---2----3--4|
-s2 --99--88-|
-s3 ----8---7--6---|
-r  -1---2----3--4|
-```
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Amb-Marbles.svg)
 
 This code creates exactly the situation described in that marble diagram, to verify that this is indeed how `Amb` behaves:
 
@@ -422,13 +405,7 @@ The `Merge` extension method takes multiple sequences as its input. Any time any
 
 Since `Merge` returns a single observable sequence that includes all of the values from all of its input sequences, there's a sense in which it is similar to `Concat`. But whereas `Concat` waits until each input sequence completes before moving onto the next, `Merge` supports concurrently active sequences. As soon as you subscribe to the observable returned by `Merge`, it immediately subscribes to all of its inputs, forwarding everything any of them produces. This marble diagram shows two sequences, `s1` and `s2`, running concurrently and `r` shows the effect of combining these with `Merge`—the values from both source sequences emerge from the merged sequence.
 
-TODO: draw.
-
-```
-s1 --1--1--1--|
-s2 ---2---2---2|
-r  --12-1-21--2|
-```
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Merge-Marbles.svg)
 
 The result of a `Merge` will complete only once all input sequences complete. However, the `Merge` operator will error if any of the input sequences terminates erroneously (at which point it will unsubscribe from all its other inputs).
 
@@ -831,8 +808,6 @@ var systemStatus = webServerStatus
     .DistinctUntilChanged()
     .StartWith(false);
 ```
-
-TODO: these next two sequences were relocated from the now-dropped Sequences of Coincidence chapter. They need editing
 
 ## Join
 
