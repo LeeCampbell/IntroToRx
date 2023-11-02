@@ -12,8 +12,8 @@ pandoc -o /output/intro-to-rx.epub metadata.md -s \
     ./content/09_CombiningSequences.md \
     ./content/10_Part3.md \
     ./content/11_SchedulingAndThreading.md \
-    ./content/12_LeavingIObservable.md \
-    ./content/13_Timing.md \
+    ./content/12_Timing.md \
+    ./content/13_LeavingIObservable.md \
     ./content/14_ErrorHandlingOperators.md \
     ./content/15_PublishingOperators.md \
     ./content/16_TestingRx.md \
@@ -37,8 +37,8 @@ pandoc -o /output/intro-to-rx.docx -s \
     ./content/09_CombiningSequences.md \
     ./content/10_Part3.md \
     ./content/11_SchedulingAndThreading.md \
-    ./content/12_LeavingIObservable.md \
-    ./content/13_Timing.md \
+    ./content/12_Timing.md \
+    ./content/13_LeavingIObservable.md \
     ./content/14_ErrorHandlingOperators.md \
     ./content/15_PublishingOperators.md \
     ./content/16_TestingRx.md \
@@ -63,8 +63,8 @@ pandoc -o /output/intro-to-rx.pdf metadata.md -s \
     ./content/09_CombiningSequences.md \
     ./content/10_Part3.md \
     ./content/11_SchedulingAndThreading.md \
-    ./content/12_LeavingIObservable.md \
-    ./content/13_Timing.md \
+    ./content/12_Timing.md \
+    ./content/13_LeavingIObservable.md \
     ./content/14_ErrorHandlingOperators.md \
     ./content/15_PublishingOperators.md \
     ./content/16_TestingRx.md \
@@ -76,7 +76,6 @@ pandoc -o /output/intro-to-rx.pdf metadata.md -s \
     --template ./templates/eisvogel \
     --toc --toc-depth 4
 
-cp intro-to-rx.* /output
 if [ -f /root/.miktex/texmfs/data/miktex/log/pdflatex.log ]; then
     cp /root/.miktex/texmfs/data/miktex/log/pdflatex.log /output
 fi
