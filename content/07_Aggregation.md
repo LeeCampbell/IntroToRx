@@ -267,8 +267,6 @@ Subject completed
 
 There is also an overload to `Contains` that allows you to specify an implementation of `IEqualityComparer<T>` other than the default for the type. This can be useful if you have a sequence of custom types that may have some special rules for equality depending on the use case.
 
-TODO: read through to here.
-
 ## Build your own aggregations
 
 If the built-in aggregations described in the preceding sections do not meet your needs, you can build your own. Rx provides two different ways to do this.
@@ -352,9 +350,9 @@ int sum = s(s(s(s(s(0, 1), 2), 3), 4), 5);
 // it returns an IObservable<int> that produces this value.
 ```
 
-Rx's `Aggregate` doesn't perform all those invocations at once: it invokes the function as each element occurs. So the calculations will be spread out over time. (If your callback is a _pure function_—one that is unaffected by global variables and other environmental factors, and which will always return the same result for any particular input—this doesn't matter. The result of `Aggregate` will be the same as if it had all happened in one big expression like the preceding example. But if your callback's behaviour is affected by, say, a global variable, or by the current contents of the filesystem, then the fact that it will be invoked when the source produces each value may be more significant.)
+Rx's `Aggregate` doesn't perform all those invocations at once: it invokes the function each time the source produces an element, so the calculations will be spread out over time. If your callback is a _pure function_—one that is unaffected by global variables and other environmental factors, and which will always return the same result for any particular input—this doesn't matter. The result of `Aggregate` will be the same as if it had all happened in one big expression like the preceding example. But if your callback's behaviour is affected by, say, a global variable, or by the current contents of the filesystem, then the fact that it will be invoked when the source produces each value may be more significant.
 
-`Aggregate` has other names in some programming systems by the way. It is often referred to as a _fold_. (Specifically a _left fold_. A right fold proceeds in reverse. Conventionally its function takes arguments in the reverse order, so it would look like `s(1, s(2, s(3, s(4, s(5, 0)))))`. Rx does not offer a built-in right fold. It would not be a natural fit because it would have to wait until it received the final element before it could begin, meaning it would need to hold onto every element in the entire sequence, and then evaluate the entire fold at once when the sequence completes.) Some systems call it `reduce`.
+`Aggregate` has other names in some programming systems by the way. Some systems call it `reduce`. It is also often referred to as a _fold_. (Specifically a _left fold_. A right fold proceeds in reverse. Conventionally its function takes arguments in the reverse order, so it would look like `s(1, s(2, s(3, s(4, s(5, 0)))))`. Rx does not offer a built-in right fold. It would not be a natural fit because it would have to wait until it received the final element before it could begin, meaning it would need to hold onto every element in the entire sequence, and then evaluate the entire fold at once when the sequence completes.)
 
 You might have spotted that in my quest to re-implement some of the built-in aggregation operators, I went straight from `Sum` to `Any`. What about `Average`? It turns out we can't do that with the overloads I've shown you so far. And that's because `Average` needs to accumulate two pieces of information—the running total and the count—and it also needs to perform once final step right at the end: it needs to divide the total by the count. With the overloads shown so far, we can only get part way there:
 
@@ -403,7 +401,7 @@ IObservable<IReadOnlySet<string>> allNames = vesselNames
 
 With either of these implementations, `vesselNames` will produce a single value that is a `IReadOnlySet<string>` containing each vessel name seen in the first 10 messages that report a name.
 
-I've had to fudge an issue in these last two examples. I've made them work over just the first 10 suitable messages to emerge. Think about what would happen if I didn't have the `Take(10)` in there. The code would compile, but we'd have a problem. The AIS message source I've been using in various examples is an endless source. Ships will continue to move around the oceans for the foreseeable future. Ais.NET does not contain any code designed to detect either the end of civilisation, or the invention of technologies that render the use of ships obsolete, so it will never call `OnCompleted` on its subscribers. The observable returned by `Aggregate` reports nothing until its source either completes or fails. So if we remove that `Take(10)`, the behaviour would be identical `Observable.Never<IReadOnlySet<string>>`. I had to force the input to `Aggregate` to come to an end to make it produce something. But there is another way.
+I've had to fudge an issue in these last two examples. I've made them work over just the first 10 suitable messages to emerge. Think about what would happen if I didn't have the `Take(10)` in there. The code would compile, but we'd have a problem. The AIS message source I've been using in various examples is an endless source. Ships will continue to move around the oceans for the foreseeable future. Ais.NET does not contain any code designed to detect either the end of civilisation, or the invention of technologies that will render the use of ships obsolete, so it will never call `OnCompleted` on its subscribers. The observable returned by `Aggregate` reports nothing until its source either completes or fails. So if we remove that `Take(10)`, the behaviour would be identical `Observable.Never<IReadOnlySet<string>>`. I had to force the input to `Aggregate` to come to an end to make it produce something. But there is another way.
 
 ### Scan
 
@@ -445,7 +443,7 @@ acc completed
 
 You can see clearly here that `Scan` is emitting the current accumulated values each time the source produces a value.
 
-Unlike `Aggregate`, `Scan` doesn't offer an overload taking a second function to transform the accumulator into the result. So we can see the tuple containing the count and sum here, but not the actual average value we want. But we can achieve that by using the [`Select` operator described in the Transformation chapter](./06_Transformation.md):
+Unlike `Aggregate`, `Scan` doesn't offer an overload taking a second function to transform the accumulator into the result. So we can see the tuple containing the count and sum here, but not the actual average value we want. But we can achieve that by using the [`Select`](06_Transformation.md#select) operator described in the [Transformation chapter](./06_Transformation.md):
 
 ```cs
 IObservable<double> avg = nums.Scan(
