@@ -198,15 +198,13 @@ IObservable<bool> longWindedAny = subject.Where(i => i > 2).Any();
 
 The `All` operator is similar to the `Any` method that takes a predicate, except that all values must satisfy the predicate. As soon as the predicate rejects a value, the observable returned by `All` produces a `false` value and then completes. If the source reaches its end without producing any elements that do not satisfy the predicate, then `All` will push `true` as its value. (A consequence of this is that if you use `All` on an empty sequence, the result will be a sequence that produces `true`. This is consistent with how `All` works in other LINQ providers, but it might be surprising for anyone not familiar with the formal logic convention known as [vacuous truth](https://en.wikipedia.org/wiki/Vacuous_truth).)
 
-TODO: read through to here.
-
 Once `All` decides to produce a `false` value, it immediately unsubscribes from the source (just like `Any` does as soon as it determines that it can produce `true`.) If the source produces an error before this happens, the error will be passed along to the subscriber of the `All` method. 
 
-```csharp
+```cs
 var subject = new Subject<int>();
 subject.Subscribe(Console.WriteLine, () => Console.WriteLine("Subject completed"));
-var all = subject.All(i => i < 5);
-all.Subscribe(b => Console.WriteLine("All values less than 5? {0}", b));
+IEnumerable<bool> all = subject.All(i => i < 5);
+all.Subscribe(b => Console.WriteLine($"All values less than 5? {b}"));
 
 subject.OnNext(1);
 subject.OnNext(2);
@@ -231,7 +229,7 @@ subject completed
 
 ### IsEmpty
 
-The LINQ `IsEmpty` operator is logically the opposite of the no-arguments `Any` method. It returns `true` if and only if the source completes without producing any elements, and if the source produces an item, `IsEmpty` produces `false` and immediately unsubscribes.
+The LINQ `IsEmpty` operator is logically the opposite of the no-arguments `Any` method. It returns `true` if and only if the source completes without producing any elements. If the source produces an item, `IsEmpty` produces `false` and immediately unsubscribes. If the source produces an error, this forwards that error.
 
 ### Contains
 
@@ -243,7 +241,7 @@ subject.Subscribe(
     Console.WriteLine, 
     () => Console.WriteLine("Subject completed"));
 
-var contains = subject.Contains(2);
+IEnumerable<bool> contains = subject.Contains(2);
 
 contains.Subscribe(
     b => Console.WriteLine("Contains the value 2? {0}", b),
@@ -268,6 +266,8 @@ Subject completed
 ```
 
 There is also an overload to `Contains` that allows you to specify an implementation of `IEqualityComparer<T>` other than the default for the type. This can be useful if you have a sequence of custom types that may have some special rules for equality depending on the use case.
+
+TODO: read through to here.
 
 ## Build your own aggregations
 
