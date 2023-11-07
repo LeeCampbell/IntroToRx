@@ -4,13 +4,13 @@ title: Partitioning
 
 # Partitioning
 
-Rx can split a single sequence into multiple sequences. This can be useful for taking a single sequence and fanning out to many subscribers or perhaps taking aggregates on partitions. You may already be familiar with the standard LINQ operator `GroupBy`. Rx supports this, and also defines some of its own.
+Rx can split a single sequence into multiple sequences. This can be useful for distributing items over many subscribers. When performing analytics, it can be useful to take aggregates on partitions. You may already be familiar with the standard LINQ operators `GroupBy`. Rx supports this, and also defines some of its own.
 
 ## GroupBy
 
 The `GroupBy` operator allows you to partition your sequence just as `IEnumerable<T>`'s `GroupBy` operator does. Once again, the open source [Ais.Net project](https://github.com/ais-dotnet) can provide a useful example. Its [`ReceiverHost` class](https://github.com/ais-dotnet/Ais.Net.Receiver/blob/15de7b2908c3bd67cf421545578cfca59b24ed2c/Solutions/Ais.Net.Receiver/Ais/Net/Receiver/Receiver/ReceiverHost.cs) makes AIS messages available through Rx, defining a `Messages` property of type `IObservable<IAisMessage>`. This is a very busy source, because it reports every message it is able to access. For example, if you connect the receiver to the AIS message source generously provided by the Norwegian government, it produces a notification every time _any_ ship broadcasts an AIS message anywhere on the Norwegian coast. There are a lot of ships moving around Norway, so this is a bit of a firehose.
 
-If we know exactly which ships we're interested in, you saw how to filter this stream in the [Filtering chapter](05_Filtering.md). But what if we don't, and yet we still want to be able to perform processing relating to individual ships? For example, perhaps we'd like to discover any time any ship changes its `NavigationStatus` (which reports values such as `AtAnchor`, or `Moored`). The [`Distinct and DistinctUntilChanged` section of the Filtering chapter](05_Filtering.md#distinct-and-distinctuntilchanged) showed how to do exactly that, but it began by filtering the stream down to message from a single ship. If we tried to use `DistinctUntilChanged` directly on the all-ships stream it will not produce meaningful information. If ship A is moored and ship B is at anchor, and if we receive alternative status messages from ship A and ship B, `DistinctUntilChanged` would report each message as a change in status, even though neither ship's status has changed.
+If we know exactly which ships we're interested in, you saw how to filter this stream in the [Filtering chapter](05_Filtering.md). But what if we don't, and yet we still want to be able to perform processing relating to individual ships? For example, perhaps we'd like to discover any time any ship changes its `NavigationStatus` (which reports values such as `AtAnchor`, or `Moored`). The [`Distinct` and `DistinctUntilChanged` section of the Filtering chapter](05_Filtering.md#distinct-and-distinctuntilchanged) showed how to do exactly that, but it began by filtering the stream down to message from a single ship. If we tried to use `DistinctUntilChanged` directly on the all-ships stream it will not produce meaningful information. If ship A is moored and ship B is at anchor, and if we receive alternative status messages from ship A and ship B, `DistinctUntilChanged` would report each message as a change in status, even though neither ship's status has changed.
 
 We can fix this by splitting the "all the ships" sequence into lots of little sequences:
 
@@ -30,7 +30,7 @@ public interface IGroupedObservable<out TKey, out TElement> : IObservable<TEleme
 
 Each time `receiverHost.Message` reports an AIS message, the `GroupBy` operator will invoke the callback to find out which group this item belongs to. We refer to the value returned by the callback as the _key_, and `GroupBy` remembers each key it has already seen. If this is a new key, `GroupBy` creates a new `IGroupedObservable` whose `Key` property will be the value just returned by the callback. It emits this `IGroupedObservable` from the outer observable (the one we put in `perShipObservables`) and then immediately causes that new `IGroupedObservable` to emit the element (an `IAisMessage` in this example) that produced that key. But if the callback produces a key that `GroupBy` has seen before, it finds the `IGroupedObservable` that it already produced for that key, and causes that to emit the value.
 
-So in this example, the effect is that any time the `receiverHost` reports a message from a ship with we've not previously heard from, `perShipObservables` will emit a new observable that reports message just for that ship. We could use this to report each time we learn about a new ship:
+So in this example, the effect is that any time the `receiverHost` reports a message from a ship with we've not previously heard from, `perShipObservables` will emit a new observable that reports messages just for that ship. We could use this to report each time we learn about a new ship:
 
 ```cs
 perShipObservables.Subscribe(m => Console.WriteLine($"New ship! {m.Key}"));
@@ -46,7 +46,7 @@ IObservable<IObservable<IAisMessageType1to3>> shipStatusChangeObservables =
         .Skip(1));
 ```
 
-This uses [`Select` (introduced in the Transformation chapter)](06_Transformation.md#select) to apply processing to each group that comes out of `perShipObservables`. Remember, each such group represents a distinct ship, so the callback we've passed to `Select` here will be invoked exactly once for each ship. This means it's now fine for us to use `DistinctUntilChanged`—the input this example supplies to `DistinctUntilChanged` is a sequence representing the messages from just one ship, so this will tell us when that ship changes it status. This is now able to do what we want because each ship gets its own instance of `DistinctUntilChanged`.
+This uses [`Select`](06_Transformation.md#select) (introduced in the Transformation chapter) to apply processing to each group that comes out of `perShipObservables`. Remember, each such group represents a distinct ship, so the callback we've passed to `Select` here will be invoked exactly once for each ship. This means it's now fine for us to use `DistinctUntilChanged`—the input this example supplies to `DistinctUntilChanged` is a sequence representing the messages from just one ship, so this will tell us when that ship changes its status. This is now able to do what we want because each ship gets its own instance of `DistinctUntilChanged`.
 
 At this point we have an observable sequence of observable sequences. The outer sequence produces a nested sequence for each distinct ship that it sees, and that nested sequence will report `NavigationStatus` changes for that particular ship.
 
@@ -95,11 +95,11 @@ Ship 232026676 changed status to Moored at 23/06/2023 06:51:54 +00:00
 Ship 259638000 changed status to UnderwayUsingEngine at 23/06/2023 06:52:34 +00:00
 ```
 
-The critical thing to understand here is that in the space of ten minutes, `receiverHost.Messages` produced _thousands_ of messages. (The rate varies by time of day, but it's typically over a thousand messages a minute. The code would have processed roughly ten thousand messages when I ran to produce that output.) But as you can see, `shipStatusChanges` produced just 19 messages.
+The critical thing to understand here is that in the space of ten minutes, `receiverHost.Messages` produced _thousands_ of messages. (The rate varies by time of day, but it's typically over a thousand messages a minute. The code would have processed roughly ten thousand messages when I ran it to produce that output.) But as you can see, `shipStatusChanges` produced just 19 messages.
 
 This shows how Rx can tame high volume event sources in ways that are much more powerful than mere aggregation. We've not just reduced the data down to some statistical measure that can only provide an overview. Statistical measures such as averages or variance wouldn't be able to tell us anything about any particular ship. But here, every message tells us something about a particular ship. We've been able to retain that level of detail, despite the fact that we are looking at every ship. We've been able to instruct Rx to tell us any time any ship changes its status.
 
-It probably seems like I'm making too big a deal of this, but it took so little effort to achieve this result that it can be easy to miss just how much work Rx is doing for us here. This code does all of the following:
+It may seem like I'm making too big a deal of this, but it took so little effort to achieve this result that it can be easy to miss just how much work Rx is doing for us here. This code does all of the following:
 
 - monitors every single ship operating in Norwegian waters
 - provides per-ship information
@@ -129,7 +129,6 @@ public static IObservable<IGroupedObservable<TKey, TSource>> GroupBy<TSource, TK
 There are two more overloads that extend the preceding two with an `elementSelector` argument:
 
 ```cs
-
 public static IObservable<IGroupedObservable<TKey, TElement>> GroupBy<TSource, TKey, TElement>(
     this IObservable<TSource> source, 
     Func<TSource, TKey> keySelector, 
@@ -184,13 +183,13 @@ More generally, if you have lots of sequences coming into existence as part of a
 
 ## Buffer
 
-The `Buffer` operator is useful if you need to deal with events in batches. This can be useful for performance, especially if you're storing data about events. Take the AIS example. If you wanted to log notifications to a persistent store, the cost of storing a single record is likely to be almost identical to the cost of storing several. Most storage devices operate with blocks of data often several kilobytes in size, so the amount of work required to store a single byte of data is often identical to the amount of work required to store several thousand bytes. The pattern of buffering up data until we have a reasonably large chunk of work crops up all the time in programming—the .NET runtime library's `Stream` class has built-in buffering for exactly the reason, so it's no surprise that it's built into Rx.
+The `Buffer` operator is useful if you need to deal with events in batches. This can be useful for performance, especially if you're storing data about events. Take the AIS example. If you wanted to log notifications to a persistent store, the cost of storing a single record is likely to be almost identical to the cost of storing several. Most storage devices operate with blocks of data often several kilobytes in size, so the amount of work required to store a single byte of data is often identical to the amount of work required to store several thousand bytes. The pattern of buffering up data until we have a reasonably large chunk of work crops up all the time in programming—the .NET runtime library's `Stream` class has built-in buffering for exactly this reason, so it's no surprise that it's built into Rx.
 
-Efficiency concerns are not the only reason you might want to process multiple events in once batch instead of individual ones. Suppose you wanted to generate a stream of continuously updated statistics about some source of data. By carving the source into chunks with `Buffer`, you can calculate, say, an average over the last 10 events.
+Efficiency concerns are not the only reason you might want to process multiple events in one batch instead of individual ones. Suppose you wanted to generate a stream of continuously updated statistics about some source of data. By carving the source into chunks with `Buffer`, you can calculate, say, an average over the last 10 events.
 
 `Buffer` can partition the elements from a source stream, so it's a similar kind of operator to `GroupBy`, but there are a couple of significant differences. First, `Buffer` doesn't inspect the elements to determine how to partition them—it partitions purely based on the order in which elements emerge. Second, `Buffer` waits until it has completely filled a partition, and then presents all of the elements as an `IList<T>`. This can make certain tasks a lot easier because everything in the partition is available for immediate use—values aren't buried in a nested `IObservable<T>`. Third, `Buffer` offers some overloads that make it possible for a single element to turn up in more than one 'partition'. (In this case, `Buffer` is no longer strictly partitioning the data, but as you'll see, it's just a small variation on the other behaviours.)
 
-The simplest way to use `Buffer` is to gather up adjacent elements into chunks. (LINQ to Objects now has an equivalent operator that it calls [`Chunk`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.chunk). The reason Rx didn't use the same name is that Rx introduced this operator over 10 years before LINQ to Objects did. So the real question is why LINQ to Objects chose a different name, but you'd need to ask the .NET runtime library team.) This overload of `Buffer` takes a single argument, indicating the chunk size you would like:
+The simplest way to use `Buffer` is to gather up adjacent elements into chunks. (LINQ to Objects now has an equivalent operator that it calls [`Chunk`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.chunk). The reason Rx didn't use the same name is that Rx introduced this operator over 10 years before LINQ to Objects did. So the real question is why LINQ to Objects chose a different name. It might be because `Chunk` doesn't support all of the variations that Rx's `Buffer` does, but you'd need to ask the .NET runtime library team.) This overload of `Buffer` takes a single argument, indicating the chunk size you would like:
 
 ```cs
 public static IObservable<IList<TSource>> Buffer<TSource>(
@@ -330,7 +329,7 @@ The `timeSpan` determines the length of time covered by each window, and the `ti
 
 The `Window` operator is very similar to the `Buffer`. It can split the input into chunks based either on element count or time, and it also offers support for overlapping windows. However, it has a different return type. Whereas using `Buffer` on an `IObservable<T>` will return an `IObservable<IList<T>>`, `Window` will return an `IObservable<IObservable<T>>`. This means that `Window` doesn't have to wait until it has filled a complete buffer before producing anything.
 
-Because `Buffer` returns an `IObservable<IList<T>>`, it can't produce a chunk until it has all of the elements that will go into that chunk. `IList<T>` supports random access—you can ask it how many elements it has, and you can retrieve any element by numeric index, and we expect these operations to complete immediately. (It would be technically possible to write an implementation of `IList<T>` representing as yet unreceived data, and to make its `Count` and indexer properties block if you try to use them before that data is available, but this would be a strange thing to do. Developers expect lists to return information immediately.) So if you write, say, `Buffer(4)`, it can't produce anything until it has all 4 items that will constitute the first chunk.
+Because `Buffer` returns an `IObservable<IList<T>>`, it can't produce a chunk until it has all of the elements that will go into that chunk. `IList<T>` supports random access—you can ask it how many elements it has, and you can retrieve any element by numeric index, and we expect these operations to complete immediately. (It would be technically possible to write an implementation of `IList<T>` representing as yet unreceived data, and to make its `Count` and indexer properties block if you try to use them before that data is available, but this would be a strange thing to do. Developers expect lists to return information immediately, and the lists produced by Rx's `Buffer` meet that expectation.) So if you write, say, `Buffer(4)`, it can't produce anything until it has all 4 items that will constitute the first chunk.
 
 But because `Window` returns an observable that produces a nested observable to represent each chunk, it can emit that before necessarily having all of the elements. In fact, it emits a new window as soon as it knows it will need one. If you use `Window(4, 1)` for example, the observable it returns emits its first nested observable immediately. And then as soon as the source produces its first element, that nested observable will emit that element, and then the second nested observable will be produced. We passed `1` as the 2nd argument to `Window`, so we get a new window for every element the source produces. As soon as the first element has been emitted, the next item the source emits will appear in the second window (and also the first, since we've specified overlapping windows in this case), so the second window is effectively _open_ from immediately after the emergence of the first element. So the `IObservable<IObservable<T>>` that `Window` return produces a new `IObservable<T>` at that point.
 
@@ -351,23 +350,22 @@ public static IObservable<IObservable<TSource>> Window<TSource, TWindowClosing>
     this IObservable<TSource> source, 
     Func<IObservable<TWindowClosing>> windowClosingSelector
 )
-{...}
 ```
 
-The first of these complex overloads allows us to control when windows should close. The `windowClosingSelector` function is called each time a window is created. Windows are created on subscription and immediately after a window closes; windows close when the sequence from the `windowClosingSelector` produces a value. The value is disregarded so it doesn't matter what type the sequence values are; in fact you can just complete the sequence from `windowClosingSelector` to close the window instead.
+The first of these complex overloads allows us to control when windows close. The `windowClosingSelector` function is called each time a window is created, and each windows will close when the corresponding sequence from the `windowClosingSelector` produces a value. The value is disregarded so it doesn't matter what type the sequence values are; in fact you can just complete the sequence from `windowClosingSelector` to close the window instead.
 
 In this example, we create a window with a closing selector. We return the same subject from that selector every time, then notify from the subject whenever a user presses enter from the console.
 
-```csharp
-var windowIdx = 0;
-var source = Observable.Interval(TimeSpan.FromSeconds(1)).Take(10);
+```cs
+int windowIdx = 0;
+IObservable<long> source = Observable.Interval(TimeSpan.FromSeconds(1)).Take(10);
 var closer = new Subject<Unit>();
 source.Window(() => closer)
         .Subscribe(window =>
         {
-            var thisWindowIdx = windowIdx++;
+            int thisWindowIdx = windowIdx++;
             Console.WriteLine("--Starting new window");
-            var windowName = "Window" + thisWindowIdx;
+            string windowName = $"Window{thisWindowIdx}";
             window.Subscribe(
                 value => Console.WriteLine("{0} : {1}", windowName, value),
                 ex => Console.WriteLine("{0} : {1}", windowName, ex),
@@ -375,13 +373,14 @@ source.Window(() => closer)
         },
         () => Console.WriteLine("Completed"));
 
-var input = "";
-while (input!="exit")
+string input = "";
+while (input != "exit")
 {
     input = Console.ReadLine();
     closer.OnNext(Unit.Default);
 }
 ```
+
 Output (when I hit enter after '1' and '5' are displayed):
 
 ```
@@ -423,7 +422,6 @@ public static IObservable<IObservable<TSource>> Window
     IObservable<TWindowOpening> windowOpenings, 
     Func<TWindowOpening, IObservable<TWindowClosing>> windowClosingSelector
 )
-{...}
 ```
 
 This overload takes three arguments
@@ -434,15 +432,15 @@ This overload takes three arguments
 
 This overload offers great flexibility in the way windows are opened and closed. Windows can be largely independent from each other; they can overlap, vary in size and even skip values from the source.
 
-To ease our way into this more complex overload, let's first try to use it to recreate a simpler version of `Window` (the overload that takes a count). To do so, we need to open a window once on the initial subscription, and once each time the source has produced then specified count. The window needs to close each time that count is reached. To achieve this we only need the source sequence. We will share it by using the `Publish` method, then supply 'views' of the source as each of the arguments.
+To ease our way into this more complex overload, let's first try to use it to recreate a simpler version of `Window` (the overload that takes a count). To do so, we need to open a window once on the initial subscription, and once each time the source has produced then specified count. The window needs to close each time that count is reached. To achieve this we only need the source sequence. We will be subscribing to it multiple times, but for some kinds of sources that might cause problems, so we do so via the [`Publish`](15_PublishingOperators.md#publish) operator, which enables multiple subscribers while making only one subscription to the underlying source.
 
 ```csharp
 public static IObservable<IObservable<T>> MyWindow<T>(
     this IObservable<T> source, 
     int count)
 {
-    var shared = source.Publish().RefCount();
-    var windowEdge = shared
+    IObservable<T> shared = source.Publish().RefCount();
+    IObservable<int> windowEdge = shared
         .Select((i, idx) => idx % count)
         .Where(mod => mod == 0)
         .Publish()
@@ -462,14 +460,14 @@ public static IObservable<IObservable<T>> MyWindow<T>(
     if (count <= 0) throw new ArgumentOutOfRangeException();
     if (skip <= 0) throw new ArgumentOutOfRangeException();
 
-    var shared = source.Publish().RefCount();
-    var index = shared
+    IObservable<T> shared = source.Publish().RefCount();
+    IObservable<int> index = shared
         .Select((i, idx) => idx)
         .Publish()
         .RefCount();
  
-    var windowOpen = index.Where(idx => idx % skip == 0);
-    var windowClose = index.Skip(count-1);
+    IObservable<int> windowOpen = index.Where(idx => idx % skip == 0);
+    IObservable<int> windowClose = index.Skip(count-1);
  
     return shared.Window(windowOpen, _ => windowClose);
 }
@@ -494,6 +492,6 @@ public static IObservable<IList<T>> MyBuffer<T>(this IObservable<T> source, int 
 }
 ```
 
-It may be an interesting exercise to try implementing other time shifting methods, like `Sample` or `Throttle`, with `Window`.
+You might find it to be an interesting exercise to try implementing other time shifting methods, like `Sample` or `Throttle`, with `Window`.
 
 We've seen a few useful ways to spread a single stream of items across multiple output sequences, using either data-driven grouping criteria, or time-based chunking with either `Buffer` or `Window`. In the next chapter, we'll look at operators that can combine together data from multiple streams.
