@@ -41,7 +41,6 @@ Rx's `Concat` does nothing with its sources until something subscribes to the `I
 
 Although Rx's `Concat` has the same logical behaviour as the [LINQ to Objects `Concat`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.concat), there are some Rx-specific details to be aware of. In particular, timing is often more significant in Rx than with other LINQ implementations. For example, in Rx we distinguish between [_hot_ and _cold_ source](02_KeyTypes.md#hot-and-cold-sources). With a cold source it typically doesn't matter exactly when you subscribe, but hot sources are essentially live, so you only get notified of things that happen while you are subscribed. This can mean that hot sources might not be a good fit with `Concat` The following marble diagram illustrates a scenario in which this produces results that have the potential to surprise:
 
-TODO: relabel as `cold`, `hot`, `cold.Concat(hot)`
 ![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Hot-Marbles.svg)
 
 Since `Concat` doesn't subscribe to its second input until the first has finished, it won't see the first couple of items that the `hot` source would deliver to any subscribers that been listening from the start. This might not be the behaviour you would expect: it certainly doesn't look like this concatenated all of the items from the first sequence with all of the items from the second one. It looks like it missed out `A` and `B` from `hot`.
@@ -50,33 +49,18 @@ Since `Concat` doesn't subscribe to its second input until the first has finishe
 
 This last example reveals that marble diagrams gloss over a detail: they show when a source starts, when it produces values, and when it finishes, but they ignore the fact that to be able to produce items at all, an observable source needs a subscriber. If nothing subscribes to an `IObservable<T>`, then it doesn't really produce anything. `Concat` doesn't subscribe to its second input until the first completes, so arguably instead of the diagram above, it would be more accurate to show this:
 
-TODO: draw properly, and change final label to `cold.Concat(hot)`
-```
-cold              |--0--1--2-|
-hot                          |C---D---E-|
-Concat(cold, hot) |--0--1--2--C---D---E-|
-```
+![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Hot-Marbles-SubOnly.svg)
 
 This makes it easier to see why `Concat` produces the output it does. But since `hot` is a hot source here, this diagram fails to convey the fact that `hot` is producing items entirely on its own schedule. In a scenario where `hot` had multiple subscribers, then the earlier diagram would arguably be better because it correctly reflects every event available from `hot` (regardless of however many listeners might be subscribed at any particular moment). But although this convention works for hot sources, it doesn't work for cold ones, which typically start producing items upon subscription. A source returned by [`Timer`](03_CreatingObservableSequences.md#observabletimer) produces items on a regular schedule, but that schedule starts at the instant when subscription occurs. That means that if there are multiple subscriptions, there are multiple schedules. Even if I have just a single `IObservable<long>` returned by `Observable.Timer`, each distinct subscriber will get items on its own schedule—subscribers receive events at a regular interval _starting from whenever they happened subscribe_. So for cold observables, it typically makes sense to use the convention used by this second diagram, in which we're looking at the events received by one particular subscription to a source.
 
 Most of the time we can get away with ignoring this subtlety, quietly using whichever convention suits us. To paraphrase [Humpty Dumpty: when I use a marble diagram, it means just what I choose it to mean—neither more nor less](https://www.goodreads.com/quotes/12608-when-i-use-a-word-humpty-dumpty-said-in-rather). But when you're combining hot and cold sources together, there might not be one obviously best way to represent this in a marble diagram. We could even do something like this, where we describe the events that `hot` represents separately from the events seen by a particular subscription to `hot`.
 
-TODO: draw properly, and change final label to `cold.Concat(hot)`
-```
-Concat subscription to cold  |--0--1--2-|
-Events available through hot  ---A---B---C---D---E-
-Concat subscription to hot              |C---D---E-|
-Concat(cold, hot)            |--0--1--2--C---D---E-|
-```
+![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Hot-Marbles-SourceAndSub.svg)
+
 
 We're using a distinct 'lane' in the marble diagram to represent the events seen by a particular subscription to a source. With this technique, we can also show what would happen if you pass the same cold source into `Concat` twice:
 
-TODO: draw properly, and change final label to `cold.Concat(cold)`
-```
-Concat 1st subscription to cold |--0--1--2-|
-Concat 2nd subscription to cold            |--0--1--2-|
-Concat(cold, cold)              |--0--1--2----0--1--2-|
-```
+![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Marbles-Cold-Twice.svg)
 
 This highlights the fact that that being a cold source, `cold` provides items separately to each subscription. We see the same three values emerging from the same source, but at different times.
 
@@ -137,7 +121,7 @@ public IEnumerable<IObservable<long>> GetSequences()
 }
 ```
 
-We can call this `GetSequences` method and pass the results to `Concat`, and then use our `Dump` extension method to watch what happens:
+We can call this `GetSequences` method and pass the results to `Concat`, and then use our `D ump` extension method to watch what happens:
 
 ```cs
 GetSequences().Concat().Dump("Concat");
@@ -165,15 +149,9 @@ Concat completed
 
 Below is a marble diagram of the `Concat` operator applied to the `GetSequences` method. 's1', 's2' and 's3' represent sequence 1, 2 and 3. Respectively, 'rs' represents the result sequence.
 
-TODO: draw properly
-```
-s1-----1|
-s2      ---2|
-s3          -3|
-rs-----1---2-3|
-```
+![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Marbles-Three.svg)
 
-You should note that once the iterator has executed its first `yield return` to return the first sequence, the iterator does not continue until the first sequence has completed. The iterator calls `Console.WriteLine` to display the text `Yield 2nd sequence` immediately after that first `yield return`, but you can see that message doesn't appear in the output until after we see the `Concat-->1` message showing the first output from `Concat`, and also the `1st finished` message, produced by the `Finally` operator, which runs only after that first sequence has completed. (The code also includes a 500ms delay so that if you run this, you can see that everything stops for a bit until that first source produces its single value then completes.) Once the first source completes, the `GetSequences` method continues (because `Concat` will ask it for the next item once the first observable source completes). When `GetSequences` provides the second sequence with another `yield return`, `Concat` subscribes to that, and again `GetSequences` makes no further progress until that second observable sequence completes. The third sequence is processed in the same fashion.
+You should note that once the iterator has executed its first `yield return` to return the first sequence, the iterator does not continue until the first sequence has completed. The iterator calls `Console.WriteLine` to display the text `Yield 2nd sequence` immediately after that first `yield return`, but you can see that message doesn't appear in the output until after we see the `Concat-->1` message showing the first output from `Concat`, and also the `1st finished` message, produced by the `Finally` operator, which runs only after that first sequence has completed. (The code also makes that first source delay for 500ms before producing its value, so that if you run this, you can see that everything stops for a bit until that first source produces its single value then completes.) Once the first source completes, the `GetSequences` method continues (because `Concat` will ask it for the next item once the first observable source completes). When `GetSequences` provides the second sequence with another `yield return`, `Concat` subscribes to that, and again `GetSequences` makes no further progress until that second observable sequence completes. When asked for the third sequence, the iterator itself waits for a second before producing that third and final value, which you can see from the gap between the end of `s2` and the start of `s3` in the diagram.
 
 ### Prepend
 
@@ -349,13 +327,7 @@ Completed
 
 If we changed the order so that `s2.OnNext(99)` came before the call to `s1.OnNext(1);` then s2 would produce values first and the marble diagram would look like this.
 
-TODO: draw properly
-```
-s1 --1--2----3--4|
-s2 99----88--|
-s3 ---8-----7--6--|
-r  99----88-|
-```
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Amb-Marbles2.svg)
 
 There are a few overloads of `Amb`. The preceding example used the overload that takes a `params` array of sequences. There's also an overload that takes exactly two sources, avoiding the array allocation that occurs with `params`. Finally, you could pass in an `IEnumerable<IObservable<T>>`. (Note that there are no overloads that take an `IObservable<IObservable<T>>`. `Amb` requires all of the source observables it monitors to be supplied up front.)
 
@@ -396,18 +368,10 @@ Amb completed
 
 Here is the marble diagram illustrating how this code behaves:
 
-TODO: draw properly
+![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Amb-Marbles3.svg)
 
-```
-s1-----1|
-s2---2|
-s3-3|
-rs-3|
-```
+Remember that `GetSequences` produces its first two observables as soon as it is asked for them, and then waits for 1 second before producing the third and final one. But unlike `Concat`, `Amb` won't subscribe to any of its sources until it has retrieved all of them from the iterator, which is why this marble diagram shows the subscriptions to all three sources starting after 1 second. (The first two sources were available earlier—`Amb` would have started enumerating the sources as soon as subscription occurred, but it waited until it had all three before subscribing, which is why they all appear over on the right.) The third sequence has the shortest delay between subscription and producing its value, so although it's the last observable returned, it is able to produce its value the fastest even though there are two sequences yielded one second before it (due to the `Thread.Sleep`).
 
-Since the inner observable sequences are not subscribed to until the outer sequence has yielded them all, the third sequence is able to return values the fastest even though there are two sequences yielded one second before it (due to the `Thread.Sleep`).
-
-TODO: read through to here.
 
 ### Merge
 
@@ -463,16 +427,18 @@ public static IObservable<TSource> Merge<TSource>(
 {...}
 ```
 
-When you know at compile time exactly how many sequences you will be merging, choosing between the first two operators really is a matter of your preferred style: either provide them as a `params` array or chain the operators together. The third and fourth overloads allow to you merge sequences that can be evaluated lazily at run time. That last `Merge` overload that takes a sequence of sequences is particularly interesting, because it makes it possible for the set of sources being merged to grow over time. With that last overload, `Merge` will remain subscribed to `sources` for as long as your code remains subscribed to the `IObservable<T>` that `Merge` returns. So if `sources` emits more and more `IObservable<T>`s over time, these will all be included by `Merge`.
+As the number of sources being merged goes up, the operators that take collections have an advantage over the first overload. (I.e., `s1.Merge(s2).Merge(s3)` performs slightly less well than `Observable.Merge(new[] { s1, s2, s3 })`, or the equivalent `Observable.Merge(s1, s2, s3)`.) However, for just three or four, the differences are small, so in practice you can choose between the first two overloads as a matter of your preferred style. (If you're merging 100 sources or more the differences are more pronounced, but by that stage, the you probably wouldn't want to use the chained call style anyway.) The third and fourth overloads allow to you merge sequences that can be evaluated lazily at run time.
 
-That might sound familiar. In the [Transformation chapter](06_Transformation.md), we looked at the [`SelectMany` operator](06_Transformation.md#selectmany), which is able to flatten multiple observable sources back out into a single observable source. This is just another illustration of why I've described `SelectMany` as a fundamental operator in Rx: strictly speaking we don't need a lot of the operators that Rx gives us because we could build them using `SelectMany`. Here's a simple re-implementation of that last `Merge` overload using `SelectMany`:
+That last `Merge` overload that takes a sequence of sequences is particularly interesting, because it makes it possible for the set of sources being merged to grow over time. `Merge` will remain subscribed to `sources` for as long as your code remains subscribed to the `IObservable<T>` that `Merge` returns. So if `sources` emits more and more `IObservable<T>`s over time, these will all be included by `Merge`.
+
+That might sound familiar. The [`SelectMany` operator](06_Transformation.md#selectmany), which is able to flatten multiple observable sources back out into a single observable source. This is just another illustration of why I've described `SelectMany` as a fundamental operator in Rx: strictly speaking we don't need a lot of the operators that Rx gives us because we could build them using `SelectMany`. Here's a simple re-implementation of that last `Merge` overload using `SelectMany`:
 
 ```cs
 public static IObservable<T> MyMerge<T>(this IObservable<IObservable<T>> sources) =>
     sources.SelectMany(source => source);
 ```
 
-As well as illustrating that we don't technically need Rx to provide that last `Merge` for us, it's also a good illustration of why it's helpful that it does. It's not immediately obvious what this does—why are we passing a lambda that just returns its argument? Unless you've seen this before, it can take some thought to work out that `SelectMany` expects us to pass a callback that it invokes for each incoming item, but that our input items are already nested sequences, so we can just return each item directly, and `SelectMany` will then take that and merge everything it produces into its output stream. And even if you have internalized `SelectMany` so completely that you know right away that this will just flatten `sources`, you'd still probably find `Observable.Merge(sources)` a more direct expression of intent.
+As well as illustrating that we don't technically need Rx to provide that last `Merge` for us, it's also a good illustration of why it's helpful that it does. It's not immediately obvious what this does—why are we passing a lambda that just returns its argument? Unless you've seen this before, it can take some thought to work out that `SelectMany` expects us to pass a callback that it invokes for each incoming item, but that our input items are already nested sequences, so we can just return each item directly, and `SelectMany` will then take that and merge everything it produces into its output stream. And even if you have internalized `SelectMany` so completely that you know right away that this will just flatten `sources`, you'd still probably find `Observable.Merge(sources)` a more direct expression of intent. (Also, since `Merge` is a more specialized operator, Rx is able to provide a very slightly more efficient implementation of it than the `SelectMany` version shown above.)
 
 If we again reuse the `GetSequences` method, we can see how the `Merge` operator works with a sequence of sequences.
 
@@ -499,12 +465,8 @@ Merge completed
 
 As we can see from the marble diagram, s1 and s2 are yielded and subscribed to immediately. s3 is not yielded for one second and then is subscribed to. Once all input sequences have completed, the result sequence completes.
 
-```
-s1-----1|
-s2---2|
-s3          -3|
-rs---2-1-----3|
-```
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Merge-Marbles-Multi.svg)
+
 
 For each of the `Merge` overloads that accept variable numbers of sources (either via an array, an `IEnumerable<IObservable<T>>`, or an `IObservable<IObservable<T>>`) there's an additional overload adding a `maxconcurrent` parameter. For example:
 
@@ -518,9 +480,9 @@ This enables you to limit the number of sources that `Merge` accepts inputs from
 
 Rx's `Switch` operator takes an `IObservable<IObservable<T>>`, and produces notifications from the most recent nested observable. Each time its source produces a new nested `IObservable<T>`, `Switch` unsubscribes from the previous nested source (unless this is the first source, in which case there won't be a previous one) and subscribes to the latest one.
 
-`Switch` can be used in a 'time to leave' type application. In fact you can see the source code for a modified version of [how Bing provides (or at least provided; the implementation may have changed) notifications telling you that it's time to leave for an appointment](https://github.com/reaqtive/reaqtor/blob/c3ae17f93ae57f3fb75a53f76e60ae69299a509e/Reaqtor/Samples/Remoting/Reaqtor.Remoting.Samples/DomainFeeds.cs#L33-L76). Since that's derived from a real example, it's a little complex, so I'll describe just the essence here.
+`Switch` can be used in a 'time to leave' type feature for a calendar application. In fact you can see the source code for a modified version of [how Bing provides (or at least provided; the implementation may have changed) notifications telling you that it's time to leave for an appointment](https://github.com/reaqtive/reaqtor/blob/c3ae17f93ae57f3fb75a53f76e60ae69299a509e/Reaqtor/Samples/Remoting/Reaqtor.Remoting.Samples/DomainFeeds.cs#L33-L76). Since that's derived from a real example, it's a little complex, so I'll describe just the essence here.
 
-The basic idea with a 'time to leave' notification is that we using map and route finding services to work out the expected journey time to get to wherever the appointment is, and to use the [`Timer` operator](03_CreatingObservableSequences.md#observabletimer) to create an `IObservable<T>` that will produce a notification when it's time to leave. (Specifically this code produces an `IObservable<TrafficInfo>` which reports the proposed route for the journey, and expected travel time.) However, there are two things that can change, rendering the initial predicted journey time useless. First, traffic conditions can change. When the user created their appointment, we have to guess the expected journey time based on how traffic normally flows at the time of day in question. However, if there turns out to be really bad traffic on the day, the estimate will need to be revised upwards, and we'll need to notify the end user earlier.
+The basic idea with a 'time to leave' notification is that we using map and route finding services to work out the expected journey time to get to wherever the appointment is, and to use the [`Timer` operator](03_CreatingObservableSequences.md#observabletimer) to create an `IObservable<T>` that will produce a notification when it's time to leave. (Specifically this code produces an `IObservable<TrafficInfo>` which reports the proposed route for the journey, and expected travel time.) However, there are two things that can change, rendering the initial predicted journey time useless. First, traffic conditions can change. When the user created their appointment, we have to guess the expected journey time based on how traffic normally flows at the time of day in question. However, if there turns out to be really bad traffic on the day, the estimate will need to be revised upwards, and we'll need to notify the user earlier.
 
 The other thing that can change is the user's location. This will also obviously affect the predicted journey time.
 
@@ -530,9 +492,7 @@ Every time we revise our estimate, we want to abandon the previously created `IO
 
 You can see the [example for that scenario in the Reaqtor repo](https://github.com/reaqtive/reaqtor/blob/c3ae17f93ae57f3fb75a53f76e60ae69299a509e/Reaqtor/Samples/Remoting/Reaqtor.Remoting.Samples/DomainFeeds.cs#L33-L76). Here, I'm going to present a different, simpler scenario: live searches. As you type, the text is sent to a search service and the results are returned to you as an observable sequence. Most implementations have a slight delay before sending the request so that unnecessary work does not happen. Imagine I want to search for "Intro to Rx". I quickly type in "Into to" and realize I have missed the letter 'r'. I stop briefly and change the text to "Intro ". By now, two searches have been sent to the server. The first search will return results that I do not want. Furthermore, if I were to receive data for the first search merged together with results for the second search, it would be a very odd experience for the user. I really only want results corresponding to the latest search text. This scenario fits perfectly with the `Switch` method.
 
-In this example, there is a source that represents a sequence of search text. Values the user types are represented as the source sequence. Using `Select`, we pass the value of the search to a function that takes a `string` and returns an `IObservable<string>`. This creates our resulting nested sequence, `IObservable<IObservable<string>>`.
-
-Search function signature:
+In this example, there is an `IObservable<string>` source that represents the search text—each new value the user types emerges from this source sequence. We also have a search function that produces a single search result for a given search term:
 
 ```csharp
 private IObservable<string> SearchResults(string query)
@@ -541,46 +501,33 @@ private IObservable<string> SearchResults(string query)
 }
 ```
 
-Using `Merge` with overlapping search:
+This returns just a single value, but we model it as an `IObservable<string>` partly to deal with the fact that it might take some time to perform the search, and also to be enable to use it with Rx. We can take our source of search terms, and then use `Select` to pass each new search value to this `SearchResults` function. This creates our resulting nested sequence, `IObservable<IObservable<string>>`.
+
+Suppose we were to then use `Merge` to process the results:
 
 ```csharp
 IObservable<string> searchValues = ....;
-IObservable<IObservable<string>> search = searchValues.Select(searchText=>SearchResults(searchText));
+IObservable<IObservable<string>> search = searchValues.Select(searchText => SearchResults(searchText));
                     
 var subscription = search
     .Merge()
     .Subscribe(Console.WriteLine);
 ```
 
-<!--TODO: Show output here-->
+If we were lucky and each search completed before the next element from `searchValues` was produced, the output would look sensible. However, it is much more likely, however that multiple searches will result in overlapped search results. This marble diagram shows what the `Merge` function could do in such a situation.
 
-If we were lucky and each search completed before the next element from `searchValues` was produced, the output would look sensible. It is much more likely, however that multiple searches will result in overlapped search results. This marble diagram shows what the `Merge` function could do in such a situation.
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Switch-Marbles-Bad-Merge.svg)
 
-- `SV` is the searchValues sequence
-- `S1` is the search result sequence for the first value in searchValues/SV
-- `S2` is the search result sequence for the second value in searchValues/SV
-- `S3` is the search result sequence for the third value in searchValues/SV
-- `RM` is the result sequence for the merged (`R`esult `M`erge) sequences
 
-```
-SV--1---2---3---|
-S1  -1--1--1--1|
-S2      --2-2--2--2|
-S3          -3--3|
-RM---1--1-2123123-2|
-```
+Note how the values from the search results are all mixed together. The fact that some search terms took longer to get a search result than others has also meant that they have come out in the wrong order. This is not what we want. If we use the `Switch` extension method we will get much better results. `Switch` will subscribe to the outer sequence and as each inner sequence is yielded it will subscribe to the new inner sequence and dispose of the subscription to the previous inner sequence. This will result in the following marble diagram:
 
-Note how the values from the search results are all mixed together. This is not what we want. If we use the `Switch` extension method we will get much better results. `Switch` will subscribe to the outer sequence and as each inner sequence is yielded it will subscribe to the new inner sequence and dispose of the subscription to the previous inner sequence. This will result in the following marble diagram where `RS` is the result sequence for the Switch (`R`esult `S`witch) sequences
 
-```
-SV--1---2---3---|
-S1  -1--1--1--1|
-S2      --2-2--2--2|
-S3          -3--3|
-RS --1--1-2-23--3|
-```
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Switch-Marbles.svg)
 
-Also note that, even though the results from S1 and S2 are still being pushed, they are ignored as their subscription has been disposed of. This eliminates the issue of overlapping values from the nested sequences.
+
+Now, each time a new search term arrives, causing a new search to be kicked off, a corresponding new `IObservable<string>` for that search's results appears, causing `Switch` to unsubscribe from the previous results. This means that any results that arrive too late (i.e., when the result is for a search term that is no longer the one in the search box) will be dropped. As it happens, in this particular example, this means that we only see the result for the final search term. All the intermediate values that we saw as the user was typing didn't hang around for long, because the user kept on pressing the next key before we'd received the previous value's results. Only at the end, when the user stopped typing for long enough that the search results came back before they became out of date, do we finally see a value from `Switch`. The net effect is that we've eliminated confusing results that are out of date.
+
+This is another diagram where the ambiguity of marble diagrams causes a slight issue. I've shown each of the single-value observables produced by each of the calls to `SearchResults`, but in practice `Switch` unsubscribes from all but the last of these before they've had a chance to produce a value. So this diagram is showing the values those sources could potentially produce, and not the values that they actually delivered as part of the subscription, because the subscriptions were cut short.
 
 ## Pairing sequences
 
@@ -590,7 +537,7 @@ The previous methods allowed us to flatten multiple sequences sharing a common t
 
 `Zip` combines pairs of items from two sequences. So its first output is created by combining the first item from one input with the first item from the other. The second output combines the second item from each input. And so on. The name is meant to evoke a zipper on clothing or a bag, which brings the teeth on each half of the zipper together one pair at a time.
 
-Since `Zip` combines pairs of item in strict order, it will complete when the first of the sequences complete. If one of the sequence has reached its end, then even if the other continues to emit values, there will be nothing to pair any of these values with, so `Zip` just unsubscribes at this point and reports completion.
+Since `Zip` combines pairs of item in strict order, it will complete when the first of the sequences complete. If one of the sequence has reached its end, then even if the other continues to emit values, there will be nothing to pair any of these values with, so `Zip` just unsubscribes at this point, discards the unpairable values, and reports completion.
 
 If either of the sequences produces an error, the sequence returned by `Zip` will report that same error.
 
@@ -609,20 +556,16 @@ var chars = Observable.Interval(TimeSpan.FromMilliseconds(150))
     .Select(i => Char.ConvertFromUtf32((int)i + 97));
 
 // Zip values together
-nums.Zip(chars, (lhs, rhs) => new { Left = lhs, Right = rhs })
+nums.Zip(chars, (lhs, rhs) => (lhs, rhs)))
     .Dump("Zip");
-```
+ ```
 
-This can be seen in the marble diagram below. Note that the result uses two lines so that we can represent a complex type, i.e. the anonymous type with the properties Left and Right.
+The effect can be seen in this marble diagram below.:
 
-```
-nums  ----0----1----2| 
-chars --a--b--c--d--e--f| 
-result----0----1----2|
-          a    b    c|
-```
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Zip-Marbles.svg)
 
-The actual output of the code:
+
+Here's the actual output of the code:
 
 ```
 { Left = 0, Right = a }
@@ -630,65 +573,7 @@ The actual output of the code:
 { Left = 2, Right = c }
 ```
 
-Note that the `nums` sequence only produced three values before completing, while the `chars` sequence produced six values. The result sequence thus has three values, as this was the most pairs that could be made.
-
-The first use I saw of `Zip` was to showcase drag and drop. [The example](http://channel9.msdn.com/Blogs/J.Van.Gogh/Writing-your-first-Rx-Application) tracked mouse movements from a `MouseMove` event that would produce event arguments with its current X,Y coordinates. First, the example turns the event into an observable sequence. Then they cleverly zipped the sequence with a `Skip(1)` version of the same sequence. This allows the code to get a delta of the mouse position, i.e. where it is now (sequence.Skip(1)) minus where it was (sequence). It then applied the delta to the control it was dragging.
-
-To visualize the concept, let us look at another marble diagram. Here we have the mouse movement (MM) and the Skip 1 (S1). The numbers represent the index of the mouse movement.
-
-```
-MM --1--2--3--4--5
-S1    --2--3--4--5
-Zip   --1--2--3--4
-        2  3  4  5
-```
-
-Here is a code sample where we fake out some mouse movements with our own subject.
-
-```csharp
-var mm = new Subject<Coord>();
-var s1 = mm.Skip(1);
-
-var delta = mm.Zip(s1,
-                    (prev, curr) => new Coord
-                        {
-                            X = curr.X - prev.X,
-                            Y = curr.Y - prev.Y
-                        });
-
-delta.Subscribe(
-    Console.WriteLine,
-    () => Console.WriteLine("Completed"));
-
-mm.OnNext(new Coord { X = 0, Y = 0 });
-mm.OnNext(new Coord { X = 1, Y = 0 }); //Move across 1
-mm.OnNext(new Coord { X = 3, Y = 2 }); //Diagonally up 2
-mm.OnNext(new Coord { X = 0, Y = 0 }); //Back to 0,0
-mm.OnCompleted();
-```
-
-This is the simple Coord(inate) class we use.
-
-```csharp
-public class Coord
-{
-    public int X { get; set; }
-    public int Y { get; set; }
-    public override string ToString()
-    {
-        return string.Format("{0},{1}", X, Y);
-    }
-}
-```
-
-Output:
-
-```
-0,1
-2,2
--3,-2
-Completed
-```
+Note that the `nums` sequence only produced three values before completing, while the `chars` sequence produced six values. The result sequence produced three values, this was as many pairs is it could make.
 
 It is also worth noting that `Zip` has a second overload that takes an `IEnumerable<T>` as the second input sequence.
 
@@ -706,27 +591,27 @@ This allows us to zip sequences from both `IEnumerable<T>` and `IObservable<T>` 
 
 ### SequenceEqual
 
-There's another operator that processes pairs of items from two source: `SequenceEqual`. But instead of producing an output for each pair of inputs, this compares each pair, and ultimately produces a single value indicating whether every pair of inputs was equal or not.
+There's another operator that processes pairs of items from two sources: `SequenceEqual`. But instead of producing an output for each pair of inputs, this compares each pair, and ultimately produces a single value indicating whether every pair of inputs was equal or not.
 
-In the case where the sources produce different values, `SequenceEqual` produces a single `false` value as soon as it detects this. But if the sources are equal, it can only report this when both have completed because until that happens, it doesn't yet know if there might a difference coming later.
+In the case where the sources produce different values, `SequenceEqual` produces a single `false` value as soon as it detects this. But if the sources are equal, it can only report this when both have completed because until that happens, it doesn't yet know if there might a difference coming later. Here's an example illustrating its behaviour:
 
-```csharp
+```cs
 var subject1 = new Subject<int>();
 
 subject1.Subscribe(
-    i=>Console.WriteLine("subject1.OnNext({0})", i),
+    i => Console.WriteLine($"subject1.OnNext({i})"),
     () => Console.WriteLine("subject1 completed"));
 
 var subject2 = new Subject<int>();
 
 subject2.Subscribe(
-    i=>Console.WriteLine("subject2.OnNext({0})", i),
+    i => Console.WriteLine($"subject2.OnNext({i})"),
     () => Console.WriteLine("subject2 completed"));
 
 var areEqual = subject1.SequenceEqual(subject2);
 
 areEqual.Subscribe(
-    i => Console.WriteLine("areEqual.OnNext({0})", i),
+    i => Console.WriteLine($"areEqual.OnNext({i})"),
     () => Console.WriteLine("areEqual completed"));
 
 subject1.OnNext(1);
@@ -759,7 +644,7 @@ areEqual completed
 
 ### CombineLatest
 
-The `CombineLatest` operator is similar to `Zip` in that it combines pairs of items from its sources. However, instead of pairing the first items, then the second, and so on, `CombineLatest` produces an output any time _either_ of its inputs produces a new value. For each new value to emerge from an input, `CombineLatest` uses that along with the most recently seen value from the other input. The signature is as follows.
+The `CombineLatest` operator is similar to `Zip` in that it combines pairs of items from its sources. However, instead of pairing the first items, then the second, and so on, `CombineLatest` produces an output any time _either_ of its inputs produces a new value. For each new value to emerge from an input, `CombineLatest` uses that along with the most recently seen value from the other input. (To be precise, it doesn't produce anything until each input has produced at least one value, so if one input takes longer to get started than the other, there will be a period in which `CombineLatest` doesn't in fact produce an output each time one of its inputs does, because it's waiting for the other to produce its first value.) The signature is as follows.
 
 ```csharp
 // Composes two observable sequences into one observable sequence by using the selector 
@@ -771,18 +656,14 @@ public static IObservable<TResult> CombineLatest<TFirst, TSecond, TResult>(
 {...}
 ```
 
-The marble diagram below shows off usage of `CombineLatest` with one sequence that produces numbers (N), and the other letters (L). If the `resultSelector` function just joins the number and letter together as a pair, this would be the result (R):
+The marble diagram below shows off usage of `CombineLatest` with one sequence that produces numbers (`s1`), and the other letters (`s2`). If the `resultSelector` function just joins the number and letter together as a pair, this would produce the result shown on the bottom line. I've colour coded each output to indicate which of the two sources caused it to emit that particular result, but as you can see, each output includes a value from each source.
 
-```
-N---1---2---3---
-L--a------bc----
-R---1---2-223---
-    a   a bcc   
-```
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-CombineLatest-Marbles.svg)
 
-If we slowly walk through the above marble diagram, we first see that `L` produces the letter 'a'. `N` has not produced any value yet so there is nothing to pair, no value is produced for the result (R). Next, `N` produces the number '1' so we now have a pair '1a' that is yielded in the result sequence. We then receive the number '2' from `N`. The last letter is still 'a' so the next pair is '2a'. The letter 'b' is then produced creating the pair '2b', followed by 'c' giving '2c'. Finally the number 3 is produced and we get the pair '3c'.
 
-This is great in case you need to evaluate some combination of state which needs to be kept up-to-date when the state changes. A simple example would be a monitoring system. Each service is represented by a sequence that returns a Boolean indicating the availability of said service. The monitoring status is green if all services are available; we can achieve this by having the result selector perform a logical AND. 
+If we slowly walk through the above marble diagram, we first see that `s1` produces the letter 'a'. `s2` has not produced any value yet so there is nothing to pair, meaning that no value is produced for the result. Next, `s2` produces the number '1' so the result sequence can now produce a pair '1,a'. We then receive the number '2' from `s1`. The last letter is still 'a' so the next pair is '2,a'. The letter 'b' is then produced creating the pair '2,b', followed by 'c' giving '2,c'. Finally the number 3 is produced and we get the pair '3,c'.
+
+This is great in case you need to evaluate some combination of state which needs to be kept up-to-date when any single component of that state changes. A simple example would be a monitoring system. Each service is represented by a sequence that returns a Boolean indicating the availability of said service. The monitoring status is green if all services are available; we can achieve this by having the result selector perform a logical AND. 
 Here is an example.
 
 ```csharp
@@ -796,7 +677,7 @@ var systemStatus = webServerStatus
         (webStatus, dbStatus) => webStatus && dbStatus);
 ```
 
-Some readers may have noticed that this method could produce a lot of duplicate values. For example, if the web server goes down the result sequence will yield '`false`'. If the database then goes down, another (unnecessary) '`false`' value will be yielded. This would be an appropriate time to use the `DistinctUntilChanged` extension method. The corrected code would look like the example below.
+You may have noticed that this method could produce a lot of duplicate values. For example, if the web server goes down the result sequence will yield '`false`'. If the database then goes down, another (unnecessary) '`false`' value will be yielded. This would be an appropriate time to use the `DistinctUntilChanged` extension method. The corrected code would look like the example below.
 
 ```csharp
 // Yields true when both systems are up, and only on change of status
@@ -807,21 +688,11 @@ var systemStatus = webServerStatus
     .DistinctUntilChanged();
 ```
 
-To provide an even better service, we could provide a default value by prefixing `false` to the sequence.
-
-```csharp
-// Yields true when both systems are up, and only on change of status
-var systemStatus = webServerStatus
-    .CombineLatest(
-        databaseStatus,
-        (webStatus, dbStatus) => webStatus && dbStatus)
-    .DistinctUntilChanged()
-    .StartWith(false);
-```
-
 ## Join
 
-The `Join` operator allows you to logically join two sequences. Whereas the `Zip` operator would pair values from the two sequences together by index, the `Join` operator allows you join sequences by intersecting windows. Like the `Window` overload we just looked at, you can specify when a window should close via an observable sequence; this sequence is returned from a function that takes an opening value. The `Join` operator has two such functions, one for the first source sequence and one for the second source sequence. Like the `Zip` operator, we also need to provide a selector function to produce the result item from the pair of values.
+The `Join` operator allows you to logically join two sequences. Whereas the `Zip` operator would pair values from the two sequences based on their position within the sequence, the `Join` operator allows you join sequences based on when elements are emitted.
+
+Since the production of a value by an observable source is logically an instantaneous event, joins use a model of intersecting windows. Recall that with the [`Window`](08_Partitioning.md#window) operator, you can define the duration of each window using an observable sequence. The `Join` operator uses a similar concept: for each source, we can define a time window over which each element is considered to be 'current' and two elements from different sources will be joined if their time windows overlap. As the `Zip` operator, we also need to provide a selector function to produce the result item from each pair of values. Here's the `Join` operator:
 
 ```csharp
 public static IObservable<TResult> Join<TLeft, TRight, TLeftDuration, TRightDuration, TResult>
@@ -836,54 +707,30 @@ public static IObservable<TResult> Join<TLeft, TRight, TLeftDuration, TRightDura
 
 This is a complex signature to try and understand in one go, so let's take it one parameter at a time.
 
-`IObservable<TLeft> left` is the source sequence that defines when a window starts. This is just like the `Buffer` and `Window` operators, except that every value published from this source opens a new window. In `Buffer` and `Window`, by contrast, some values just fell into an existing window.
+`IObservable<TLeft> left` is the first source sequence. `IObservable<TRight> right` is the second source sequence. `Join` is looking to produce pairs of items, with each pair containing one element from `left` and one element from `right`.
 
-I like to think of `IObservable<TRight> right` as the window value sequence. While the left sequence controls opening the windows, the right sequence will try to pair up with a value from the left sequence.
+The `leftDurationSelector` argument enables us to define the time window for each item from `left`. A source item's time window begins when the source emits the item. To determine when the window for an item from `left` should close, `Join` will invoke the `leftDurationSelector`, passing in the value just produced by `left`. This selector must return an observable source. (It doesn't matter at all what the element type of this source is, because `Join` is only interested in _when_ it does things.) The item's time window ends as soon as the source returned for that item by `leftDurationSelector` either produces a value or completes.
 
-Let us imagine that our left sequence produces a value, which creates a new window. If the right sequence produces a value while the window is open, then the `resultSelector` function is called with the two values. This is the crux of join, pairing two values from a sequence that occur within the same window. This then leads us to our next question; when does the window close? The answer illustrates both the power and the complexity of the `Join` operator.
+The `rightDurationSelector` argument defines the time window for each item from `right`. It works in exactly the same way as the `leftDurationSelector`.
 
-When `left` produces a value, a window is opened. That value is also passed, at that time, to the `leftDurationSelector` function, which returns an `IObservable<TLeftDuration>`. When that sequence produces a value or completes, the window for that value is closed. Note that it is irrelevant what the type of `TLeftDuration` is. This initially left me with the feeling that `IObservable<TLeftDuration>` was a bit excessive as you effectively just need some sort of event to say 'Closed'. However, by being allowed to use `IObservable<T>`, you can do some clever manipulation as we will see later.
+Initially, there are no current items. But as `left` and `right` produce items, these items' windows will start, so `Join` might have multiple items all with their windows currently open. Each time `left` produces a new item, `Join` looks to see if any items from `right` still have their windows open. If they do, `left` is now paired with each of them. (So a single item from one source might be joined with multiple items from the other source.) `Join` calls the `resultSelector` for each such pairing. Likewise, each time `right` produces an item, then if there are any currently open windows for items from `left`, that new item from `right` will be paired with each of these, and again, `resultSelector` will be called for each such pairing.
 
-Let us now imagine a scenario where the left sequence produces values twice as fast as the right sequence. Imagine that in addition we never close the windows; we could do this by always returning `Observable.Never<Unit>()` from the `leftDurationSelector` function. This would result in the following pairs being produced.
+The observable returned by `Join` produces the result of each call to `resultSelector`.
 
-Left Sequence
+Let us now imagine a scenario where the left sequence produces values twice as fast as the right sequence. Imagine that in addition we never close the left windows; we could do this by always returning `Observable.Never<Unit>()` from the `leftDurationSelector` function. And imagine that we make the right windows close as soon as they possibly can, which we can achieve by making `rightDurationSelector` return `Observable.Empty<Unit>()`. The following marble diagram illustrates this:
 
-<div class="marble">
-<pre class="line">L 0-1-2-3-4-5-</pre>
-</div>
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Join-Marbles1.svg)
 
-Right Sequence
+Each time a left duration window intersects with a right duration window, we get an output. The right duration windows are all effectively of zero length, but this doesn't stop them from intersecting with the left duration windows, because those all never end. So the first item from right has a (zero-length) window that falls inside two of the windows for the `left` items, and so `Join` produces two results. I've stacked these vertically on the diagram to show that they happen at virtually the same time. Of course, the rules of `IObserver<T>` mean that they can't actually happen at the same time: `Join` has to wait until the consumer's `OnNext` has finished processing `0,A` before it can go on to produce `1,A`. But it will produce all the pairs as quickly as possible any time a single event from one source overlaps with multiple windows for the other.
 
-<div class="marble">
-<pre class="line">R --A---B---C-</pre>
-</div>
-<div class="output">
-<div class="line">0, A</div>
-<div class="line">1, A</div>
-<div class="line">0, B</div>
-<div class="line">1, B</div>
-<div class="line">2, B</div>
-<div class="line">3, B</div>
-<div class="line">0, C</div>
-<div class="line">1, C</div>
-<div class="line">2, C</div>
-<div class="line">3, C</div>
-<div class="line">4, C</div>
-<div class="line">5, C</div>
-</div>
+If I also immediately closed the left window by returning `Observable.Empty<Unit>`, or perhaps `Observable.Return(0)`, windows would never overlap, so no pairs would ever get produced. (In theory if both left and right produce items at _exactly_ the same time, then perhaps we might get a pair, but since the timing of events is never absolutely precise, it would be a bad idea to design a system that depended on this.)
 
-As you can see, the left values are cached and replayed each time the right produces a value.
+What if I wanted to ensure that items from `right` only ever intersected with a single value from `left`? In that case, I'd need to ensure that the left durations did not overlap. One way to do that would be to have my `leftDurationSelector` always return the same sequence that I passed as the `left` sequence. This will result in `Join` making multiple subscriptions to the same source, and for some kinds of courses that might introduce unwanted side effects, but the [`Publish`](15_PublishingOperators.md#publish) and [`RefCount`](15_PublishingOperators.md#refcount) operators provide a way to deal with that, so this is in fact a reasonably strategy. If we do that, the results look more like this.
 
-Now it seems fairly obvious that, if I immediately closed the window by returning `Observable.Empty<Unit>`, or perhaps `Observable.Return(0)`, windows would never be opened thus no pairs would ever get produced. However, what could I do to make sure that these windows did not overlap- so that, once a second value was produced I would no longer see the first value? Well, if we returned the `left` sequence from the `leftDurationSelector`, that could do the trick. But wait, when we return the sequence `left` from the `leftDurationSelector`, it would try to create another subscription and that may introduce side effects. The quick answer to that is to `Publish` and `RefCount` the `left` sequence. If we do that, the results look more like this.
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Join-Marbles2.svg)
 
-<div class="marble">
-<pre class="line">left  |-0-1-2-3-4-5|</pre>
-<pre class="line">right |---A---B---C|</pre>
-<pre class="line">result|---1---3---5</pre>
-<pre class="line">          A   B   C</pre>
-</div>
 
-The last example is very similar to `CombineLatest`, except that it is only producing a pair when the right sequence changes. We could use `Join` to produce our own version of [`CombineLatest`](12_CombiningSequences.html#CombineLatest). If the values from the left sequence expire when the next value from left was notified, then I would be well on my way to implementing my version of `CombineLatest`. However I need the same thing to happen for the right. Luckily the `Join` operator provides a `rightDurationSelector` that works just like the `leftDurationSelector`. This is simple to implement; all I need to do is return a reference to the same left sequence when a left value is produced, and do the same for the right. The code looks like this.
+The last example is very similar to [`CombineLatest`](12_CombiningSequences.html#CombineLatest), except that it is only producing a pair when the right sequence changes. We can easily make it work the same way by changing the right durations to work in the same way as the left durations. This code shows how (including the use of `Publish` and `RefCount` to ensure that we only get a single subscription to the underlying `left` and `right` sources despite providing then to `Join` many times over).
 
 ```csharp
 public static IObservable<TResult> MyCombineLatest<TLeft, TRight, TResult>
@@ -905,11 +752,15 @@ public static IObservable<TResult> MyCombineLatest<TLeft, TRight, TResult>
 }
 ```
 
-While the code above is not production quality (it would need to have some gates in place to mitigate race conditions), it shows how powerful `Join` is; we can actually use it to create other operators!
+Obviously there's no need to write this—you can just use the built-in `CombineLatest`. (And that will be slightly more efficient because it has a specialized implementation.) But it shows that `Join` is a powerful operator.
 
 ## GroupJoin
 
-When the `Join` operator pairs up values that coincide within a window, it will pass the scalar values left and right to the `resultSelector`. The `GroupJoin` operator takes this one step further by passing the left (scalar) value immediately to the `resultSelector` with the right (sequence) value. The right parameter represents all of the values from the right sequences that occur within the window. Its signature is very similar to `Join`, but note the difference in the `resultSelector` parameter.
+When the `Join` operator pairs up values whose windows overlap, it will pass the scalar values left and right to the `resultSelector`. The `GroupJoin` operator is based on the same concept of overlapping windows, but its selector works slightly differently: `GroupJoin` still passes a single (scalar) value from the left source, but it passes an `IObservable<TRight>` as the second argument. This argument represents all of the values from the right sequence that occur within the window for the particular left value for which it was invoked.
+
+So this lacks the symmetry of `Join`, because the left and right sources are handled differently. `GroupJoin` will call the `resultSelector` exactly once for each item produced by the `left` source. When a left value's window overlaps with the windows of multiple right values, `Group` would deal with that by calling the selector once for each such pairing, but `GroupJoin` deals with this by having the observable passed as the second argument to `resultSelector` emit each of the right items that overlap with that left item. (If a left item overlaps with nothing from the right, `resultSelector` will still be called with that item, it'll just be passed an `IObservable<TRight>` that doesn't produce any items.)
+
+The `GroupJoin` signature is very similar to `Join`, but note the difference in the `resultSelector` parameter.
 
 ```csharp
 public static IObservable<TResult> GroupJoin<TLeft, TRight, TLeftDuration, TRightDuration, TResult>
@@ -928,33 +779,12 @@ If we went back to our first `Join` example where we had
 * the left never expiring
 * the right immediately expiring
 
-this is what the result may look like
+This diagram shows those same inputs again, and also shows the observables `GroupJoin` would pass to the `resultSelector` for each of the items produced by `left`:
 
-<div class="marble">
-<pre class="line">left              |-0-1-2-3-4-5|</pre>
-<pre class="line">right             |---A---B---C|</pre>
-<pre class="line">0th window values   --A---B---C|</pre>
-<pre class="line">1st window values     A---B---C|</pre>
-<pre class="line">2nd window values       --B---C|</pre>
-<pre class="line">3rd window values         B---C|</pre>
-<pre class="line">4th window values           --C|</pre>
-<pre class="line">5th window values             C|</pre>
-</div>
+![](GraphicsIntro/Ch09-CombiningSequences-Marbles-GroupJoin-Marbles.svg)
 
-We could switch it around and have the left expired immediately and the right never expire. The result would then look like this:
 
-<div class="marble">
-<pre class="line">left              |-0-1-2-3-4-5|</pre>
-<pre class="line">right             |---A---B---C|</pre>
-<pre class="line">0th window values   |</pre>
-<pre class="line">1st window values     A|</pre>
-<pre class="line">2nd window values       A|</pre>
-<pre class="line">3rd window values         AB|</pre>
-<pre class="line">4th window values           AB|</pre>
-<pre class="line">5th window values             ABC|</pre>
-</div>
-
-This starts to make things interesting. Perceptive readers may have noticed that with `GroupJoin` you could effectively re-create your own `Join` method by doing something like this:
+This produces events corresponding to all of the same events that `Join` produced, they're just distributed across six different `IObservable<TRight>` sources. It may have occurred to you that with `GroupJoin` you could effectively re-create your own `Join` method by doing something like this:
 
 ```csharp
 public IObservable<TResult> MyJoin<TLeft, TRight, TLeftDuration, TRightDuration, TResult>(
@@ -970,7 +800,7 @@ public IObservable<TResult> MyJoin<TLeft, TRight, TLeftDuration, TRightDuration,
         right,
         leftDurationSelector,
         rightDurationSelector,
-        (leftValue, rightValues)=> rightValues.Select(rightValue=>resultSelector(leftValue, rightValue))
+        (leftValue, rightValues) => rightValues.Select(rightValue=>resultSelector(leftValue, rightValue))
     )
     .Merge();
 }
@@ -1003,67 +833,58 @@ public IObservable<IObservable<T>> MyWindow<T>(IObservable<T> source, TimeSpan w
 }
 ```
 
-For an alternative summary of reducing operators to a primitive set see Bart DeSmet's [excellent MINLINQ post](http://blogs.bartdesmet.net/blogs/bart/archive/2010/01/01/the-essence-of-linq-minlinq.aspx "The essence of LINQ - MinLINQ") (and [follow-up video](http://channel9.msdn.com/Shows/Going+Deep/Bart-De-Smet-MinLINQ-The-Essence-of-LINQ "The essence of LINQ - MINLINQ - Channel9") ). Bart is one of the key members of the team that built Rx, so it is great to get some insight on how the creators of Rx think.
-
-Showcasing `GroupJoin` and the use of other operators turned out to be a fun academic exercise. While watching videos and reading books on Rx will increase your familiarity with it, nothing replaces the experience of actually picking it apart and using it in earnest.
-
-`GroupJoin` and other window operators reduce the need for low-level plumbing of state and concurrency. By exposing a high-level API, code that would be otherwise difficult to write, becomes a cinch to put together. For example, those in the finance industry could use `GroupJoin` to easily produce real-time Volume or Time Weighted Average Prices (VWAP/TWAP).
-
 Rx delivers yet another way to query data in motion by allowing you to interrogate sequences of coincidence. This enables you to solve the intrinsically complex problem of managing state and concurrency while performing matching from multiple sources. By encapsulating these low level operations, you are able to leverage Rx to design your software in an expressive and testable fashion. Using the Rx operators as building blocks, your code effectively becomes a composition of many simple operators. This allows the complexity of the domain code to be the focus, not the otherwise incidental supporting code.
 
 
 ### And-Then-When
 
-If `Zip` only taking two sequences as an input is a problem, then you can use a combination of the three `And`/`Then`/`When` methods. These methods are used slightly differently from most of the other Rx methods. Out of these three, `And` is the only extension method to `IObservable<T>`. Unlike most Rx operators, it does not return a sequence; instead, it returns the mysterious type `Pattern<T1, T2>`. The `Pattern<T1, T2>` type is public (obviously), but all of its properties are internal. The only two (useful) things you can do with a `Pattern<T1, T2>` are invoking its `And` or `Then` methods. The `And` method called on the `Pattern<T1, T2>` returns a `Pattern<T1, T2, T3>`. On that type, you will also find the `And` and `Then` methods. The generic `Pattern` types are there to allow you to chain multiple `And` methods together, each one extending the generic type parameter list by one. You then bring them all together with the `Then` method overloads. The `Then` methods return you a `Plan` type. Finally, you pass this `Plan` to the `Observable.When` method in order to create your sequence.
+`Zip` can take only two sequences as an input. If that is a problem, then you can use a combination of the three `And`/`Then`/`When` methods. These methods are used slightly differently from most of the other Rx methods. Out of these three, `And` is the only extension method to `IObservable<T>`. Unlike most Rx operators, it does not return a sequence; instead, it returns the mysterious type `Pattern<T1, T2>`. The `Pattern<T1, T2>` type is public (obviously), but all of its properties are internal. The only two (useful) things you can do with a `Pattern<T1, T2>` are invoking its `And` or `Then` methods. The `And` method called on the `Pattern<T1, T2>` returns a `Pattern<T1, T2, T3>`. On that type, you will also find the `And` and `Then` methods. The generic `Pattern` types are there to allow you to chain multiple `And` methods together, each one extending the generic type parameter list by one. You then bring them all together with the `Then` method overloads. The `Then` methods return you a `Plan` type. Finally, you pass this `Plan` to the `Observable.When` method in order to create your sequence.
 
 It may sound very complex, but comparing some code samples should make it easier to understand. It will also allow you to see which style you prefer to use.
 
 To `Zip` three sequences together, you can either use `Zip` methods chained together like this:
 
-```csharp
-var one = Observable.Interval(TimeSpan.FromSeconds(1)).Take(5);
-var two = Observable.Interval(TimeSpan.FromMilliseconds(250)).Take(10);
-var three = Observable.Interval(TimeSpan.FromMilliseconds(150)).Take(14);
+```cs
+IObservable<long> one = Observable.Interval(TimeSpan.FromSeconds(1)).Take(5);
+IObservable<long> two = Observable.Interval(TimeSpan.FromMilliseconds(250)).Take(10);
+IObservable<long> three = Observable.Interval(TimeSpan.FromMilliseconds(150)).Take(14);
 
 // lhs represents 'Left Hand Side'
 // rhs represents 'Right Hand Side'
-var zippedSequence = one
-    .Zip(two, (lhs, rhs) => new {One = lhs, Two = rhs})
-    .Zip(three, (lhs, rhs) => new {One = lhs.One, Two = lhs.Two, Three = rhs});
+IObservable<(long One, long Two, long Three)> zippedSequence = one
+    .Zip(two, (lhs, rhs) => (One: lhs, Two: rhs))
+    .Zip(three, (lhs, rhs) => (lhs.One, lhs.Two, Three: rhs));
 
 zippedSequence.Subscribe(
-    Console.WriteLine,
+    v => Console.WriteLine($"One: {v.One}, Two: {v.Two}, Three: {v.Three}"),
     () => Console.WriteLine("Completed"));
 ```
 
 Or perhaps use the nicer syntax of the `And`/`Then`/`When`:
 
-```csharp
-var pattern = one.And(two).And(three);
-var plan = pattern.Then((first, second, third)=>new{One=first, Two=second, Three=third});
-var zippedSequence = Observable.When(plan);
+```cs
+Pattern<long, long, long> pattern =
+    one.And(two).And(three);
+Plan<(long One, long Two, long Three)> plan =
+    pattern.Then((first, second, third) => (One: first, Two: second, Three: third));
+IObservable<(long One, long Two, long Three)> zippedSequence = Observable.When(plan);
 
 zippedSequence.Subscribe(
-    Console.WriteLine,
+    v => Console.WriteLine($"One: {v.One}, Two: {v.Two}, Three: {v.Three}"),
     () => Console.WriteLine("Completed"));
 ```
 
 This can be further reduced, if you prefer, to:
 
-```csharp
-var zippedSequence = Observable.When(
-        one.And(two)
-            .And(three)
-            .Then((first, second, third) => 
-                new { 
-                    One = first, 
-                    Two = second, 
-                    Three = third 
-                })
-        );
+```cs
+IObservable<(long One, long Two, long Three)> zippedSequence = Observable.When(
+    one.And(two).And(three)
+        .Then((first, second, third) =>
+            (One: first, Two: second, Three: third))
+    );  
 
 zippedSequence.Subscribe(
-    Console.WriteLine,
+    v => Console.WriteLine($"One: {v.One}, Two: {v.Two}, Three: {v.Three}"),
     () => Console.WriteLine("Completed"));
 ```
 
@@ -1071,4 +892,4 @@ The `And`/`Then`/`When` trio has more overloads that enable you to group an even
 
 ## Summary
 
-This chapter covered a set of methods that allow us to combine  observable sequences. This brings us to a close on Part 2. We've looked at the operators that are mostly concerned with defining the computations we want to perform on the data. In Part 3 we will move onto practical concerns such as managing side effects, error handling, and scheduling. The
+This chapter covered a set of methods that allow us to combine observable sequences. This brings us to a close on Part 2. We've looked at the operators that are mostly concerned with defining the computations we want to perform on the data. In Part 3 we will move onto practical concerns such as managing scheduling, side effects, and error handling.

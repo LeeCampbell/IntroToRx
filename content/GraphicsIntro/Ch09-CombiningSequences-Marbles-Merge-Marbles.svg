@@ -54,15 +54,15 @@
   </g>
   <g>
     <circle class="i" cx="88.75" cy="106.87" r="13.56"/>
-    <text class="f" transform="translate(85.48 110.41)"><tspan x="0" y="0">1</tspan></text>
+    <text class="f" transform="translate(85.48 110.42)"><tspan x="0" y="0">1</tspan></text>
   </g>
   <g>
     <circle class="i" cx="151.21" cy="106.87" r="13.56"/>
-    <text class="f" transform="translate(147.94 110.41)"><tspan x="0" y="0">1</tspan></text>
+    <text class="f" transform="translate(147.94 110.42)"><tspan x="0" y="0">1</tspan></text>
   </g>
   <g>
     <circle class="i" cx="214.69" cy="106.87" r="13.56"/>
-    <text class="f" transform="translate(211.41 110.41)"><tspan x="0" y="0">1</tspan></text>
+    <text class="f" transform="translate(211.41 110.42)"><tspan x="0" y="0">1</tspan></text>
   </g>
   <line id="d" data-name="source line" class="g" x1="71.26" y1="66.35" x2="266.88" y2="66.35"/>
   <line class="g" x1="266.88" y1="48.85" x2="266.88" y2="83.86"/>
@@ -81,15 +81,15 @@
   </g>
   <g>
     <circle class="h" cx="122.69" cy="106.87" r="13.56"/>
-    <text class="f" transform="translate(119.42 110.41)"><tspan x="0" y="0">2</tspan></text>
+    <text class="f" transform="translate(119.42 110.42)"><tspan x="0" y="0">2</tspan></text>
   </g>
   <g>
     <circle class="h" cx="182.61" cy="106.87" r="13.56"/>
-    <text class="f" transform="translate(179.33 110.41)"><tspan x="0" y="0">2</tspan></text>
+    <text class="f" transform="translate(179.33 110.42)"><tspan x="0" y="0">2</tspan></text>
   </g>
   <g>
     <circle class="h" cx="243.39" cy="106.87" r="13.56"/>
-    <text class="f" transform="translate(240.12 110.41)"><tspan x="0" y="0">2</tspan></text>
+    <text class="f" transform="translate(240.12 110.42)"><tspan x="0" y="0">2</tspan></text>
   </g>
   <line class="g" x1="266.88" y1="89.36" x2="266.88" y2="124.37"/>
 </svg>

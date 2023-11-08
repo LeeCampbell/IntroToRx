@@ -64,9 +64,9 @@
     <circle class="i" cx="162.28" cy="106.87" r="13.56"/>
     <text class="f" transform="translate(159.01 110.41)"><tspan x="0" y="0">0</tspan></text>
   </g>
-  <line id="d" data-name="source line" class="g" x1="162.6" y1="66.35" x2="428.65" y2="66.35"/>
+  <line id="d" data-name="source line" class="g" x1="284.02" y1="66.35" x2="428.65" y2="66.35"/>
   <line class="g" x1="428.65" y1="48.85" x2="428.65" y2="83.86"/>
-  <line class="g" x1="162.6" y1="48.85" x2="162.6" y2="83.86"/>
+  <line class="g" x1="284.02" y1="50.72" x2="284.02" y2="85.73"/>
   <g>
     <circle class="h" cx="349" cy="66.35" r="13.56"/>
     <text class="f" transform="translate(344.93 69.9)"><tspan x="0" y="0">D</tspan></text>
@@ -74,14 +74,6 @@
   <g>
     <circle class="h" cx="407.15" cy="66.35" r="13.56"/>
     <text class="f" transform="translate(403.79 69.9)"><tspan x="0" y="0">E</tspan></text>
-  </g>
-  <g>
-    <circle class="h" cx="195.61" cy="66.35" r="13.56"/>
-    <text class="f" transform="translate(192.02 69.9)"><tspan x="0" y="0">A</tspan></text>
-  </g>
-  <g>
-    <circle class="h" cx="242.25" cy="66.35" r="13.56"/>
-    <text class="f" transform="translate(238.72 69.9)"><tspan x="0" y="0">B</tspan></text>
   </g>
   <g>
     <circle class="h" cx="295.62" cy="66.35" r="13.56"/>
