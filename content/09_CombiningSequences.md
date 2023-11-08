@@ -6,13 +6,13 @@ title: Combining sequences
 
 Data sources are everywhere, and sometimes we need to consume data from more than just a single source. Common examples that have many inputs include: price feeds, sensor networks, news feeds, social media aggregators, file watchers, multi touch surfaces, heart-beating/polling servers, etc. The way we deal with these multiple stimuli is varied too. We may want to consume it all as a deluge of integrated data, or one sequence at a time as sequential data. We could also get it in an orderly fashion, pairing data values from two sources to be processed together, or perhaps just consume the data from the first source that responds to the request.
 
-Earlier chapters have also shown some examples of the _fan out and back in_ style of data processing, where we partition data, and perform processing on each partition to convert high-volume data into lower-volume higher-value events before recombining. This ability to restructure streams greatly enhances the benefits of operator composition. If Rx only enabled us to apply composition as a simple linear processing chain, it would be a good deal less powerful. Being able to pull streams apart gives us much more flexibility. So even when there is a single source of events, we often still need to combine multiple observable streams as part of our processing. Sequence composition enables you to create complex queries across multiple data sources. This unlocks the possibility to write some very powerful and succinct code.
+Earlier chapters have also shown some examples of the _fan out and back in_ style of data processing, where we partition data, and perform processing on each partition to convert high-volume data into lower-volume higher-value events before recombining. This ability to restructure streams greatly enhances the benefits of operator composition. If Rx only enabled us to apply composition as a simple linear processing chain, it would be a good deal less powerful. Being able to pull streams apart gives us much more flexibility. So even when there is a single source of events, we often still need to combine multiple observable streams as part of our processing. Sequence composition enables you to create complex queries across multiple data sources. This unlocks the possibility to write some very powerful yet succinct code.
 
 We've already used [`SelectMany`](06_Transformation.md#selectmany) in earlier chapters. This is one of the fundamental operators in Rx—as we saw in the [Transformation chapter](06_Transformation.md), it's possible to build several other operators from `SelectMany`, and its ability to combine streams is part of what makes it powerful. But there are several more specialized combination operators available, which make it easier to solve certain problems than it would be using `SelectMany`. Also, some operators we've seen before (including `TakeUntil` and `Buffer`) have overloads we've not yet explored that can combine multiple sequences.
 
 ## Sequential Combination
 
-We'll start with the simplest kind of combining operator, which do not attempt concurrent combination. They deal with one source sequence at a time.
+We'll start with the simplest kind of combining operators, which do not attempt concurrent combination. They deal with one source sequence at a time.
 
 ### Concat
 
@@ -24,7 +24,7 @@ public static IObservable<TSource> Concat<TSource>(
     IObservable<TSource> second)
 ```
 
-Since of `Concat` is an extension method, we can invoke it as a method on any sequence, passing the second sequence in as the only argument:
+Since `Concat` is an extension method, we can invoke it as a method on any sequence, passing the second sequence in as the only argument:
 
 ```cs
 IObservable<int> s1 = Observable.Range(0, 3);
@@ -41,6 +41,7 @@ Rx's `Concat` does nothing with its sources until something subscribes to the `I
 
 Although Rx's `Concat` has the same logical behaviour as the [LINQ to Objects `Concat`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.concat), there are some Rx-specific details to be aware of. In particular, timing is often more significant in Rx than with other LINQ implementations. For example, in Rx we distinguish between [_hot_ and _cold_ source](02_KeyTypes.md#hot-and-cold-sources). With a cold source it typically doesn't matter exactly when you subscribe, but hot sources are essentially live, so you only get notified of things that happen while you are subscribed. This can mean that hot sources might not be a good fit with `Concat` The following marble diagram illustrates a scenario in which this produces results that have the potential to surprise:
 
+TODO: relabel as `cold`, `hot`, `cold.Concat(hot)`
 ![](./GraphicsIntro/Ch09-CombiningSequences-Marbles-Concat-Hot-Marbles.svg)
 
 Since `Concat` doesn't subscribe to its second input until the first has finished, it won't see the first couple of items that the `hot` source would deliver to any subscribers that been listening from the start. This might not be the behaviour you would expect: it certainly doesn't look like this concatenated all of the items from the first sequence with all of the items from the second one. It looks like it missed out `A` and `B` from `hot`.
@@ -49,16 +50,18 @@ Since `Concat` doesn't subscribe to its second input until the first has finishe
 
 This last example reveals that marble diagrams gloss over a detail: they show when a source starts, when it produces values, and when it finishes, but they ignore the fact that to be able to produce items at all, an observable source needs a subscriber. If nothing subscribes to an `IObservable<T>`, then it doesn't really produce anything. `Concat` doesn't subscribe to its second input until the first completes, so arguably instead of the diagram above, it would be more accurate to show this:
 
+TODO: draw properly, and change final label to `cold.Concat(hot)`
 ```
 cold              |--0--1--2-|
 hot                          |C---D---E-|
 Concat(cold, hot) |--0--1--2--C---D---E-|
 ```
 
-This makes it easier to see why `Concat` produces the output it does. But since `hot` is a hot source here, this diagram fails to convey the fact that `hot` is producing items entirely on its own schedule. In a scenario where `hot` had multiple subscribers, then the first diagram would arguably be better because it correctly reflects every event coming out of `hot` (regardless of however many listeners might be subscribed at any particular moment). But although this convention works for hot sources, it doesn't work for cold ones, which typically start producing items upon subscription. A source returned by [`Timer`](03_CreatingObservableSequences.md#observabletimer) produces items on a regular schedule, but that schedule starts at the instant when subscription occurs. That means that if there are multiple subscriptions, there are multiple schedules. Even if I have just a single `IObservable<long>` returned by `Observable.Timer`, each distinct subscriber will get items on its own schedule—subscribers receive events at a regular interval _starting from whenever they happened subscribe_. So for cold observables, it typically makes sense to use the convention used by this second diagram, in which we're looking at the events received by one particular subscription to a source.
+This makes it easier to see why `Concat` produces the output it does. But since `hot` is a hot source here, this diagram fails to convey the fact that `hot` is producing items entirely on its own schedule. In a scenario where `hot` had multiple subscribers, then the earlier diagram would arguably be better because it correctly reflects every event available from `hot` (regardless of however many listeners might be subscribed at any particular moment). But although this convention works for hot sources, it doesn't work for cold ones, which typically start producing items upon subscription. A source returned by [`Timer`](03_CreatingObservableSequences.md#observabletimer) produces items on a regular schedule, but that schedule starts at the instant when subscription occurs. That means that if there are multiple subscriptions, there are multiple schedules. Even if I have just a single `IObservable<long>` returned by `Observable.Timer`, each distinct subscriber will get items on its own schedule—subscribers receive events at a regular interval _starting from whenever they happened subscribe_. So for cold observables, it typically makes sense to use the convention used by this second diagram, in which we're looking at the events received by one particular subscription to a source.
 
 Most of the time we can get away with ignoring this subtlety, quietly using whichever convention suits us. To paraphrase [Humpty Dumpty: when I use a marble diagram, it means just what I choose it to mean—neither more nor less](https://www.goodreads.com/quotes/12608-when-i-use-a-word-humpty-dumpty-said-in-rather). But when you're combining hot and cold sources together, there might not be one obviously best way to represent this in a marble diagram. We could even do something like this, where we describe the events that `hot` represents separately from the events seen by a particular subscription to `hot`.
 
+TODO: draw properly, and change final label to `cold.Concat(hot)`
 ```
 Concat subscription to cold  |--0--1--2-|
 Events available through hot  ---A---B---C---D---E-
@@ -68,6 +71,7 @@ Concat(cold, hot)            |--0--1--2--C---D---E-|
 
 We're using a distinct 'lane' in the marble diagram to represent the events seen by a particular subscription to a source. With this technique, we can also show what would happen if you pass the same cold source into `Concat` twice:
 
+TODO: draw properly, and change final label to `cold.Concat(cold)`
 ```
 Concat 1st subscription to cold |--0--1--2-|
 Concat 2nd subscription to cold            |--0--1--2-|
@@ -78,7 +82,7 @@ This highlights the fact that that being a cold source, `cold` provides items se
 
 #### Concatenating Multiple Sources
 
-What if you wanted to concatenate more than two sequences? `Concat` has an overloads accepting multiple observable sequences as an array. This is annotated with the `params` keyword, so you don't need to construct the array explicitly—you can just pass any number of arguments, and the C# compiler will generate the code to create the array for you. There's also an overload taking an `IEnumerable<IObservable<T>>`, in case the observables you want to concatenate are already in some collection.
+What if you wanted to concatenate more than two sequences? `Concat` has an overload accepting multiple observable sequences as an array. This is annotated with the `params` keyword, so you don't need to construct the array explicitly—you can just pass any number of arguments, and the C# compiler will generate the code to create the array for you. There's also an overload taking an `IEnumerable<IObservable<T>>`, in case the observables you want to concatenate are already in some collection.
 
 ```cs
 public static IObservable<TSource> Concat<TSource>(
@@ -161,6 +165,7 @@ Concat completed
 
 Below is a marble diagram of the `Concat` operator applied to the `GetSequences` method. 's1', 's2' and 's3' represent sequence 1, 2 and 3. Respectively, 'rs' represents the result sequence.
 
+TODO: draw properly
 ```
 s1-----1|
 s2      ---2|
@@ -190,7 +195,7 @@ This is a common enough requirement that Rx supplies `Prepend` that has a simila
 IObservable<IVesselNavigation> lastKnownThenLive = live.Prepend(lastKnown);
 ```
 
-This observable will do exactly the same thing: subscribers will immediately receive the `lastKnown`, and then if the vessel should emit further navigation messages, they will receive those too. By the way, for this scenario you'd probably also want to ensure that the look up of the "last known" message happens as late as possible. We can delay this until the point of subscription by using `Defer`:
+This observable will do exactly the same thing: subscribers will immediately receive the `lastKnown`, and then if the vessel should emit further navigation messages, they will receive those too. By the way, for this scenario you'd probably also want to ensure that the look up of the "last known" message happens as late as possible. We can delay this until the point of subscription by using [`Defer`](03_CreatingObservableSequences.md#observabledefer):
 
 ```cs
 public static IObservable<IVesselNavigation> GetLastKnownAndSubsequenceNavigationForVessel(uint mmsi)
@@ -235,7 +240,7 @@ The existence of `Prepend` might lead you to wonder whether there is an `Append`
 IObservable<string> oneMore = arguments.Append("And another thing...");
 ```
 
-There is no corresponding `EndWith`. Apparently there's not much demand—the [Rx repository](https://github.com/dotnet/reactive) has not yet had a feature request. So although the symmetry of `Prepend` and `Append` does suggest that there could be a similar symmetry between `StartWith` and an as-yet-hypothetical `EndWith`, the absence of this counterpart doesn't seem to have caused any problems. There's an obvious value to being able to create observable sources that always immediately produce a useful output; it's not clear what `EndWith` would be useful for beside satisfying a craving for symmetry.
+There is no corresponding `EndWith`. There's no fundamental reason that there couldn't be such a thing it's just that apparently there's not much demand—the [Rx repository](https://github.com/dotnet/reactive) has not yet had a feature request. So although the symmetry of `Prepend` and `Append` does suggest that there could be a similar symmetry between `StartWith` and an as-yet-hypothetical `EndWith`, the absence of this counterpart doesn't seem to have caused any problems. There's an obvious value to being able to create observable sources that always immediately produce a useful output; it's not clear what `EndWith` would be useful for, besides satisfying a craving for symmetry.
 
 ### DefaultIfEmpty
 
@@ -250,7 +255,7 @@ You don't have to supply `DefaultIfEmpty` with a value. If you use the overload 
 The final operator that combines sequences sequentially is `Repeat`. It allows you to simply repeat a sequence. It offers overloads where you can specify the number of times to repeat the input, and one that repeats infinitely:
 
 ```cs
-//Repeats the observable sequence a specified number of times.
+// Repeats the observable sequence a specified number of times.
 public static IObservable<TSource> Repeat<TSource>(
     this IObservable<TSource> source, 
     int repeatCount)
@@ -260,7 +265,7 @@ public static IObservable<TSource> Repeat<TSource>(
     this IObservable<TSource> source)
 ```
 
-`Repeat` resubscribes to the source for each repetition.
+`Repeat` resubscribes to the source for each repetition. This means that this will only strictly repeat if the source produces the same items each time you subscribe—unlike the [`ReplaySubject<T>`](03_CreatingObservableSequences.md#replaysubject), this doesn't store and replay the items that emerge from the source. This means that you normally won't want to call `Repeat` on a hot source. (If you really want repetition of the output of a hot source, a combination of [`Replay`](15_PublishingOperators.md#replay) and `Repeat` might fit the bill.)
 
 If you use the overload that repeats indefinitely, then the only way the sequence will stop is if there is an error or the subscription is disposed of. The overload that specifies a repeat count will stop on error, un-subscription, or when it reaches that count. This example shows the sequence [0,1,2] being repeated three times.
 
@@ -290,7 +295,7 @@ Completed
 
 ## Concurrent sequences
 
-We'll now move on to operators for combining observable sequences that are producing values concurrently.
+We'll now move on to operators for combining observable sequences that might produce values concurrently.
 
 ### Amb
 
@@ -299,9 +304,9 @@ Rx's `Amb` takes any number of `IObservable<T>` sources as inputs, and waits to 
 
 Why is that useful?
 
-A common use case for `Amb` is when you want to produce some sort of result as quickly as possible, and you have multiple options for obtaining that result but you don't know in advance which will be fastest. Perhaps there are multiple servers that could all potentially give you the answer you want, and it's impossible to predict which will have the lowest response time. You could send requests to all of them, and then just use the first to respond. If you model each individual request as its own `IObservable<T>`, `Amb` can handle this for you. Note that this isn't very efficient: you're asking several servers all to do the same work, and you're going to discard the results from most of them. (Since `Amb` unsubscribes from all the sources it's not going to use as soon as the first reacts, it's possible that you might be able to send a message to all the other servers to cancel the request. But this is still somewhat wasteful.) But there may be scenarios in which timeliness is crucial, and for those cases it might be worth tolerating a bit of wasted effort to produce faster results.
+A common use case for `Amb` is when you want to produce some sort of result as quickly as possible, and you have multiple options for obtaining that result, but you don't know in advance which will be fastest. Perhaps there are multiple servers that could all potentially give you the answer you want, and it's impossible to predict which will have the lowest response time. You could send requests to all of them, and then just use the first to respond. If you model each individual request as its own `IObservable<T>`, `Amb` can handle this for you. Note that this isn't very efficient: you're asking several servers all to do the same work, and you're going to discard the results from most of them. (Since `Amb` unsubscribes from all the sources it's not going to use as soon as the first reacts, it's possible that you might be able to send a message to all the other servers to cancel the request. But this is still somewhat wasteful.) But there may be scenarios in which timeliness is crucial, and for those cases it might be worth tolerating a bit of wasted effort to produce faster results.
 
-To illustrate `Amb`'s behaviour, here's a marble diagram showing three sequences, `s1`, `s2`, and `s3`, each able to produce a sequence values. The line labelled `r` shows the result of passing all three sequences into `Amb`. As you can see, `r` provides exactly the same notifications as `s1`. This is because in this example, `s1` was the first sequence to produce a value.
+To illustrate `Amb`'s behaviour, here's a marble diagram showing three sequences, `s1`, `s2`, and `s3`, each able to produce a sequence values. The line labelled `r` shows the result of passing all three sequences into `Amb`. As you can see, `r` provides exactly the same notifications as `s1`, because in this example, `s1` was the first sequence to produce a value.
 
 ![](GraphicsIntro/Ch09-CombiningSequences-Marbles-Amb-Marbles.svg)
 
@@ -344,6 +349,7 @@ Completed
 
 If we changed the order so that `s2.OnNext(99)` came before the call to `s1.OnNext(1);` then s2 would produce values first and the marble diagram would look like this.
 
+TODO: draw properly
 ```
 s1 --1--2----3--4|
 s2 99----88--|
@@ -367,7 +373,7 @@ public static IObservable<TSource> Amb<TSource>(
 {...}
 ```
 
-Reusing the `GetSequences` method from the `Concat` section, we see that the evaluation of the outer (IEnumerable) sequence is eager.
+Reusing the `GetSequences` method from the `Concat` section, we see that `Amb` evaluates the outer (IEnumerable) sequence completely before subscribing to any of the sequences it returns.
 
 ```csharp
 GetSequences().Amb().Dump("Amb");
@@ -390,6 +396,8 @@ Amb completed
 
 Here is the marble diagram illustrating how this code behaves:
 
+TODO: draw properly
+
 ```
 s1-----1|
 s2---2|
@@ -397,7 +405,9 @@ s3-3|
 rs-3|
 ```
 
-Take note that the inner observable sequences are not subscribed to until the outer sequence has yielded them all. This means that the third sequence is able to return values the fastest even though there are two sequences yielded one second before it (due to the `Thread.Sleep`).
+Since the inner observable sequences are not subscribed to until the outer sequence has yielded them all, the third sequence is able to return values the fastest even though there are two sequences yielded one second before it (due to the `Thread.Sleep`).
+
+TODO: read through to here.
 
 ### Merge
 
