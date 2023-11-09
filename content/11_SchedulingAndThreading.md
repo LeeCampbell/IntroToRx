@@ -4,9 +4,9 @@ title: Scheduling and threading
 
 # Scheduling and Threading
 
-Rx is primarily a system for working with _data in motion_ asynchronously. To effectively provide the level of asynchrony that developers require, some level of concurrency control is required. If we are dealing with multiple information sources, they may well generate data concurrently. We may want some degree of parallelism when processing data to achieve our scalability targets, but we will need control over this.
+Rx is primarily a system for working with _data in motion_ asynchronously. If we are dealing with multiple information sources, they may well generate data concurrently. We may want some degree of parallelism when processing data to achieve our scalability targets. We will need control over these aspects of our system.
 
-So far, we have managed to avoid any explicit usage of threading or concurrency. There are some methods that we have had to deal with timing to perform their jobs. (For example, `Buffer`, `Delay`, `Sample` must arrange for work to happen on a particular schedule.) Most of this however, has been kindly abstracted away from us. This chapter will look the Rx's scheduling system which offers an elegant system for managing these concerns.
+So far, we have managed to avoid any explicit usage of threading or concurrency. We have seen some methods that must deal with timing to perform their jobs. (For example, `Buffer`, `Delay`, and `Sample` must arrange for work to happen on a particular schedule.) However, we have relied on the default behaviour, and although the defaults often do what we want, we sometimes need to exercise more control. This chapter will look at Rx's scheduling system, which offers an elegant way to manage these concerns.
 
 ## Rx, Threads and Concurrency
 
@@ -30,7 +30,7 @@ source
 
 When that call to `Subscribe` happens, we end up with a chain of observers—the Rx-supplied observer that will invoke our callback was passed to the observable returned by `Take`, which will in turn create an observer that subscribed to the observable returned by `Buffer`, which will in turn create an observer subscribed to the `Where` observable, which will have created yet another observer which is subscribed to `source`.
 
-So when `source` decides to produce an item, it will invoke the `Where` operator's observer's `OnNext`. That will invoke the predicate, and if the `MessageType` is indeed 3, the `Where` observer will call `OnNext` on the `Buffer`'s observer, and it will do this on the same thread. The `Where` observer's `OnNext` isn't going to return until the `Buffer` observer's `OnNext` returns. Now if the `Buffer` observer determines that it has completely filled a buffer (e.g., it just received its 10th item), then it is also not going to return yet—it's going to invoke the `Take` observer's `OnNext`, and as long as `Take` hasn't already received 20 items, it's going to call `OnNext` on the Rx-supplied observer that will invoke our callback.
+So when `source` decides to produce an item, it will invoke the `Where` operator's observer's `OnNext`. That will invoke the predicate, and if the `MessageType` is indeed 3, the `Where` observer will call `OnNext` on the `Buffer`'s observer, and it will do this on the same thread. The `Where` observer's `OnNext` isn't going to return until the `Buffer` observer's `OnNext` returns. Now if the `Buffer` observer determines that it has completely filled a buffer (e.g., it just received its 10th item), then it is also not going to return yet—it's going to invoke the `Take` observer's `OnNext`, and as long as `Take` hasn't already received 20 buffers, it's going to call `OnNext` on the Rx-supplied observer that will invoke our callback.
 
 So for the source notifications that make it all the way through to that `Console.WriteLine` in the callback passed to subscribe, we end up with a lot of nested calls on the stack:
 
@@ -46,7 +46,7 @@ This is all happening on one thread. Most Rx operators don't have any one partic
 
 You will sometimes hear Rx described as having a _free threaded_ model. All that means is that operators don't generally care what thread they use. As we will see, there are exceptions, but this direct calling by one operator of the next is the norm.
 
-An upshot of this is that it's typically the original source that determine which thread is used. This next example verifies by creating a subject, then calling `OnNext` on various threads and reporting the thread id.
+An upshot of this is that it's typically the original source that determines which thread is used. This next example illustrates this by creating a subject, then calling `OnNext` on various threads and reporting the thread id.
 
 ```cs
 Console.WriteLine($"Main thread: {Environment.CurrentManagedThreadId}");
@@ -84,11 +84,11 @@ OnNext(Second worker thread) on thread: 11
 Received Second worker thread on thread: 11
 ```
 
-Note that the handler passed to `Subscribe` was called back on the same thread that made the call to `OnNext`. This is straightforward and efficient. However, things are not always this simple.
+In each case, the handler passed to `Subscribe` was called back on the same thread that made the call to `subject.OnNext`. This is straightforward and efficient. However, things are not always this simple.
 
 ## Timed invocation
 
-Some notifications will not be the immediate result of a source providing an item. For example, Rx offers a [`Delay`] operator, which time shifts the delivery of items. This next example is based on the preceding one, with the main difference being that we no longer subscribe directly to the source. We go via `Delay`:
+Some notifications will not be the immediate result of a source providing an item. For example, Rx offers a [`Delay`](12_Timing.md#delay) operator, which time shifts the delivery of items. This next example is based on the preceding one, with the main difference being that we no longer subscribe directly to the source. We go via `Delay`:
 
 ```cs
 Console.WriteLine($"Main thread: {Environment.CurrentManagedThreadId}");
@@ -276,9 +276,9 @@ Received 54 on thread: 1
 Subscribe returned
 ```
 
-By specifying `ImmediateScheduler.Instance` we've asked for a particular policy: this invokes all work on the caller's thread, and it always does so immediately, avoiding introducing any concurrency. There are a couple of reasons this is not `Range`'s default. (Its default is `Scheduler.CurrentThread`, which always returns an instance of `CurrentThreadScheduler`.) First, `ImmediateScheduler.Instance` can end up causing fairly deep call stacks—most of the other schedulers maintain work queues, so if one operator decides it has new work to do while another is in the middle of doing something (e.g., a nested `Range` operator decides to start emitting its values), instead of starting that work immediately (which will involve invoking the method that will do the work) that work can be put on a queue instead, enabling the work already in progress to finish before starting on the next thing. Using the immediate scheduler everywhere can cause stack overflows when queries become complex. The second reason `Range` does not use the immediate scheduler is so that when multiple observables are all active at once, they can all make some progress—`Range` produces all of its items as quickly as it can, so it could end up starving other operators of CPU time if it didn't use a scheduler that enabled operators to take it in turns.
+By specifying `ImmediateScheduler.Instance` in the innermost call to `Observable.Range` we've asked for a particular policy: this invokes all work on the caller's thread, and it always does so immediately. There are a couple of reasons this is not `Range`'s default. (Its default is `Scheduler.CurrentThread`, which always returns an instance of `CurrentThreadScheduler`.) First, `ImmediateScheduler.Instance` can end up causing fairly deep call stacks—most of the other schedulers maintain work queues, so if one operator decides it has new work to do while another is in the middle of doing something (e.g., a nested `Range` operator decides to start emitting its values), instead of starting that work immediately (which will involve invoking the method that will do the work) that work can be put on a queue instead, enabling the work already in progress to finish before starting on the next thing. Using the immediate scheduler everywhere can cause stack overflows when queries become complex. The second reason `Range` does not use the immediate scheduler by default is so that when multiple observables are all active at once, they can all make some progress—`Range` produces all of its items as quickly as it can, so it could end up starving other operators of CPU time if it didn't use a scheduler that enabled operators to take it in turns.
 
-Notice that the `Subscribe returned` message appears last. So although the `CurrentThreadScheduler` isn't quite as eager as the immediate scheduler, it still won't return to its called until it has completed all outstanding work. It maintains a work queue, enabling slightly more fairness, and avoiding stack overflows, but as soon as anything asks the `CurrentThreadScheduler` to do something, it won't return until it has drained its queue.
+Notice that the `Subscribe returned` message appears last in both examples. So although the `CurrentThreadScheduler` isn't quite as eager as the immediate scheduler, it still won't return to its caller until it has completed all outstanding work. It maintains a work queue, enabling slightly more fairness, and avoiding stack overflows, but as soon as anything asks the `CurrentThreadScheduler` to do something, it won't return until it has drained its queue.
 
 Not all schedulers have this characteristic. Here's a variation on the earlier example in which we have just a single call to `Range`, without any nested observables. This time I'm asking it to use the `TaskPoolScheduler`.
 
@@ -289,7 +289,7 @@ Observable
     m => Console.WriteLine($"Received {m} on thread: {Environment.CurrentManagedThreadId}"));
 ```
 
-This makes a different decision about the context in which to run work from the immediate and current thread schedulers, as we can see from its output:
+This makes a different decision about the context in which to run work, compared to the immediate and current thread schedulers, as we can see from its output:
 
 ```cs
 Main thread: 1
@@ -303,7 +303,7 @@ Received 5 on thread: 12
 
 Notice that the notifications all happened on a different thread (with id 12) than the thread on which we invoked `Subscribe` (id 1). That's because the `TaskPoolScheduler`'s defining feature is that it invokes all work through the Task Parallel Library's (TPL) task pool. That's why we see a different thread id: the task pool doesn't own our application's main thread. In this case, it hasn't seen any need to spin up multiple threads. That's reasonable, there's just a single source here providing item one at a time. It's good that we didn't get more threads in this case—the thread pool is at its most efficient when a single thread processes work items sequentially, because it avoids context switching overheads, and since there's no actual scope for concurrent work here, we would gain nothing if it had created multiple threads in this case.
 
-There's one other very significant difference with this scheduler: notice that the call to `Subscribe` returned before _any_ of the notifications were made it through to our observer. That's because this is the first scheduler we've looked at that will introduce real parallelism. The `ImmediateScheduler` and `CurrentThreadScheduler` will never spin up new threads by themselves, no matter how much the operators executing might want to perform concurrent operations. And although the `TaskPoolScheduler` determined that there's no need for it to create multiple threads, the one thread it did create is a different thread from the application's main thread, meaning that the main thread can continue to run in parallel with this subscription. Since `TaskPoolScheduler` isn't going to do any work on the thread that initiated the work, it can return as soon as it has queued the work up, enabling the `Subscribe` method to return immediately.
+There's one other very significant difference with this scheduler: notice that the call to `Subscribe` returned before _any_ of the notifications reached our observer. That's because this is the first scheduler we've looked at that will introduce real parallelism. The `ImmediateScheduler` and `CurrentThreadScheduler` will never spin up new threads by themselves, no matter how much the operators executing might want to perform concurrent operations. And although the `TaskPoolScheduler` determined that there's no need for it to create multiple threads, the one thread it did create is a different thread from the application's main thread, meaning that the main thread can continue to run in parallel with this subscription. Since `TaskPoolScheduler` isn't going to do any work on the thread that initiated the work, it can return as soon as it has queued the work up, enabling the `Subscribe` method to return immediately.
 
 What if we use the `TaskPoolScheduler` in the example with nested observables? This uses it just on the inner call to `Range`, so the outer one will still use the default `CurrentThreadScheduler`:
 
@@ -360,17 +360,19 @@ public interface IScheduler
 }
 ```
 
-You can see that all but one of these is concerned with timing. Only the first `Schedule` overload is not—operators call this when they want to schedule work to run as soon as the scheduler will allow. That's the overload used by `Range`. (Strictly speaking, `Range` interrogates the scheduler to find out whether it supports long-running operations, in which an operator can temporary control of a thread for an extended period. It prefers to use that when it can because it tends to be more efficient than submitting work to the scheduler for every single item it wishes to produce. The `TaskPoolScheduler` does support long running operations, which explains the slightly surprising output we saw earlier, but the `CurrentThreadScheduler`, `Range`'s default choice, does not. So by default, `Range` will invoke that first `Schedule` overload once for each item it wishes to produce.)
+You can see that all but one of these is concerned with timing. Only the first `Schedule` overload is not—operators call this when they want to schedule work to run as soon as the scheduler will allow. That's the overload used by `Range`. (Strictly speaking, `Range` interrogates the scheduler to find out whether it supports long-running operations, in which an operator can take temporary control of a thread for an extended period. It prefers to use that when it can because it tends to be more efficient than submitting work to the scheduler for every single item it wishes to produce. The `TaskPoolScheduler` does support long running operations, which explains the slightly surprising output we saw earlier, but the `CurrentThreadScheduler`, `Range`'s default choice, does not. So by default, `Range` will invoke that first `Schedule` overload once for each item it wishes to produce.)
 
 `Delay` uses the second overload. The exact implementation is quite complex (mainly because of how it catches up efficiently when a busy source causes it to fall behind) but in essence, each time a new item arrives into the `Delay` operator, it schedules a work item to run after the configured delay, so that it can supply that item to its subscriber with the expected time shift.
 
-Schedulers have to be responsible for managing time, because .NET has several different timer mechanisms, and the choice of timer is often determined by the context in which you want to handle a timer callback. Since schedulers determine the context in which work runs, that means them must also choose the timer type. For example, UI frameworks typically provide timers that invoke their callbacks in a context suitable for making updates to the user interface. Rx provides some UI-framework-specific schedulers that use these timers, but these would be inappropriate choices for other scenarios. So each scheduler uses a timer suitable for the context in which it is going to run work items.
+Schedulers have to be responsible for managing time, because .NET has several different timer mechanisms, and the choice of timer is often determined by the context in which you want to handle a timer callback. Since schedulers determine the context in which work runs, that means they must also choose the timer type. For example, UI frameworks typically provide timers that invoke their callbacks in a context suitable for making updates to the user interface. Rx provides some UI-framework-specific schedulers that use these timers, but these would be inappropriate choices for other scenarios. So each scheduler uses a timer suitable for the context in which it is going to run work items.
 
 There's a useful upshot of this: because `IScheduler` provides an abstraction for timing-related details, it is possible to virtualize time. This is very useful for testing. If you look at the extensive test suite in the [Rx repository](https://github.com/dotnet/reactive) you will find that there are many tests that verify timing-related behaviour. If these ran in real-time, the test suite would take far too long to run, and would also be likely to produce the odd spurious failure, because background tasks running on the same machine as the tests will occasionally change the speed of execution in a way that might confuse the test. Instead, these tests use a specialized scheduler that provides complete control over the passage of time.
 
-Notice that all three `IScheduler.Schedule` methods require a callback. A scheduler will invoke this at the time and in the context that it chooses. A scheduler callback takes another `IScheduler` as its first argument. This enables 
+Notice that all three `IScheduler.Schedule` methods require a callback. A scheduler will invoke this at the time and in the context that it chooses. A scheduler callback takes another `IScheduler` as its first argument. This is used in scenarios where repetitive invocation is required, as we'll see later. 
 
 Rx supplies several schedulers. The following sections describe the most widely used ones.
+
+TODO: read through to here.
 
 ### ImmediateScheduler
 
