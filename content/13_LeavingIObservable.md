@@ -10,7 +10,7 @@ Rx's compositional nature is the key to its power, but it can look like a proble
 
 You've already seen some answer to these questions. The [Creating Observable Sequences chapter](03_CreatingObservableSequences.md) showed various ways to create observable sources. But when it comes to handling the items that emerge from an `IObservable<T>`, all we've really seen is how to implement [`IObserver<T>`](02_KeyTypes.md#iobserver), and [how to use the callback based `Subscribe` extension methods  to subscribe to an `IObservable<T>`](02_KeyTypes.md#iobservable).
 
-In this chapter, we will look at the methods in Rx which allow you to leave the `IObservable<T>` world, so you can do some useful work with the notifications that emerge from a source.
+In this chapter, we will look at the methods in Rx which allow you to leave the `IObservable<T>` world, so you can take action based on the notifications that emerge from an Rx source.
 
 ## Integration with `async` and `await`
 
@@ -21,13 +21,13 @@ long v = await Observable.Timer(TimeSpan.FromSeconds(2)).FirstAsync();
 Console.WriteLine(v);
 ```
 
-Although `await` is most often used with `Task`, `Task<T>`, or `ValueTask<T>`, it is actually an extensible language feature. It's possible to make `await` work for more or less any type by defining some suitable extension methods and some supporting types. And that's precisely what Rx does. If your source file includes a `using System.Reactive.Linq;` directive, a suitable extension method will be available, so you can `await` any task.
+Although `await` is most often used with `Task`, `Task<T>`, or `ValueTask<T>`, it is actually an extensible language feature. It's possible to make `await` work for more or less any type by defining some suitable extension methods and some supporting types. That's precisely what Rx does. If your source file includes a `using System.Reactive.Linq;` directive, a suitable extension method will be available, so you can `await` any task.
 
 The way this actually works is that the relevant `GetAwaiter` extension method wraps the `IObservable<T>` in an `AsyncSubject<T>`, which provides everything that C# requires to support `await`. These wrappers work in such a way that there will be a call to `Subscribe` each time you execute an `await` against an `IObservable<T>`.
 
 If a source reports an error by invoking its observer's `OnError`, Rx's `await` integration handles this by putting the task into a faulted state, so that the `await` will rethrow the exception.
 
-Sequence can be empty—they call `OnCompleted` without ever having called `OnNext`. If you `await` a sequence that does this, it will throw an `InvalidOperationException` reporting that the sequence contains no elements.
+Sequences can be empty—they might call `OnCompleted` without ever having called `OnNext`. However, since there's no way to tell from the type of a source that it will be empty, this doesn't fit especially well with the `await` paradigm. With tasks, you can know at compile time whether you'll get a result by looking at whether you're awaiting a `Task` or `Task<T>`, so the compiler is able to know whether a particular `await` expression produces a value. But when you `await` and `IObservable<T>`, there's no compile-time distinction, so the only way Rx can report that a sequence is empty when you `await` is to throw an `InvalidOperationException` reporting that the sequence contains no elements.
 
 As you may recall from the [`AsyncSubject<T>` section of chapter 3](./03_CreatingObservableSequences.md#asyncsubject), `AsyncSubject<T>` reports only the final value to emerge from its source. So if you `await` a sequence that reports multiple items, all but the final item will be ignored. What if you want to see all of the items, but you'd still like to use `await` to handle completion and errors?
 
@@ -38,8 +38,8 @@ The `ForEachAsync` method supports `await`, but it provides a way to process eac
 ```cs
 IObservable<long> source = Observable.Interval(TimeSpan.FromSeconds(1))
                        .Take(5);
-await source.ForEachAsync(i => Console.WriteLine("received {0} @ {1}", i, DateTime.Now));
-Console.WriteLine("finished @ {0}", DateTime.Now);
+await source.ForEachAsync(i => Console.WriteLine($"received {i} @ {DateTime.Now}"));
+Console.WriteLine($"finished @ {DateTime.Now}");
 ```
 
 Output:
@@ -55,11 +55,11 @@ finished @ 02/08/2023 07:53:50
 
 Note that the `finished` line is last, as you would expect. Let's compare this with the `Subscribe` extension method, which also lets us provide a single callback for handling items:
 
-```csharp
+```cs
 IObservable<long> source = Observable.Interval(TimeSpan.FromSeconds(1))
                        .Take(5);
-source.Subscribe(i => Console.WriteLine("received {0} @ {1}", i, DateTime.Now));
-Console.WriteLine("finished @ {0}", DateTime.Now);
+source.Subscribe(i => Console.WriteLine($"received {i} @ {DateTime.Now}"));
+Console.WriteLine($"finished @ {DateTime.Now}");
 ```
 
 As the output shows, `Subscribe` returned immediately. Our per-item callback was invoked just like before, but this all happened later on:
@@ -75,16 +75,16 @@ received 4 @ 02/08/2023 07:55:47
 
 This can be useful in batch-style programs that perform some work and then exit. The problem with using `Subscribe` in that scenario is that our program could easily exit without having finished the work it started. This is easy to avoid with `ForEachAsync` because we just use `await` to ensure that our method doesn't complete until the work is done.
 
-When we use `await` either directly against an `IObservable<T>`, or through `ForEachAsync`, we are essentially choosing to handle sequence completion in a conventional way. Error and completion handling are no longer callback driven—Rx supplies the `OnCompleted` and `OnError` handlers for us, and instead represents these through the awaiter mechanism C# recognizes. (Specifically, when we `await` a source directly, Rx supplies a custom awaiter, and when we use `ForEachAsync` it just returns a `Task`.)
+When we use `await` either directly against an `IObservable<T>`, or through `ForEachAsync`, we are essentially choosing to handle sequence completion in a conventional way, not a reactive way. Error and completion handling are no longer callback driven—Rx supplies the `OnCompleted` and `OnError` handlers for us, and instead represents these through C#'s awaiter mechanism. (Specifically, when we `await` a source directly, Rx supplies a custom awaiter, and when we use `ForEachAsync` it just returns a `Task`.)
 
 Note that there are some circumstances in which `Subscribe` will block until its source completes. [`Observable.Return`](03_CreatingObservableSequences.md#observablereturn) will do this by default, as will [`Observable.Range`](03_CreatingObservableSequences.md#observablerange). We could try to make the last example do it by specifying a different scheduler:
 
-```csharp
+```cs
 // Don't do this!
 IObservable<long> source = Observable.Interval(TimeSpan.FromSeconds(1), ImmediateScheduler.Instance)
                        .Take(5);
-source.Subscribe(i => Console.WriteLine("received {0} @ {1}", i, DateTime.Now));
-Console.WriteLine("finished @ {0}", DateTime.Now);
+source.Subscribe(i => Console.WriteLine($"received {i} @ {DateTime.Now}"));
+Console.WriteLine($"finished @ {DateTime.Now}");
 ```
 
 However, this highlights the dangers of non-async blocking calls: although this looks like it should work, in practice it deadlocks in the current version of Rx. Rx doesn't consider the `ImmediateScheduler` to be suitable for timer-based operations, which is why it's not the default, and this scenario is a good example of why that is. (The fundamental issue is that the only way to cancel a scheduled work item is to call `Dispose` on the object returned by the call to `Schedule`. `ImmediateScheduler` by definition doesn't return until after it has finished the work, meaning it effectively can't support cancellation. So the call to `Interval` effectively creates a periodically scheduled work item that can't be cancelled, and which is therefore doomed to run forever.)
@@ -93,19 +93,20 @@ This is why we need `ForEachAsync`. It might look like we can get the same effec
 
 ## ToEnumerable
 
-The two mechanisms we've explored so far convert completion and error handling from Rx's callback mechanism to a more conventional approach enabled by `await`, but if we wanted to handle each item from the source, each still used a callback for that. But the `ToEnumerable` extension method goes a step further: it enables the entire sequence to be consumed with a conventional `foreach` loop:
+The two mechanisms we've explored so far convert completion and error handling from Rx's callback mechanism to a more conventional approach enabled by `await`, but we still had to supply a callback to be able to handle every individual item. But the `ToEnumerable` extension method goes a step further: it enables the entire sequence to be consumed with a conventional `foreach` loop:
 
-```csharp
+```cs
 var period = TimeSpan.FromMilliseconds(200);
-var source = Observable.Timer(TimeSpan.Zero, period) 
-                       .Take(5); 
+IObservable<long> source = Observable
+    .Timer(TimeSpan.Zero, period)
+    .Take(5);
 
-var result = source.ToEnumerable();
+IEnumerable<long> result = source.ToEnumerable();
 
-foreach (var value in result) 
-{ 
-    Console.WriteLine(value); 
-} 
+foreach (long value in result)
+{
+    Console.WriteLine(value);
+}
 
 Console.WriteLine("done");
 ```
@@ -122,14 +123,14 @@ done
 ```
 
 The source observable sequence will be subscribed to when you start to enumerate the sequence (i.e. lazily). 
-If no elements are available yet, or you have consumed all elements produced so far, the call that `foreach` makes to the enumerator's `MoveNext` will block until the source produces an element. So this approach relies on the source being able to generate elements from some other thread. (In this example, `Timer` defaults to the [`DefaultScheduler`](11_SchedulingAndThreading.md#defaultscheduler), which runs work on the thread pool.) If the sequence produces values faster than you consume them, they will be queued for you. (This means that it is technically possible to consume and generate items on the same thread when using `ToEnumerable` but this would rely on the producer always remaining ahead. This would be a dangerous approach because if the `foreach` loop ever caught up, it would then deadlock.)
+If no elements are available yet, or you have consumed all elements produced so far, the call that `foreach` makes to the enumerator's `MoveNext` will block until the source produces an element. So this approach relies on the source being able to generate elements from some other thread. (In this example, `Timer` defaults to the [`DefaultScheduler`](11_SchedulingAndThreading.md#defaultscheduler), which runs timed work on the thread pool.) If the sequence produces values faster than you consume them, they will be queued for you. (This means that it is technically possible to consume and generate items on the same thread when using `ToEnumerable` but this would rely on the producer always remaining ahead. This would be a dangerous approach because if the `foreach` loop ever caught up, it would then deadlock.)
 
 As with `await` and `ForEachAsync`, if the source reports an error, this will be thrown, so you can use ordinary C# exception handling as this example shows:
 
-```csharp
+```cs
 try 
 { 
-    foreach (var value in result)
+    foreach (long value in result)
     { 
         Console.WriteLine(value); 
     } 
@@ -146,7 +147,7 @@ Sometimes you will want all of the items a source produces as a single list. For
 
 ### ToArray and ToList
 
-`ToArray` and `ToList` take an observable sequence and package it into an array or an instance of `List<T>` respectively. As with all of the single collection operations, these return an observable source that waits for their input sequence to completes, and then produces the array or list as the single value, after which they immediately complete. This example uses `ToArray` to collect all 5 elements from a source sequence into an array, and uses the `await` to extract that array from the sequence that `ToArray` returns:
+`ToArray` and `ToList` take an observable sequence and package it into an array or an instance of `List<T>` respectively. As with all of the single collection operations, these return an observable source that waits for their input sequence to complete, and then produces the array or list as the single value, after which they immediately complete. This example uses `ToArray` to collect all 5 elements from a source sequence into an array, and uses `await` to extract that array from the sequence that `ToArray` returns:
 
 ```cs
 TimeSpan period = TimeSpan.FromMilliseconds(200);
@@ -154,7 +155,7 @@ IObservable<long> source = Observable.Timer(TimeSpan.Zero, period).Take(5);
 IObservable<long[]> resultSource = source.ToArray();
 
 long[] result = await resultSource;
-foreach (var value in result)
+foreach (long value in result)
 {
     Console.WriteLine(value);
 }
@@ -163,14 +164,11 @@ foreach (var value in result)
 Output:
 
 ```
-Subscribed
-Received array
 0
 1
 2
 3
 4
-Completed
 ```
 
 As these methods still return observable sequences, you can also use the normal Rx `Subscribe` mechanisms, or use these as inputs to other operators.
@@ -221,7 +219,7 @@ The `ToLookup` extension offers near-identical-looking overloads, the difference
 
 ## ToTask
 
-Although Rx provides direct support for using `await` with an `IObservable<T>`, it can sometimes be useful to obtain a `Task<T>` representing an `IObservable<T>`. This is useful because some APIs expect a `Task<T>`. You can call `ToTask()` on any `IObservable<T>`, and this will subscribe to that observable, returning a `Task<T>` that will complete when the task completes, producing the sequence's final output as the task's result. If the source completes without producing an element, the task will enter a faulted state, with an `InvalidOperation` exception complaining that the inputs sequence contains no elements.
+Although Rx provides direct support for using `await` with an `IObservable<T>`, it can sometimes be useful to obtain a `Task<T>` representing an `IObservable<T>`. This is useful because some APIs expect a `Task<T>`. You can call `ToTask()` on any `IObservable<T>`, and this will subscribe to that observable, returning a `Task<T>` that will complete when the task completes, producing the sequence's final output as the task's result. If the source completes without producing an element, the task will enter a faulted state, with an `InvalidOperation` exception complaining that the input sequence contains no elements.
 
 You can optionally pass a cancellation token. If you cancel this before the observable sequence completes, Rx will unsubscribe from the source, and put the task into a cancelled state.
 
@@ -244,7 +242,7 @@ Output:
 
 If the source sequence calls `OnError`, Rx puts the task in a faulted state, using the exception supplied.
 
-Once you have your task, you can of course engage in all the features of the TPL such as continuations.
+Once you have your task, you can of course use all the features of the TPL such as continuations.
 
 ## ToEvent
 
@@ -261,9 +259,9 @@ public static IEventSource<TSource> ToEvent<TSource>(
 {...}
 ```
 
-The `ToEvent` method returns an `IEventSource<T>`, which will have a single event member on it: `OnNext`.
+The `ToEvent` method returns an `IEventSource<T>`, which has a single member: an `OnNext` event.
 
-```csharp
+```cs
 public interface IEventSource<T> 
 { 
     event Action<T> OnNext; 
@@ -289,7 +287,7 @@ Output:
 4
 ```
 
-This does not follow the standard .NET event pattern. We use a slightly different approach if we want that.
+Although this is the simplest way to convert Rx notifications into events, it does not follow the standard .NET event pattern. We use a slightly different approach if we want that.
 
 ### ToEventPattern
 
@@ -362,18 +360,16 @@ result.OnNext += (sender, eventArgs) => Console.WriteLine(eventArgs.Value);
 
 Now that we know how to get back into .NET events, let's take a break and remember why Rx is a better model.
 
-- In C#, events have a curious syntax. Some find the `+=` and `-=` operators an unnatural way to register a callback
 - Events are difficult to compose
+- Events cannot be passed as argument or stored in fields
 - Events do not offer the ability to be easily queried over time
 - Events do not have a standard pattern for reporting errors
 - Events do not have a standard pattern for indicating the end of a sequence of values
-- Events provide almost no help for concurrency or multithreaded applications. For instance, raising an event on a separate thread requires you to do all of the plumbing
-
-The set of methods we have looked at in this chapter complete the circle started in the [Creating Sequences chapter](03_CreatingObservableSequences.md). We now have the means to enter and leave Rx's world. Take care when opting in and out of the `IObservable<T>`. It's best not to transition back and forth—having a bit of Rx-based processing, then some more conventional code, and then plumbing the results of that back into Rx can quickly make a mess of your code base, and may indicate a design flaw. Typically it is better to keep all of your Rx logic together, so you only need to integrating with the outside world twice: once for input and once for output.
+- Events provide almost no help for managing concurrency or multithreaded applications
 
 ## Do
 
-Non-functional requirements of production systems often demand high availability, quality monitoring features and low lead time for defect resolution. Logging, debugging, instrumentation and journaling are common non-functional requirements that developers need to consider for production ready systems. To enable this it can often be useful to 'tap into' your Rx queries, making them deliver monitoring and diagnostic information as a side effect of their normal operation.
+Non-functional requirements of production systems often demand high availability, quality monitoring features and low lead time for defect resolution. Logging, debugging, instrumentation and journaling are common implementation choices for implementing non-functional requirements. To enable these it can often be useful to 'tap into' your Rx queries, making them deliver monitoring and diagnostic information as a side effect of their normal operation.
 
 The `Do` extension method allows you to inject side effect behaviour. From an Rx perspective, `Do` doesn't appear to do anything: you can apply it to any `IObservable<T>`, and it returns another `IObservable<T>` that reports exactly the same elements and error or completion as its source. However, its various overloads takes callback arguments that look just like those for `Subscribe`: you can provide callbacks for individual items, completion, and errors. Unlike `Subscribe`, `Do` is not the final destination—everything the `Do` callbacks see will also be forwarded onto `Do`'s subscribers.  This makes it useful for logging and similar instrumentation because you can use it to report how information is flowing through an Rx query without changing that query's behaviour.
 
@@ -384,30 +380,30 @@ Let's first define some logging methods that we can go on to use in an example:
 ```csharp
 private static void Log(object onNextValue)
 {
-    Console.WriteLine("Logging OnNext({0}) @ {1}", onNextValue, DateTime.Now);
+    Console.WriteLine($"Logging OnNext({onNextValue}) @ {DateTime.Now}");
 }
-private static void Log(Exception onErrorValue)
+private static void Log(Exception error)
 {
-    Console.WriteLine("Logging OnError({0}) @ {1}", onErrorValue, DateTime.Now);
+    Console.WriteLine($"Logging OnError({error}) @ {DateTime.Now}");
 }
 private static void Log()
 {
-    Console.WriteLine("Logging OnCompleted()@ {0}", DateTime.Now);
+    Console.WriteLine($"Logging OnCompleted()@ {DateTime.Now}");
 }
 ```
 
-This code can use `Do` to introduce some logging using the methods from above.
+This code uses `Do` to introduce some logging using the methods from above.
 
-```csharp
-var source = Observable.Interval(TimeSpan.FromSeconds(1))
+```cs
+IObservable<long> source = Observable.Interval(TimeSpan.FromSeconds(1))
                        .Take(3);
 
-var result = source.Do(
+IObservable<long> loggedSource = source.Do(
     i => Log(i),
     ex => Log(ex),
     () => Log());
 
-result.Subscribe(
+loggedSource.Subscribe(
     Console.WriteLine,
     () => Console.WriteLine("completed"));
 ```
@@ -427,16 +423,16 @@ completed
 
 Note that because the `Do` is part of the query, it necessarily sees the values earlier than the `Subscribe`, which is the final link in the chain. That's why the log messages appear before the lines produced by the `Subscribe` callbacks. I like to think of the `Do` method as a [wire tap](http://en.wikipedia.org/wiki/Telephone_tapping) to a sequence. It gives you the ability to listen in on the sequence without modifying it.
 
-As with `Subscribe`, instead of passing callbacks, you can pass `Do` an `IObserver<T>`. In this overload, each of the `OnNext`, `OnError` and `OnCompleted` methods are passed to the other `Do` overload as each of the actions to perform.
+As with `Subscribe`, instead of passing callbacks, there are overloads that let you supply callbacks for whichever of the OnNext, OnError, and OnCompleted notifications you want, or you can pass `Do` an `IObserver<T>`.
 
 ## Encapsulating with AsObservable
 
 Poor encapsulation is a way developers can leave the door open for bugs. Here is a handful of scenarios where carelessness leads to leaky abstractions. Our first example may seem harmless at a glance, but has numerous problems.
 
-```csharp
+```cs
 public class UltraLeakyLetterRepo
 {
-    public ReplaySubject<string> Letters { get; set; }
+    public ReplaySubject<string> Letters { get; }
 
     public UltraLeakyLetterRepo()
     {
@@ -448,53 +444,37 @@ public class UltraLeakyLetterRepo
 }
 ```
 
-In this example we expose our observable sequence as a property. The first problem here is that it is a settable property. Consumers could change the entire subject out if they wanted. This would be a very poor experience for other consumers of this class. If we make some simple changes we can make a class that seems safe enough.
+In this example we expose our observable sequence as a property. We've used a `ReplaySubject<string>` so that each subscriber will receive all of the values upon subscription. However, revealing this implementation choice in the public type of the `Letters` property is poor encapsulation, as consumers could call `OnNext`/`OnError`/`OnCompleted`. To close off that loophole we can simply make the publicly visible property type an `IObservable<string>`.
 
-```csharp
-public class LeakyLetterRepo
+```cs
+public class ObscuredLeakinessLetterRepo
 {
-    private readonly ReplaySubject<string> _letters;
+    public IObservable<string> Letters { get; }
 
-    public LeakyLetterRepo()
+    public ObscuredLeakinessLetterRepo()
     {
-        _letters = new ReplaySubject<string>();
-        _letters.OnNext("A");
-        _letters.OnNext("B");
-        _letters.OnNext("C");
-    }
-    
-    public ReplaySubject<string> Letters
-    {
-        get { return _letters; }
+        var letters = new ReplaySubject<string>();
+        letters.OnNext("A");
+        letters.OnNext("B");
+        letters.OnNext("C");
+        this.Letters = letters;
     }
 }
 ```
 
-Now the `Letters` property only has a getter and is backed by a read-only field. This is much better. Keen readers will note that the `Letters` property returns a `ReplaySubject<string>`. This is poor encapsulation, as consumers could call `OnNext`/`OnError`/`OnCompleted`. To close off that loophole we can simply make the return type an `IObservable<string>`.
-
-```csharp
-public IObservable<string> Letters
-{
-    get { return _letters; }
-}
-```
-
-The class now _looks_ much better. The improvement, however, is only cosmetic. There is still nothing preventing consumers from casting the result back to an `ISubject<string>` and then calling whatever methods they like. In this example we see external code pushing their values into the sequence.
+This is a significant improvement: the compiler won't let someone using an instance of this source write `source.Letters.OnNext("1")`. So the API surface area properly encapsulates the implementation detail, but if we were paranoid, we could not that nothing prevents consumers from casting the result back to an `ISubject<string>` and then calling whatever methods they like. In this example we see external code pushing their values into the sequence.
 
 ```csharp
 var repo = new ObscuredLeakinessLetterRepo();
-var good = repo.GetLetters();
-var evil = repo.GetLetters();
+IObservable<string> good = repo.GetLetters();
     
 good.Subscribe(Console.WriteLine);
 
 // Be naughty
-var asSubject = evil as ISubject<string>;
-
-if (asSubject != null)
+if (good is ISubject<string> evil)
 {
     // So naughty, 1 is not a letter!
-    asSubject.OnNext("1");
+    evil.OnNext("1");
 }
 else
 {
@@ -511,13 +491,10 @@ C
 1
 ```
 
-The fix to this problem is quite simple. By applying the `AsObservable` extension method, the `_letters` field will be wrapped in a type that only implements `IObservable<T>`.
+Arguably, code that does this sort of thing is asking for trouble, but if we wanted actively to prevent it, the fix to this problem is quite simple. By applying the `AsObservable` extension method, we can modify the line of the constructor that sets `this.Letters` to wrap the subject in a type that only implements `IObservable<T>`.
 
 ```csharp
-public IObservable<string> GetLetters()
-{
-    return _letters.AsObservable();
-}
+this.Letters = letters.AsObservable();
 ```
 
 Output:
@@ -529,4 +506,6 @@ C
 could not sabotage
 ```
 
-While I have used words like 'evil' and 'sabotage' in these examples, it is more often than not an oversight rather than malicious intent that causes problems. The failing falls first on the programmer who designed the leaky class. Designing interfaces is hard, but we should do our best to help consumers of our code fall into [the pit of success](http://blogs.msdn.com/b/brada/archive/2003/10/02/50420.aspx) by giving them discoverable and consistent types. Types become more discoverable if we reduce their surface area to expose only the features we intend our consumers to use. In this example we reduced the type's surface area. We did so by removing the property setter and returning a simpler type via the `AsObservable` method.
+While I have used words like 'evil' and 'sabotage' in these examples, it is more often than not an oversight rather than malicious intent that causes problems. The failing falls first on the programmer who designed the leaky class. Designing interfaces is hard, but we should do our best to help consumers of our code fall into [the pit of success](https://learn.microsoft.com/en-gb/archive/blogs/brada/the-pit-of-success) by giving them discoverable and consistent types. Types become more discoverable if we reduce their surface area to expose only the features we intend our consumers to use. In this example we reduced the type's surface area. We did so by choosing a suitable public-facing type for the property, and then preventing access to the underlying type with the `AsObservable` method.
+
+The set of methods we have looked at in this chapter complete the circle started in the [Creating Sequences chapter](03_CreatingObservableSequences.md). We now have the means to enter and leave Rx's world. Take care when opting in and out of the `IObservable<T>`. It's best not to transition back and forth—having a bit of Rx-based processing, then some more conventional code, and then plumbing the results of that back into Rx can quickly make a mess of your code base, and may indicate a design flaw. Typically it is better to keep all of your Rx logic together, so you only need to integrating with the outside world twice: once for input and once for output.
