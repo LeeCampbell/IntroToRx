@@ -10,7 +10,7 @@ Hot sources need to be able to deliver events to multiple subscribers. While we 
 
 Rx offers three operators enabling us to support multiple subscribers using just a single subscription to some underlying source: [`Publish`](#publish), [`PublishLast`](#publishlast), and [`Replay`](#replay). All three of these are wrappers around Rx's `Multicast` operator, which provides the common mechanism at the heart of all of them.
 
-`Multicast` turns any `IObservable<T>` into a `IConnectableObservable<T>` which, as you can see, just adds a `Connect` method:
+`Multicast` turns any `IObservable<T>` into an `IConnectableObservable<T>` which, as you can see, just adds a `Connect` method:
 
 ```cs
 public interface IConnectableObservable<out T> : IObservable<T>
@@ -204,7 +204,7 @@ pticks.Subscribe(x => Console.WriteLine($"Sub1: {x} ({DateTime.Now})"));
 pticks.Subscribe(x => Console.WriteLine($"Sub2: {x} ({DateTime.Now})"));
 
 pticks.Connect();
-Thread.Sleep(1000);
+Thread.Sleep(3000);
 Console.WriteLine();
 Console.WriteLine("Adding more subscribers");
 Console.WriteLine();
@@ -213,7 +213,19 @@ pticks.Subscribe(x => Console.WriteLine($"Sub3: {x} ({DateTime.Now})"));
 pticks.Subscribe(x => Console.WriteLine($"Sub4: {x} ({DateTime.Now})"));
 ```
 
-This creates a source the produces 4 values in the space of 0.4 seconds. It attaches a couple of subscribers to the `IConnectableObservable<T>` returned by `PublishLast` and then immediately calls `Connect`. Then it sleeps for 1 second, which gives the source time to complete. This means that those first two subscribers will receive the one and only value they will ever receive (the last value in the sequence) before that call to `Thread.Sleep` returns. But we then go on to attach two more subscribers. As the output shows, these also receive that same final event. They receive it later because they subscribed later, but the `AsyncSubject<T>` created by `PublishLast` is just replaying the final value it received to these late subscribers.
+This creates a source that produces 4 values in the space of 0.4 seconds. It attaches a couple of subscribers to the `IConnectableObservable<T>` returned by `PublishLast` and then immediately calls `Connect`. Then it sleeps for 1 second, which gives the source time to complete. This means that those first two subscribers will receive the one and only value they will ever receive (the last value in the sequence) before that call to `Thread.Sleep` returns. But we then go on to attach two more subscribers. As the output shows, these also receive that same final event:
+
+```
+Sub1: 3 (11/14/2023 9:15:46 AM)
+Sub2: 3 (11/14/2023 9:15:46 AM)
+
+Adding more subscribers
+
+Sub3: 3 (11/14/2023 9:15:49 AM)
+Sub4: 3 (11/14/2023 9:15:49 AM)
+```
+
+These last two subscribers receive the value later because they subscribed later, but the `AsyncSubject<T>` created by `PublishLast` is just replaying the final value it received to these late subscribers.
 
 
 ### Replay
@@ -241,7 +253,7 @@ pticks.Subscribe(x => Console.WriteLine($"Sub3: {x} ({DateTime.Now})"));
 pticks.Subscribe(x => Console.WriteLine($"Sub4: {x} ({DateTime.Now})"));
 ```
 
-It creates a source that will produce items regularly for 4 seconds. It attaches two subscribers before calling `Connect`. It then waits long enough for the first two events to emerge before attaching two more subscribers. But unlike with `Publish`, those late subscribers will see the events that happened before they subscribed:
+This creates a source that will produce items regularly for 4 seconds. It attaches two subscribers before calling `Connect`. It then waits long enough for the first two events to emerge before attaching two more subscribers. But unlike with `Publish`, those late subscribers will see the events that happened before they subscribed:
 
 ```
 Sub1: 0 (10/08/2023 16:18:22)
