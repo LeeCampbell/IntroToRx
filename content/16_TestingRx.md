@@ -4,17 +4,17 @@ title: Testing Rx
 
 # Testing Rx
 
-Modern quality assurance standards demand a level of automated testing that can help evaluate and prevent bugs. It is good practice to have a suite of tests that verify correct behaviour and to run this as part of the build process to detect regressions early.
+Modern quality assurance standards demand comprehensive automated testing that can help evaluate and prevent bugs. It is good practice to have a suite of tests that verify correct behaviour and to run this as part of the build process to detect regressions early.
 
 The `System.Reactive` source code includes a comprehensive tests suite. Testing Rx-based code presents some challenges, especially when time-sensitive operators are involved. Rx.NET's test suite includes many tests designed to exercise awkward edge cases to ensure predictable behaviour under load. This is only possible because Rx.NET was designed to be testable.
 
-In this chapters, we'll show how you can take advantage of Rx's testability in your own code.
+In this chapter, we'll show how you can take advantage of Rx's testability in your own code.
 
 ## Virtual Time
 
 It's common to deal with timing in Rx. As you've seen, it offers several operators that take time into account, and this presents a challenge. We don't want to introduce slow tests, because that can make test suites take too long to execute, but how might we test an application that waits for the user to stop typing for half a second before submitting a query? Non-deterministic tests can also be a problem: when there are race conditions it can be very hard to recreate these reliably.
 
- The [Scheduling and Threading](./11_SchedulingAndThreading.md) chapter described how schedulers use a virtualized representation of time. This is critical for enabling tests to validate time-related behaviour. It enables us to control Rx's perception of the progression of time, enabling us to write tests that logically take seconds, but which execute in microseconds.
+The [Scheduling and Threading](./11_SchedulingAndThreading.md) chapter described how schedulers use a virtualized representation of time. This is critical for enabling tests to validate time-related behaviour. It lets us control Rx's perception of the progression of time, enabling us to write tests that logically take seconds, but which execute in microseconds.
 
 Consider this example, where we create a sequence that publishes values every second for five seconds.
 
@@ -38,7 +38,7 @@ never.Timeout(TimeSpan.FromMinutes(1))
 Assert.IsTrue(exceptionThrown);
 ```
 
-It looks like we would have no choice but to make our test wait for a minute before running that assert. In practice, we'd want to wait a little over a minute, because if the computer running the test is busy, it might run the relevant code a bit later than we've asked. This kind of scenario is notorious for causing tests to fail occasionally even when there's no real problem in the code being tested.
+It looks like we would have no choice but to make our test wait for a minute before running that assert. In practice, we'd want to wait a little over a minute, because if the computer running the test is busy, it might trigger the timeout bit later than we've asked. This kind of scenario is notorious for causing tests to fail occasionally even when there's no real problem in the code being tested.
 
 Nobody wants slow, inconsistent tests. So let's look at how Rx helps us to avoid these problems.
 
@@ -118,7 +118,7 @@ Note that nothing happened when we advanced to 15 ticks. All work scheduled befo
 
 ### AdvanceBy
     
-The `AdvanceBy(long)` method allows us to move the clock forward a relative amount of time. Again, the measurements are in ticks. We can take the last example and modify it to use `AdvanceBy(long)`.
+The `AdvanceBy(long)` method allows us to move the clock forward by some amount of time. Unlike `AdvanceTo`, the argument here is relative to the current virtual time. Again, the measurements are in ticks. We can take the last example and modify it to use `AdvanceBy(long)`.
 
 ```csharp
 var scheduler = new TestScheduler();
@@ -153,7 +153,7 @@ C
 
 ### Start
     
-The `TestScheduler`'s `Start()` method runs everything that has been scheduled, gradually advancing virtual time as necessary if any of the work was queued for a specific time. We take the same example again and swap out the `AdvanceBy(long)` calls for a single `Start()` call.
+The `TestScheduler`'s `Start()` method runs everything that has been scheduled, advancing virtual time as necessary for work items that were queued for a specific time. We take the same example again and swap out the `AdvanceBy(long)` calls for a single `Start()` call.
 
 ```csharp
 var scheduler = new TestScheduler();
@@ -582,7 +582,7 @@ public ITestableObserver<T> Start<T>(Func<IObservable<T>> create)
 }
 ```
 
-As you can see, these overloads just call through to the variant we have been looking at, but passing some default values. These default values provide short gaps before creation and between creation and subscription, giving enough space to configure other things to happen between them. And then the disposal happens a bit later, allowing a little longer for the thing to run. There's nothing particularly magical about these default values, but if you value a lack of clutter over it being completely obvious what happens when, and are happy to rely on the invisible effects of convention, then you might prefer this. The Rx source code itself contains thousands of tests, and a very large number of them use the simplest `Start` overload, and developers working in the code base day in, day out soon get used to the idea that creation occurs at time 100, and subscription at time 200, and that test everything you need to before 1000.
+As you can see, these overloads just call through to the variant we have been looking at, but passing some default values. These default values provide short gaps before creation and between creation and subscription, giving enough space to configure other things to happen between them. And then the disposal happens a bit later, allowing a little longer for the thing to run. There's nothing particularly magical about these default values, but if you value a lack of clutter over it being completely obvious what happens when, and are happy to rely on the invisible effects of convention, then you might prefer this. The Rx source code itself contains thousands of tests, and a very large number of them use the simplest `Start` overload, and developers working in the code base day in, day out soon get used to the idea that creation occurs at time 100, and subscription at time 200, and that you test everything you need to before 1000.
 
 ### CreateColdObservable
 
