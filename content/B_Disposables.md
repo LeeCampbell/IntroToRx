@@ -4,19 +4,19 @@ title : Appendix B Disposables
 
 # Appendix B: Disposables
     
-Rx leverages the existing `IDisposable` interface for subscription management. This is an incredibly useful design decision, as users can work with a familiar type and reuse existing language features. Rx further extends its usage of the `IDisposable` type by providing several public implementations of the interface. These can be found in the `System.Reactive.Disposables` namespace. Here, we will briefly enumerate each of them.
+Rx represents subscriptions using the existing `IDisposable` interface. This design choice means we can use existing language features that know how to work with this interface. Rx also provides several public implementations of `IDisposable`. These can be found in the `System.Reactive.Disposables` namespace. This appendix briefly describes each of them.
 
 
 <dl>
     <dt>Disposable.Empty</dt>
     <dd>
-        This static property exposes an implementation of <em>IDisposable</em> that performs no action when the <em>Dispose</em> method is invoked. This can be useful whenever you need to fulfil an interface requirement, like <em>Observable.Create</em>, but do not have any resource management that needs to take place.</dd>
+        This static property exposes an implementation of <em>IDisposable</em> that performs no action when the <em>Dispose</em> method is invoked. This can be useful when you are obliged to supply an `IDisposable` (which can happen if you use <em>Observable.Create</em>) but don't need to do anything upon disposal.</dd>
     <dt>Disposable.Create(Action)</dt>
     <dd>
-        This static method exposes an implementation of <em>IDisposable</em> that performs the action provided when the <em>Dispose</em> method is invoked. As the implementation follows the guidance to be idempotent, the action will only be called on the first time the <em>Dispose</em> method is invoked.</dd>
+        This static method exposes an implementation of <em>IDisposable</em> that invokes the method supplied when the <em>Dispose</em> method is invoked. As the implementation follows the guidance to be idempotent, the action will only be called on the first time the <em>Dispose</em> method is invoked.</dd>
     <dt>BooleanDisposable</dt>
     <dd>
-        This class simply has the <em>Dispose</em> method and a read-only property <em>IsDisposed</em>. <em>IsDisposed</em> is <code>false</code> when the class is constructed, and is set to <code>true</code> when the <em>Dispose</em> method is invoked.
+        This class implements <em>IDisposable.Dispose</em> method and also defines a read-only property <em>IsDisposed</em>. <em>IsDisposed</em> is <code>false</code> when the class is constructed, and is set to <code>true</code> when the <em>Dispose</em> method is invoked.
     </dd>
     <dt>CancellationDisposable</dt>
     <dd>
@@ -24,7 +24,7 @@ Rx leverages the existing `IDisposable` interface for subscription management. T
     </dd>
     <dt>CompositeDisposable</dt>
     <dd>
-        The <em>CompositeDisposable</em> type allows you to treat many disposable resources as one. Common usage is to create an instance of <em>CompositeDisposable</em> by passing in a <code>params</code> array of disposable resources. Calling <em>Dispose</em> on the <em>CompositeDisposable</em> will call dispose on each of these resources in the order they were provided. Additionally, the <em>CompositeDisposable</em> class implements <em>ICollection&lt;IDisposable&gt;</em>; this allows you to add and remove resources from the collection. After the <em>CompositeDisposable</em> has been disposed of, any further resources that are added to this collection will be disposed of instantly. Any item that is removed from the collection is also disposed of, regardless of whether the collection itself has been disposed of. This includes usage of both the <em>Remove</em> and <em>Clear</em> methods.
+        The <em>CompositeDisposable</em> type allows you to treat many disposable resources as one. You can create an instance of <em>CompositeDisposable</em> by passing in a <code>params</code> array of disposable resources. Calling <em>Dispose</em> on the <em>CompositeDisposable</em> will call dispose on each of these resources in the order they were provided. Additionally, the <em>CompositeDisposable</em> class implements <em>ICollection&lt;IDisposable&gt;</em>; this allows you to add and remove resources from the collection. After the <em>CompositeDisposable</em> has been disposed of, any further resources that are added to this collection will be disposed of instantly. Any item that is removed from the collection is also disposed of, regardless of whether the collection itself has been disposed of. This includes usage of both the <em>Remove</em> and <em>Clear</em> methods.
     </dd>
     <dt>ContextDisposable</dt>
     <dd>
@@ -40,7 +40,7 @@ Rx leverages the existing `IDisposable` interface for subscription management. T
     </dd>
     <dt>ScheduledDisposable</dt>
     <dd>
-        In a similar fashion to <em>ContextDisposable</em>, the <em>ScheduledDisposable</em> type allows you to specify a scheduler, onto which the underlying resource will be disposed. You need to pass both the instance of <em>IScheduler</em> and instance of <em>IDisposable</em> to the constructor. When the <em>ScheduledDisposable</em> instance is disposed of, the disposal of the underlying resource will be scheduled onto the provided scheduler.
+        In a similar fashion to <em>ContextDisposable</em>, the <em>ScheduledDisposable</em> type allows you to specify a scheduler, onto which the underlying resource will be disposed. You need to pass both the instance of <em>IScheduler</em> and instance of <em>IDisposable</em> to the constructor. When the <em>ScheduledDisposable</em> instance is disposed of, the disposal of the underlying resource will be executed through the provided scheduler.
     </dd>
     <dt>SerialDisposable</dt>
     <dd>
@@ -53,7 +53,7 @@ Rx leverages the existing `IDisposable` interface for subscription management. T
 </dl>
 
 <!-- 
-TODO: we recently made SingleAssignmentDisposableValue public after a request to do so.
+TODO: we recently made SingleAssignmentDisposableValue public after a request to do so. This also doesn't mention MultipleAssignmentDisposableValue, which has been around for a while.
 
 
 TODO: ICancelable?
