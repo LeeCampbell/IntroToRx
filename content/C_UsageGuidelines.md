@@ -14,7 +14,7 @@ This is a list of quick guidelines intended to help you when writing Rx queries.
 - Favor lazy evaluation over eager evaluation.
 - Break large queries up into parts. Key indicators of a large query:
     1. nesting
-    2. over 10 lines of query comprehension syntax
+    2. over 10 lines of query expression syntax
     3. using the `into` keyword
 - Name your observables well, i.e. avoid using variable names like `query`, `q`, `xs`, `ys`, `subject` etc.
 - Avoid creating side effects. If you really can't avoid it, don't bury the side effects in callbacks for operators designed to be use functionally such as `Select` or `Where`. be explicit by using the `Do` operator.
