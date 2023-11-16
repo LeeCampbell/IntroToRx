@@ -2,13 +2,10 @@
 title : Foreword
 ---
 
-#Introduction to Rx {#IntroductiontoRx .ignoreToc .kindleOnly}
-##Ian Griffiths        {.ignoreToc .kindleOnly text-align=center}
-##Lee Campbell        {.ignoreToc .kindleOnly text-align=center}
+# Introduction to Rx
+By Ian Griffiths and Lee Campbell
    
 ---
-
-#Preface {#Preface .SectionHeader}
 
 Reactive programming is not a new concept. Any kind of user interface development
 necessary involves code that responds to events. Languages like Smalltalk, Delphi
@@ -106,16 +103,3 @@ The version that this book has been written against is `System.Reactive` version
 So, fire up Visual Studio and let's get started.
 
 ---
-
-<div class="webonly">
-    <h1 class="ignoreToc">Additional recommended reading</h1>
-    <div align="center">
-        <div style="display:inline-block; vertical-align: top;  margin: 10px; width: 140px; font-size: 11px; text-align: center">
-            <!--Programming C# Amazon.co.uk-->
-            <iframe src="https://www.amazon.co.uk/gp/product/B0B8THH2J3?&linkCode=sl1&tag=httpendjicom-21&linkId=84c962b69ab859ba98a9af45a970939d&language=en_GB&ref_=as_li_ss_tl" 
-                    style="width:120px;height:240px;margin: 10px" 
-                    scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
-
-        </div>
-    </div>
-</div>
