@@ -66,7 +66,7 @@ help you be familiar with Rx, but to fully understand it you should build things
 with it. So we warmly encourage you to build based on the examples in this book.
 
 
-#Acknowledgements    {#Acknowledgements}
+# Acknowledgements    {#Acknowledgements}
 
 Firstly, I (Ian Griffiths) should make it clear that this revised edition builds
 on the excellent work of the original author Lee Campbell. I am grateful that he
