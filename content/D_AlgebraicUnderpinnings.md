@@ -469,28 +469,27 @@ It can be tempting to flip between programming styles when using Rx. For the par
 
 Although this can sometimes work, switching between paradigms should be done with caution, as this is a common root cause for concurrency problems such as deadlock and scalability issues. The basic reason for this is that for as long as you remain within Rx's way of doing things, you will benefit from the basic soundness of the mathematical underpinnings. But for this to work, you need to use a functional style—functions should process their inputs and deterministically produce outputs based on those inputs, and they should neither depend on external state nor change it. This can be a tall order, and it won't always be possible, but a lot of the theory falls apart if you break these rules. Composition doesn't work as reliably as it can. So using a functional style, and keeping your code within Rx's idiom will tend to improve reliability.
 
-TODO: read through to here
-
 ## Issues with side effects
 
-Since programs always have to have some side effects if they are to do anything useful—if the world is no different as a result of a program having run, then you may as well not have run it—it can be useful to explore the issues with side effects, so that we can know how best to deal with them when they are necessary. So we will now discuss the consequences of introducing side effects when working with an observable sequence. A function is considered to have a side effect if, in addition to any return value, it has some other observable effect. Generally the 'observable effect' is a modification of state. This observable effect could be
+Programs always have to have some side effects if they are to do anything useful—if the world is no different as a result of a program having run, then you may as well not have run it—so it can be useful to explore the issues with side effects, so that we can know how best to deal with them when they are necessary. So we will now discuss the consequences of introducing side effects when working with an observable sequence. A function is considered to have a side effect if, in addition to any return value, it has some other observable effect. Generally the 'observable effect' is a modification of state. This observable effect could be
 
 * modification of a variable with a wider scope than the function (i.e. global, static or perhaps an argument)
-* I/O such as a read/write from a file or network, or updating a display
+* I/O such as a read from or modifying a file, sending or receiving network messages, or updating a display
 * causing physical activity, such as when a vending machine dispenses an item, or directs a coin into its coin box
 
-Functional programming in general tries to avoid creating any side effects. Functions with side effects, especially which modify state, require the programmer to understand more than just the inputs and outputs of the function. The surface area they are required to understand needs to now extend to the history and context of the state being modified. This can greatly increase the complexity of a function, and thus make it harder to correctly understand and maintain.
+Functional programming in general tries to avoid creating any side effects. Functions with side effects, especially those which modify state, require the programmer to understand more than just the inputs and outputs of the function. Fully understanding the function's operation could entail knowing the full history and context of the state being modified. This can greatly increase the complexity of a function, and making it harder to correctly understand and maintain.
 
-Side effects are not always accidental, nor are they always intentional. An easy way to reduce the accidental side effects is to reduce the surface area for change. The simple actions coders can take are to reduce the visibility or scope of state and to make what you can immutable. You can reduce the visibility of a variable by scoping it to a code block like a method. You can reduce visibility of class members by making them private or protected. By definition immutable data can't be modified so cannot exhibit side effects. These are sensible encapsulation rules that will dramatically improve the maintainability of your Rx code.
+Side effects are not always intentional. An easy way to reduce accidental side effects is to reduce the surface area for change. Here are two simple action coders can take: reduce the visibility or scope of state and make what you can immutable. You can reduce the visibility of a variable by scoping it to a code block like a method (instead of a field or property). You can reduce visibility of class members by making them private or protected. By definition immutable data can't be modified so it can't exhibit side effects. These are sensible encapsulation rules that will dramatically improve the maintainability of your Rx code.
 
-To provide a simple example of a query that has a side effect, we will try to output the index and value of the elements received by updating a variable (closure).
+To provide a simple example of a query that has a side effect, we will try to output the index and value of the elements that a subscription receives by updating a variable (closure).
 
-```csharp
-var letters = Observable.Range(0, 3)
-                        .Select(i => (char)(i + 65));
+```cs
+IObservable<char> letters = Observable
+    .Range(0, 3)
+    .Select(i => (char)(i + 65));
 
-var index = -1;
-var result = letters.Select(
+int index = -1;
+IObservable<char> result = letters.Select(
     c =>
     {
         index++;
@@ -547,28 +546,25 @@ Also received C at index 5
 2nd completed
 ```
 
-Now the second person's output is clearly nonsense. They will be expecting index values to be 0, 1 and 2 but get 3, 4 and 5 instead. I have seen far more sinister versions of side effects in code bases. The nasty ones often modify state that is a Boolean value e.g. `hasValues`, `isStreaming` etc. We will see in a later chapter far better ways of controlling workflow with observable sequences than using shared state.
+Now the second person's output is clearly nonsense. They will be expecting index values to be 0, 1 and 2 but get 3, 4 and 5 instead. I have seen far more sinister versions of side effects in code bases. The nasty ones often modify state that is a Boolean value e.g. `hasValues`, `isStreaming` etc.
 
 In addition to creating potentially unpredictable results in existing software, programs that exhibit side effects are far more difficult to test and maintain. Future refactoring, enhancements or other maintenance on programs that exhibits side effects are far more likely to be brittle. This is especially so in asynchronous or concurrent software.
 
 ## Composing data in a pipeline
 
-The preferred way of capturing state is to introduce it to the pipeline. Ideally, we want each part of the pipeline to be independent and deterministic. That is, each function that makes up the pipeline should have its inputs and output as its only state. To correct our example we could enrich the data in the pipeline so that there is no shared state. This would be a great example where we could use the `Select` overload that exposes the index.
+The preferred way of capturing state is as part of the information flowing through the pipeline of Rx operators making up your subscription. Ideally, we want each part of the pipeline to be independent and deterministic. That is, each function that makes up the pipeline should have its inputs and output as its only state. To correct our example we could enrich the data in the pipeline so that there is no shared state. This would be a great example where we could use the `Select` overload that exposes the index.
 
-```csharp
-var source = Observable.Range(0, 3);
-var result = source.Select((idx, value) => new
-             {
-                 Index = idx,
-                 Letter = (char) (value + 65)
-             });
+```cs
+IObservable<int> source = Observable.Range(0, 3);
+IObservable<(int Index, char Letter)> result = source.Select(
+    (idx, value) => (Index: idx, Letter: (char) (value + 65)));
 
 result.Subscribe(
-    x => Console.WriteLine("Received {0} at index {1}", x.Letter, x.Index),
+    x => Console.WriteLine($"Received {x.Letter} at index {x.Index}"),
     () => Console.WriteLine("completed"));
 
 result.Subscribe(
-    x => Console.WriteLine("Also received {0} at index {1}", x.Letter, x.Index),
+    x => Console.WriteLine($"Also received {x.Letter} at index {x.Index}"),
     () => Console.WriteLine("2nd completed"));
 ```
 
