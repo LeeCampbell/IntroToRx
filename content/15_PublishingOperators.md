@@ -192,7 +192,7 @@ ps.Subscribe(ps => Console.WriteLine(ps));
 
 ### PublishLast
 
-The `PublishLast` operator calls `Multicast` with an [`AsyncSubject<T>`](03_CreatingObservableSequences.md#asyncsubject). The effect of this is that the final item produced by the source will be delivered to all subscribers. You still need to call `Connect`—this determines when subscription to the underlying source occurs. But all subscribers will receive the final event regardless of when they subscribe, because `AsyncSubject<T>` remembers the final result. We can see this in action with the following example:
+The `PublishLast` operator calls `Multicast` with an [`AsyncSubject<T>`](03_CreatingObservableSequences.md#asyncsubject). The effect of this is that the final item produced by the source will be delivered to all subscribers. You still need to call `Connect`. This determines when subscription to the underlying source occurs. But all subscribers will receive the final event regardless of when they subscribe, because `AsyncSubject<T>` remembers the final result. We can see this in action with the following example:
 
 ```cs
 IConnectableObservable<long> pticks = Observable
@@ -396,7 +396,7 @@ Sub3: 4 (10/08/2023 16:40:41)
 Sub4: 4 (10/08/2023 16:40:41)
 ```
 
-This time, the `Create` callback ran twice. That's because the number of active subscribers dropped to 0, so `RefCount` called `Dispose` to shut things down. When new subscribers came along, it called `Connect` again to start things back up. There are some overloads enabling you to specify a `disconnectDelay`—this tells it to wait for the specified time after the number of subscribers drops to zero before disconnecting, to see if any new subscribers come along. But it will still disconnect if the specified time elapses. If that's not what you want, the next operator might be for you.
+This time, the `Create` callback ran twice. That's because the number of active subscribers dropped to 0, so `RefCount` called `Dispose` to shut things down. When new subscribers came along, it called `Connect` again to start things back up. There are some overloads enabling you to specify a `disconnectDelay`. This tells it to wait for the specified time after the number of subscribers drops to zero before disconnecting, to see if any new subscribers come along. But it will still disconnect if the specified time elapses. If that's not what you want, the next operator might be for you.
 
 
 ## AutoConnect

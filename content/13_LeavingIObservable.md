@@ -27,7 +27,7 @@ The way this actually works is that the relevant `GetAwaiter` extension method w
 
 If a source reports an error by invoking its observer's `OnError`, Rx's `await` integration handles this by putting the task into a faulted state, so that the `await` will rethrow the exception.
 
-Sequences can be empty—they might call `OnCompleted` without ever having called `OnNext`. However, since there's no way to tell from the type of a source that it will be empty, this doesn't fit especially well with the `await` paradigm. With tasks, you can know at compile time whether you'll get a result by looking at whether you're awaiting a `Task` or `Task<T>`, so the compiler is able to know whether a particular `await` expression produces a value. But when you `await` and `IObservable<T>`, there's no compile-time distinction, so the only way Rx can report that a sequence is empty when you `await` is to throw an `InvalidOperationException` reporting that the sequence contains no elements.
+Sequences can be empty. They might call `OnCompleted` without ever having called `OnNext`. However, since there's no way to tell from the type of a source that it will be empty, this doesn't fit especially well with the `await` paradigm. With tasks, you can know at compile time whether you'll get a result by looking at whether you're awaiting a `Task` or `Task<T>`, so the compiler is able to know whether a particular `await` expression produces a value. But when you `await` and `IObservable<T>`, there's no compile-time distinction, so the only way Rx can report that a sequence is empty when you `await` is to throw an `InvalidOperationException` reporting that the sequence contains no elements.
 
 As you may recall from the [`AsyncSubject<T>` section of chapter 3](./03_CreatingObservableSequences.md#asyncsubject), `AsyncSubject<T>` reports only the final value to emerge from its source. So if you `await` a sequence that reports multiple items, all but the final item will be ignored. What if you want to see all of the items, but you'd still like to use `await` to handle completion and errors?
 
@@ -143,7 +143,7 @@ catch (Exception e)
 
 ## To a single collection
 
-Sometimes you will want all of the items a source produces as a single list. For example, perhaps you can't just process the elements in order—perhaps you will sometimes need to refer back to elements received earlier. The four operations described in following sections gather all of the items into a single collection. They all still produce an `IObservable<T>` (e.g., an `IObservable<int[]>` or an `IObservable<Dictionary<string, long>>`), but these are all single-element observables, and as you've already seen, you can use the `await` keyword to get hold of this single output.
+Sometimes you will want all of the items a source produces as a single list. For example, perhaps you can't just process the elements individually because you will sometimes need to refer back to elements received earlier. The four operations described in following sections gather all of the items into a single collection. They all still produce an `IObservable<T>` (e.g., an `IObservable<int[]>` or an `IObservable<Dictionary<string, long>>`), but these are all single-element observables, and as you've already seen, you can use the `await` keyword to get hold of this single output.
 
 ### ToArray and ToList
 
@@ -173,7 +173,7 @@ Output:
 
 As these methods still return observable sequences, you can also use the normal Rx `Subscribe` mechanisms, or use these as inputs to other operators.
 
-If the source produces values and then errors, you will not receive any of those values—all values received up to that point will be discarded, and the operator will invoke its observer's `OnError` (and in the example above, that will result in the exception being thrown from the `await`). All four operators (`ToArray`, `ToList`, `ToDictionary` and `ToLookup`) handle errors like this.
+If the source produces values and then errors, you will not receive any of those values. All values received up to that point will be discarded, and the operator will invoke its observer's `OnError` (and in the example above, that will result in the exception being thrown from the `await`). All four operators (`ToArray`, `ToList`, `ToDictionary` and `ToLookup`) handle errors like this.
 
 ### ToDictionary and ToLookup
 

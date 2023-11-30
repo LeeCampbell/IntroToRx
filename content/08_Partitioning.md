@@ -46,7 +46,7 @@ IObservable<IObservable<IAisMessageType1to3>> shipStatusChangeObservables =
         .Skip(1));
 ```
 
-This uses [`Select`](06_Transformation.md#select) (introduced in the Transformation chapter) to apply processing to each group that comes out of `perShipObservables`. Remember, each such group represents a distinct ship, so the callback we've passed to `Select` here will be invoked exactly once for each ship. This means it's now fine for us to use `DistinctUntilChanged`—the input this example supplies to `DistinctUntilChanged` is a sequence representing the messages from just one ship, so this will tell us when that ship changes its status. This is now able to do what we want because each ship gets its own instance of `DistinctUntilChanged`.
+This uses [`Select`](06_Transformation.md#select) (introduced in the Transformation chapter) to apply processing to each group that comes out of `perShipObservables`. Remember, each such group represents a distinct ship, so the callback we've passed to `Select` here will be invoked exactly once for each ship. This means it's now fine for us to use `DistinctUntilChanged`. The input this example supplies to `DistinctUntilChanged` is a sequence representing the messages from just one ship, so this will tell us when that ship changes its status. This is now able to do what we want because each ship gets its own instance of `DistinctUntilChanged`.
 
 At this point we have an observable sequence of observable sequences. The outer sequence produces a nested sequence for each distinct ship that it sees, and that nested sequence will report `NavigationStatus` changes for that particular ship.
 
@@ -60,7 +60,7 @@ IObservable<IAisMessageType1to3> shipStatusChanges =
         .Skip(1));
 ```
 
-I've replaced `Select` with [`SelectMany`, also described in the Transformation chapter](06_Transformation.md#selectmany). As you may recall, `SelectMany` flattens nested observables back into a single flat sequence. You can see this reflected in the return type—now we've got just an `IObservable<IAisMessageType1to3>` instead of a sequence of sequences.
+I've replaced `Select` with [`SelectMany`, also described in the Transformation chapter](06_Transformation.md#selectmany). As you may recall, `SelectMany` flattens nested observables back into a single flat sequence. You can see this reflected in the return type: now we've got just an `IObservable<IAisMessageType1to3>` instead of a sequence of sequences.
 
 Wait a second! Haven't I just undone the work that `GroupBy` did? I asked it to partition the events by vessel id, so why am I now recombining it back into a single, flat stream? Isn't that what I started with?
 
@@ -107,7 +107,7 @@ It may seem like I'm making too big a deal of this, but it took so little effort
 
 It can take thousands of messages and perform the necessary processing to find the handful that really matter to us.
 
-This is an example of the "fanning out, and then back in again" technique I described in ['The Significance of SelectMany' in the Transformation chapter](06_Transformation.md#the-significance-of-selectmany). This code uses `GroupBy` to fan out from a single observable to multiple observables. The key to this step is to create nested observables that provide the right level of detail for the processing we want to do—in this example that level of detail was "one specific ship" but it wouldn't have to be. You could imagine wanting to group messages by region—perhaps we're interesting in comparing different ports, so we'd want to partition the source based on whichever port a vessel is closest to, or perhaps by its destination port. (AIS provides a way for vessels to broadcast their intended destination.) Having partitioned the data by whatever criteria we require, we then define the processing to be applied for each group. In this case, we just watched for changes to `NavigationStatus`. This step will typically be where the reduction in volume happens. For example, most vessels will only change their `NavigationStatus` a few times a day at most. Having then reduced the notification stream to just those events we really care about, we can combine it back into a single stream that provides the high-value notifications we want.
+This is an example of the "fanning out, and then back in again" technique I described in ['The Significance of SelectMany' in the Transformation chapter](06_Transformation.md#the-significance-of-selectmany). This code uses `GroupBy` to fan out from a single observable to multiple observables. The key to this step is to create nested observables that provide the right level of detail for the processing we want to do. In this example that level of detail was "one specific ship" but it wouldn't have to be. You could imagine wanting to group messages by region—perhaps we're interesting in comparing different ports, so we'd want to partition the source based on whichever port a vessel is closest to, or perhaps by its destination port. (AIS provides a way for vessels to broadcast their intended destination.) Having partitioned the data by whatever criteria we require, we then define the processing to be applied for each group. In this case, we just watched for changes to `NavigationStatus`. This step will typically be where the reduction in volume happens. For example, most vessels will only change their `NavigationStatus` a few times a day at most. Having then reduced the notification stream to just those events we really care about, we can combine it back into a single stream that provides the high-value notifications we want.
 
 Now that we've seen an example, let's look at `GroupBy` in a bit more detail. It comes in a few different flavours. We just used this overload:
 
@@ -117,7 +117,7 @@ public static IObservable<IGroupedObservable<TKey, TSource>> GroupBy<TSource, TK
     Func<TSource, TKey> keySelector)
 ```
 
-That overload uses whatever the default comparison behaviour is for your chosen key type. In our case we used `uint` (the type of the `Mmsi` property that uniquely identifies a vessel in an AIS message), which is just a number, so it's an intrinsically comparable type. In some cases you might want non-standard comparison—for example, if you use `string` as a key, you might want to be able to specify a locale-specific case-insensitive comparison. For these scenarios, there's an overload that takes a comparer:
+That overload uses whatever the default comparison behaviour is for your chosen key type. In our case we used `uint` (the type of the `Mmsi` property that uniquely identifies a vessel in an AIS message), which is just a number, so it's an intrinsically comparable type. In some cases you might want non-standard comparison. For example, if you use `string` as a key, you might want to be able to specify a locale-specific case-insensitive comparison. For these scenarios, there's an overload that takes a comparer:
 
 ```cs
 public static IObservable<IGroupedObservable<TKey, TSource>> GroupBy<TSource, TKey>(
@@ -183,7 +183,7 @@ More generally, if you have lots of sequences coming into existence as part of a
 
 ## Buffer
 
-The `Buffer` operator is useful if you need to deal with events in batches. This can be useful for performance, especially if you're storing data about events. Take the AIS example. If you wanted to log notifications to a persistent store, the cost of storing a single record is likely to be almost identical to the cost of storing several. Most storage devices operate with blocks of data often several kilobytes in size, so the amount of work required to store a single byte of data is often identical to the amount of work required to store several thousand bytes. The pattern of buffering up data until we have a reasonably large chunk of work crops up all the time in programming—the .NET runtime library's `Stream` class has built-in buffering for exactly this reason, so it's no surprise that it's built into Rx.
+The `Buffer` operator is useful if you need to deal with events in batches. This can be useful for performance, especially if you're storing data about events. Take the AIS example. If you wanted to log notifications to a persistent store, the cost of storing a single record is likely to be almost identical to the cost of storing several. Most storage devices operate with blocks of data often several kilobytes in size, so the amount of work required to store a single byte of data is often identical to the amount of work required to store several thousand bytes. The pattern of buffering up data until we have a reasonably large chunk of work crops up all the time in programming. The .NET runtime library's `Stream` class has built-in buffering for exactly this reason, so it's no surprise that it's built into Rx.
 
 Efficiency concerns are not the only reason you might want to process multiple events in one batch instead of individual ones. Suppose you wanted to generate a stream of continuously updated statistics about some source of data. By carving the source into chunks with `Buffer`, you can calculate, say, an average over the last 10 events.
 
@@ -232,7 +232,7 @@ chunks completed
 
 `Buffer` had no choice here because the source completed, and if it hadn't produced that final under-sized chunk, we would never have seen the final item. But apart from this end-of-source case, this overload of `Buffer` waits until it has collected enough elements to fill a buffer of the specified size before passing it on. That means that `Buffer` introduces a delay. If source items are quite far apart (e.g., when a ship is not moving it might only report AIS navigation data every few minutes) this can lead to long delays.
 
-In some cases, we might want to handle multiple events in a batch when a source is busy without having to wait a long time when the source is operating more slowly. This would be useful in a user interface—if you want to provide fresh information, it might be better to accept an undersized chunk so that you can provide more timely information. For these scenarios, `Buffer` offers overloads that accept a `TimeSpan`:
+In some cases, we might want to handle multiple events in a batch when a source is busy without having to wait a long time when the source is operating more slowly. This would be useful in a user interface. If you want to provide fresh information, it might be better to accept an undersized chunk so that you can provide more timely information. For these scenarios, `Buffer` offers overloads that accept a `TimeSpan`:
 
 ```csharp
 public static IObservable<IList<TSource>> Buffer<TSource>(
@@ -259,7 +259,7 @@ The second overload, taking both a `timespan` and a `count`, essentially imposes
 
 ### Overlapping buffers
 
-In the preceding section, I showed an example that collected chunks of 4 `IVesselNavigation` entries for a particular vessel, and calculated the average speed. This sort of averaging over multiple samples can be a useful way of smoothing out slight random variations in readings. So the goal in this case wasn't to process items in batches for efficiency—it was to enable a particular kind of calculation.
+In the preceding section, I showed an example that collected chunks of 4 `IVesselNavigation` entries for a particular vessel, and calculated the average speed. This sort of averaging over multiple samples can be a useful way of smoothing out slight random variations in readings. So the goal in this case wasn't to process items in batches for efficiency, it was to enable a particular kind of calculation.
 
 But there was a problem with the example: because it was averaging 4 readings, it produced an output only once every 4 input messages. And since vessels might report their speed only once every few minutes if they are not moving, we might be waiting a very long time.
 
@@ -311,7 +311,7 @@ Ship 257798800 changed status from UnderwayUsingEngine to Moored at 30/06/2023
  13:38:39 +00:00
 ```
 
-This change enabled us to remove the `Skip`—the earlier example had that because we can't tell whether the first message we receive from any particular ship after startup represents a change. But since we're telling `Buffer` we want pairs of messages, it won't give us anything for any single ship until it has seen messages with two different statuses.
+This change enabled us to remove the `Skip`. The earlier example had that because we can't tell whether the first message we receive from any particular ship after startup represents a change. But since we're telling `Buffer` we want pairs of messages, it won't give us anything for any single ship until it has seen messages with two different statuses.
 
 You can also ask for a sliding window defined by time instead of counts using this overload:
 

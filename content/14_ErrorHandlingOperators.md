@@ -2,7 +2,7 @@
 title: Error Handling Operators
 ---
 
-Exceptions happen. Some exceptions are inherently avoidable, occurring only because of bugs in our code. For example, if we put the CLR into a situation where it has to raise a `DivideByZeroException`, we've done something wrong. But there are plenty of exceptions that cannot be prevented with defensive coding. For example, exceptions relating to I/O or networking failures such as like `FileNotFoundException` or `TimeoutException` can be caused by environmental factors outside of our code's control. In these cases, we need to handle the exception gracefully. The kind of handling will depend on the context—it might be appropriate to provide some sort of error message to the user; in some scenarios logging the error might be a more appropriate response. If the failure is likely to be transient, we could try to recover by retrying the operation that failed.
+Exceptions happen. Some exceptions are inherently avoidable, occurring only because of bugs in our code. For example, if we put the CLR into a situation where it has to raise a `DivideByZeroException`, we've done something wrong. But there are plenty of exceptions that cannot be prevented with defensive coding. For example, exceptions relating to I/O or networking failures such as like `FileNotFoundException` or `TimeoutException` can be caused by environmental factors outside of our code's control. In these cases, we need to handle the exception gracefully. The kind of handling will depend on the context. It might be appropriate to provide some sort of error message to the user; in some scenarios logging the error might be a more appropriate response. If the failure is likely to be transient, we could try to recover by retrying the operation that failed.
 
 The `IObserver<T>` interface defines the `OnError` method so that a source can report an error, but since this terminates the sequence, it provides no direct means of working out what to do next. However, Rx provides operators that provide a variety of error handling mechanisms.
 
@@ -60,7 +60,7 @@ IObservable<string> settings = Observable.Catch(settingsSource1, settingsSource2
 
 There's also an overload that accepts an `IEnumerable<IObservable<T>>`.
 
-If any of the sources reaches its end without reporting an exception, `Catch` also immediately reports completion and does not subscribe to any of the subsequent sources. If the very last source reports an exception, `Catch` will have no further sources to fall back on, so in that case it won't catch the exception—it will forward that final exception to its subscriber.
+If any of the sources reaches its end without reporting an exception, `Catch` also immediately reports completion and does not subscribe to any of the subsequent sources. If the very last source reports an exception, `Catch` will have no further sources to fall back on, so in that case it won't catch the exception. It will forward that final exception to its subscriber.
 
 
 ## Finally
@@ -147,7 +147,7 @@ This is mostly just a curiosity: application frameworks such as ASP.NET Core or 
 
 ## Using
 
-The `Using` factory method allows you to bind the lifetime of a resource to the lifetime of an observable sequence. The method takes two callbacks: one to create the disposable resource and one to provide the sequence. This allows everything to be lazily evaluated—these callbacks are invoked when code calls `Subscribe` on the `IObservable<T>` that this method returns.
+The `Using` factory method allows you to bind the lifetime of a resource to the lifetime of an observable sequence. The method takes two callbacks: one to create the disposable resource and one to provide the sequence. This allows everything to be lazily evaluated. These callbacks are invoked when code calls `Subscribe` on the `IObservable<T>` that this method returns.
 
 ```csharp
 public static IObservable<TSource> Using<TSource, TResource>(

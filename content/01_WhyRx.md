@@ -8,7 +8,7 @@ Rx is a .NET library for processing event streams. Why might you want that?
 
 ## Why Rx?
 
-Users want timely information. If you're waiting for a parcel to arrive, live reports of the delivery van's progress give you more freedom than a suspect 2 hour delivery window. Financial applications depend on continuous streams of up-to-date data. We expect our phones and computers to provide us with all sorts of important notifications. And some applications simply can't work without live information—online collaboration tools and multiplayer games absolutely depend on the rapid distribution and delivery of data.
+Users want timely information. If you're waiting for a parcel to arrive, live reports of the delivery van's progress give you more freedom than a suspect 2 hour delivery window. Financial applications depend on continuous streams of up-to-date data. We expect our phones and computers to provide us with all sorts of important notifications. And some applications simply can't work without live information. Online collaboration tools and multiplayer games absolutely depend on the rapid distribution and delivery of data.
 
 In short, our systems need to react when interesting things happen.
 
@@ -50,7 +50,7 @@ Rx is well suited to representing events that originate from outside of your cod
 - Integration with a [Complex Event Processing (CEP)](https://en.wikipedia.org/wiki/Complex_event_processing) engine
 - UI events such as mouse movement or button clicks
 
-Rx is also good way to model domain events—these may occur as a result of some of the events just described, but after processing them to produce events that more directly represent application concepts. These might include:
+Rx is also good way to model domain events. These may occur as a result of some of the events just described, but after processing them to produce events that more directly represent application concepts. These might include:
 
 - Property or state changes on domain objects such as "Order Status Updated", or "Registration Accepted"
 - Changes to collections of domain objects, such as "New Registration Created"
@@ -62,7 +62,7 @@ Events might also represent insights derived from incoming events (or historical
 - [CNC](https://en.wikipedia.org/wiki/Numerical_control) [Milling Machine](https://en.wikipedia.org/wiki/Milling_(machining)) MFZH12's number 4 axis bearing is exhibiting signs of wear at a significantly higher rate than the nominal profile
 - If the user wants to arrive on time at their meeting half way across town, the current traffic conditions suggest they should leave in the next 10 minutes
 
-These three sets of examples show how applications might progressively increase the value of the information as they process events. We start with raw events, which we then enhance to produce domain-specific events, and we then perform analysis to produce notifications that the application's users will really care about. Each stage of processing increases the value of the messages that emerge. Each stage will typically also reduce the volume of messages—if we presented the raw events in the first category directly to users, they might be overwhelmed by the volume of messages, making it impossible to spot the important events. But if we only present them with notifications when our processing has detected something important, this will enable them to work more efficiently and accurately.
+These three sets of examples show how applications might progressively increase the value of the information as they process events. We start with raw events, which we then enhance to produce domain-specific events, and we then perform analysis to produce notifications that the application's users will really care about. Each stage of processing increases the value of the messages that emerge. Each stage will typically also reduce the volume of messages. If we presented the raw events in the first category directly to users, they might be overwhelmed by the volume of messages, making it impossible to spot the important events. But if we only present them with notifications when our processing has detected something important, this will enable them to work more efficiently and accurately.
 
 The [`System.Reactive` library](https://www.nuget.org/packages/System.Reactive) provides tools for building exactly this kind of value-adding process, in which we tame high-volume raw event sources to produce high-value live insights. It provides a suite of operators that enable our code to express this kind of processing declaratively, as you'll see in subsequent chapters.
 

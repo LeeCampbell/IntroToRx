@@ -42,7 +42,7 @@ is also the author of the latest revision of this book, and indeed the author of
 sentence.)
 
 If you have never used Rx before, it _will_ change the way you design and build software.
-It provides a well thought out abstraction for a fundamentally important idea in computing—sequences
+It provides a well thought out abstraction for a fundamentally important idea in computing: sequences
 of events. These are as important as lists or arrays, but before Rx there was little
 direct support in libraries or languages, and what support there was tended to be rather
 ad hoc, and built on weak theoretical underpinnings. Rx changes that. The extent to
