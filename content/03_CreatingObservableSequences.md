@@ -662,7 +662,7 @@ public static IObservable<int> Range(int start, int count)
 
 The `Generate` method calls us back repeatedly until either our `condition` callback says we're done, or the observer unsubscribes. We can define an infinite sequence simply by never saying we are done:
 
-```
+```cs
 IObservable<BigInteger> Fibonacci()
 {
     return Observable.Generate(
