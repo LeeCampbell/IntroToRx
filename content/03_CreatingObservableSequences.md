@@ -337,7 +337,7 @@ Due to the large number of methods available for creating observable sequences, 
 
 ### Observable.Return
 
-One of the simplest factory methods is `Observable.Return<T>(T value)`, which you've already seen in the `Quiescent` example in the preceding chapter. This method takes a value of type `T` and returns an `IObservable<T>` which will produce this single value and then complete. In a sense, this _wraps_ a value in an `IObservable<T>`; it's conceptually similar to writing `new T[] { value }`, in that it's a sequence containing just one element.
+One of the simplest factory methods is `Observable.Return<T>(T value)`, which you've already seen in the `Quiescent` example in the preceding chapter. This method takes a value of type `T` and returns an `IObservable<T>` which will produce this single value and then complete. In a sense, this _wraps_ a value in an `IObservable<T>`; it's conceptually similar to writing `new T[] { value }`, in that it's a sequence containing just one element. You could also think of it as being the Rx equivalent of `Task.FromResult`, which you can use when you have a value of some type `T`, and need to pass it to something that wants a `Task<T>`.
 
 ```csharp
 IObservable<string> singleValue = Observable.Return<string>("Value");
@@ -361,6 +361,8 @@ IObservable<string> empty = Observable.Empty<string>();
 
 In practice, an empty sequence is one that immediately calls `OnCompleted` on any subscriber.
 
+In comparison with `IEnumerable<T>`, this is just the Rx equivalent of an empty list, but there's another way to look at it. Rx is a powerful way to model asynchronous processes, so you could think of this as being similar to a task that completes immediately without producing any result—so it has a conceptual resemblance to `Task.CompletedTask`. (This is not as close an analogy as that between `Observable.Return` and `Task.FromResult`, because in that case we're comparing an `IObservable<T>` with a `Task<T>`, whereas here we're comparing an `IObservable<T>` with a `Task`—the only way for a task to complete without producing anything is if we use the non-generic version of `Task`.)
+
 ### Observable.Never
 
 The `Observable.Never<T>()` method returns a sequence which, like `Empty`, does not produce any values, but unlike `Empty`, it never ends. In practice, that means that it never invokes any method (neither `OnNext`, `OnCompleted`, nor `OnError`) on subscribers. Whereas `Observable.Empty<T>()` completes immediately, `Observable.Never<T>` has infinite duration.
@@ -369,7 +371,11 @@ The `Observable.Never<T>()` method returns a sequence which, like `Empty`, does 
 IObservable<string> never = Observable.Never<string>();
 ```
 
-It might not seem obvious why this could be useful. It tends to be used in places where we use observables to represent time-based information. Sometimes we don't actually care what emerges from an observable; we might care only _when_ something (anything) happens. For example, in the preceding chapter, the `Quiescent` example used the `Buffer` operator, which works over two observable sequences: the first contains the items of interest, and the second is used purely to determine how to cut the first into chunks. `Buffer` doesn't do anything with the values produced by the second observable: it pays attention only to _when_ value emerge, completing the previous chunk each time the second observable produces a value. And if we're representing temporal information it can sometimes be useful to have a way to represent the idea that some event never occurs.
+It might not seem obvious why this could be useful. I gave one possible use in the last chapter: you could use this in a test to simulate a source that wasn't producing any values, perhaps to enable your test to validate timeout logic.
+
+It can also be used in places where we use observables to represent time-based information. Sometimes we don't actually care what emerges from an observable; we might care only _when_ something (anything) happens. (We saw an example of this "observable sequence used purely for timing purposes" concept in the preceding chapter, although `Never` wouldn't make sense in that particular scenario. The `Quiescent` example used the `Buffer` operator, which works over two observable sequences: the first contains the items of interest, and the second is used purely to determine how to cut the first into chunks. `Buffer` doesn't do anything with the values produced by the second observable: it pays attention only to _when_ value emerge, completing the previous chunk each time the second observable produces a value. And if we're representing temporal information it can sometimes be useful to have a way to represent the idea that some event never occurs.)
+
+As an example of where you might want to use `Never` for timing purposes, suppose you were using some Rx-based library that offered a timeout mechanism, where an operation would be cancelled when some timeout occurs, and the timeout is itself modelled as an observable sequence. If for some reason you didn't want a timeout, and just want to wait indefinitely, you could specify a timeout of `Observable.Never`.
 
 ### Observable.Throw
 
@@ -452,7 +458,7 @@ IObservable<string> ReadFileLines(string path) =>
         {
             while (cancellationToken.IsCancellationRequested)
             {
-                string? line = await reader.ReadLineAsync(cancellationToken);
+                string? line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
                 if (line is null)
                 {
                     break;
@@ -476,7 +482,7 @@ This automatic exception delivery is another example of why the `Create` factory
 
 The `Create` method entails lazy evaluation, which is a very important part of Rx. It opens doors to other powerful features such as scheduling and combination of sequences that we will see later. The delegate will only be invoked when a subscription is made. So in the `ReadFileLines` example, it won't attempt to open the file until you subscribe to the `IObservable<string>` that is returned. If you subscribe multiple times, it will execute the callback each time. (So if the file has changed, you can retrieve the latest contents by calling `Subscribe` again.)
 
-As an exercise, try to build the `Empty`, `Return`, `Never` & `Throw` extension methods yourself using the `Create` method. If you have Visual Studio or [LINQPad](http://www.linqpad.net/) available to you right now, code it up as quickly as you can. If you don't (perhaps you are on the train on the way to work), try to conceptualize how you would solve this problem.
+As an exercise, try to build the `Empty`, `Return`, `Never` & `Throw` extension methods yourself using the `Create` method. If you have Visual Studio or [LINQPad](http://www.linqpad.net/) available to you right now, code it up as quickly as you can, or if you have Visual Studio Code, you could create a new [Polyglot Notebook](https://code.visualstudio.com/docs/languages/polyglot). (Polyglot Notebooks make Rx available automatically, so you can just write a C# cell with a suitable `using` directive, and you're up and running.) If you don't (perhaps you are on the train on the way to work), try to conceptualize how you would solve this problem.
 
 You completed that last step before moving onto this paragraph, right? Because you can now compare your versions with these examples of `Empty`, `Return`, `Never` and `Throw` recreated with `Observable.Create`:
 
@@ -790,7 +796,7 @@ public static IObservable<long> Interval(TimeSpan period)
 
 This shows how you can use `Observable.Generate` to produce infinite sequences. I will leave it up to you the reader, as an exercise using `Observable.Generate`, to produce values at variable rates.
 
-## Adapting Common Type to IObservable&lt;T&gt;
+## Adapting Common Types to `IObservable<T>`
 
 Although we've now seen two very general ways to produce arbitrary sequences—`Create` and `Generate`—what if you already have an existing source of information in some other form that you'd like to make available as an `IObservable<T>`? Rx provides a few adapters for common source types.
 
@@ -844,7 +850,7 @@ The observable returned by `Start` may seem to have a superficial resemblance to
 As we discussed early in the book, .NET has a model for events that is baked into its type system. This predates Rx (not least because Rx wasn't feasible until .NET got generics in .NET 2.0) so it's common for types to support events but not Rx. To be able to integrate with the existing event model, Rx provides methods to take an event and turn it into an observable sequence. I showed this briefly in the file system watcher example earlier, but let's examine this in a bit more detail. There are several different varieties you can use. This show the most succinct form:
 
 ```cs
-FileSystemWatcher watcher = new (@"c:\temp");
+FileSystemWatcher watcher = new (@"c:\incoming");
 IObservable<EventPattern<FileSystemEventArgs>> changeEvents = Observable
     .FromEventPattern<FileSystemEventArgs>(watcher, nameof(watcher.Changed));
 ```
@@ -853,11 +859,11 @@ If you have an object that provides an event, you can use this overload of `From
 
 Firstly, why do I need to pass the event name as a string? Identifying members with strings is an error-prone technique. The compiler won't notice if there's a mismatch between the first and second argument (e.g., if I passed the arguments `(somethingElse, nameof(watcher.Changed))` by mistake). Couldn't I just pass `watcher.Changed` itself? Unfortunately not—this is an example of the issue I mentioned in the first chapter: .NET events are not first class citizens. We can't use them in the way we can use other objects or values. For example, we can't pass an event as an argument to a method. In fact the only thing you can do with a .NET event is attach and remove event handlers. If I want to get some other method to attach handlers to the event of my choosing (e.g., here I want Rx to handle the events), then the only way to do that is to specify the event's name so that the method (`FromEventPattern`) can then use reflection to attach its own handlers.
 
-This is a problem for some deployment scenarios. It is increasingly common in .NET to do extra work at build time to optimize runtime behaviour, and reliance on reflection can compromise these techniques. For example, instead of relying on Just In Time (JIT) compilation of code, we might use Ahead of time (AoT) mechanisms. .NET's Ready to Run (R2R) system enables you to include pre-compiled code targeting specific CPU types alongside the normal IL, avoiding having to wait for .NET to compile the IL into runnable code. This can have a significant effect on startup times, making it an important technique both in client side applications, where it can fix problems where applications are sluggish when they first start up. It can also be important in server-side applications, especially in cloud environments where code may be moved from one compute node to another fairly frequently, making it important to minimize cold start costs. There are also scenarios where JIT compilation is not even an option, in which case AoT compilation isn't merely an optimization: it's the only means by which code can run at all.
+This is a problem for some deployment scenarios. It is increasingly common in .NET to do extra work at build time to optimize runtime behaviour, and reliance on reflection can compromise these techniques. For example, instead of relying on Just In Time (JIT) compilation of code, we might use Ahead of Time (AOT) mechanisms. .NET's Ready to Run (R2R) system enables you to include pre-compiled code targeting specific CPU types alongside the normal IL, avoiding having to wait for .NET to compile the IL into runnable code. This can have a significant effect on startup times. In client side applications, it can fix problems where applications are sluggish when they first start up. It can also be important in server-side applications, especially in environments where code may be moved from one compute node to another fairly frequently, making it important to minimize cold start costs. There are also scenarios where JIT compilation is not even an option, in which case AOT compilation isn't merely an optimization: it's the only means by which code can run at all.
 
-The problem with reflection is that it makes it difficult for the build tools to work out what code will execute at runtime. When they inspect this call to `FromEventPattern` they will just see arguments of type `object` and `string`. It's not self-evident that this is going to result in reflection-driven calls to the `add` and `remove` methods for `FileSystemWatcher.Changed` at runtime. There are attributes that can be used to provide hints, but there are limits to how well these can work. Sometimes the build tools will be unable to determine what code would need to be AoT compiled to enable this method to execute without relying on runtime JIT.
+The problem with reflection is that it makes it difficult for the build tools to work out what code will execute at runtime. When they inspect this call to `FromEventPattern` they will just see arguments of type `object` and `string`. It's not self-evident that this is going to result in reflection-driven calls to the `add` and `remove` methods for `FileSystemWatcher.Changed` at runtime. There are attributes that can be used to provide hints, but there are limits to how well these can work. Sometimes the build tools will be unable to determine what code would need to be AOT compiled to enable this method to execute without relying on runtime JIT.
 
-There's another, related problem. The .NET build tools support a feature called 'trimming', in which they remove unused code. The `System.Reactive.dll` file is about 1.3MB in size, but it would be a very unusual application that used every member of every type in that component. Basic use of Rx might need only a few tens of kilobytes. The idea with trimming is to work out which bits are actually in use, and produce a copy of the DLL that contains only that code. This can dramatically reduce the volume of code that needs to be deployed for an executable to run. This can be especially important in client-side Blazor applications, where .NET components end up being downloaded by the browser. Having to download an entire 1.3MB component might make you think twice about using it. But if trimming means that basic usage requires only a few tens of KB, and that the size would increase only if you were making more extensive use of the component, that can make it reasonable to use a component that would, without trimming, have imposed too large a penalty to justify its inclusion. But as with AoT compilation, trimming can only work if the tools can determine which code is in use. If they can't do that, it's not just a case of falling back to a slower path, waiting while the relevant code gets JIT compiler. If code has been trimmed, it will be unavailable at runtime, and your application might crash with a `MissingMethodException`.
+There's another, related problem. The .NET build tools support a feature called 'trimming', in which they remove unused code. The `System.Reactive.dll` file is about 1.3MB in size, but it would be a very unusual application that used every member of every type in that component. Basic use of Rx might need only a few tens of kilobytes. The idea with trimming is to work out which bits are actually in use, and produce a copy of the DLL that contains only that code. This can dramatically reduce the volume of code that needs to be deployed for an executable to run. This can be especially important in client-side Blazor applications, where .NET components end up being downloaded by the browser. Having to download an entire 1.3MB component might make you think twice about using it. But if trimming means that basic usage requires only a few tens of KB, and that the size would increase only if you were making more extensive use of the component, that can make it reasonable to use a component that would, without trimming, have imposed too large a penalty to justify its inclusion. But as with AOT compilation, trimming can only work if the tools can determine which code is in use. If they can't do that, it's not just a case of falling back to a slower path, waiting while the relevant code gets JIT compiler. If code has been trimmed, it will be unavailable at runtime, and your application might crash with a `MissingMethodException`.
 
 So reflection-based APIs can be problematic if you're using any of these techniques. Fortunately, there's an alternative. We can use an overload that takes a couple of delegates, and Rx will invoke these when it wants to add or remove handlers for the event:
 
@@ -868,7 +874,7 @@ IObservable<EventPattern<FileSystemEventArgs>> changeEvents = Observable
         h => watcher.Changed -= h);
 ```
 
-This is code that AoT and trimming tools can understand easily. We've written methods that explicitly add and remove handlers for the `FileSystemWatcher.Changed` event, so AoT tools can pre-compile those two methods, and trimming tools know that they cannot remove the add and remove handlers for those events.
+This is code that AOT and trimming tools can understand easily. We've written methods that explicitly add and remove handlers for the `FileSystemWatcher.Changed` event, so AOT tools can pre-compile those two methods, and trimming tools know that they cannot remove the add and remove handlers for those events.
 
 The downside is that this is a pretty cumbersome bit of code to write. If you've not already bought into the idea of using Rx, this might well be enough to make you think "I'll just stick with ordinary .NET events, thanks. But the cumbersome nature is a symptom of what is wrong with .NET events. We wouldn't have had to write anything so ugly if events had been first class citizens in the first place.
 
@@ -892,7 +898,7 @@ Although they are conceptually similar, `Task<T>` does a few things differently 
 
 - if the task is [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), `IObservable<T>` invoke a subscriber's `OnError` passing a `TaskCanceledException`
 - if the task is [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted) then the sequence will error with the task's inner exception
-- if the task is not yet in a final state (neither [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted), or [RanToCompletion](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-rantocompletion)), the `IObservable<T>` will not produce any notifications until such time as the task does enter one of these final states
+- if the task is not yet in a final state (neither [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted), or [RanToCompletion](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-rantocompletion)), the `IObservable<T>` will not produce any notifications until such time as the task does enter one of these final states.
 
 It does not matter whether the task is already in a final state at the moment that you call `ToObservable`. If it has finished, `ToObservable` will just return a sequence representing that state. (In fact, it uses either the `Return` or `Throw` creation methods you saw earlier.) If the task has not yet finished, `ToObservable` will attach a continuation to the task to detect the outcome once it does complete.
 
@@ -963,9 +969,9 @@ IObservable<string> source = Observable.FromAsync(async () =>
 });
 ```
 
-There is a subtle difference with this though. When I used `Task.Run` the lambda ran on a task pool thread from the start. But when I write it this way, the lambda will begin to run on whatever thread calls `Subscribe`. It's only when it hits the first `await` that it returns (and the call to `Subscribe` will then return), with the remainder of the method running on the thread pool.
+This produces exactly the same output as before. There is a subtle difference with this though. When I used `Task.Run` the lambda ran on a task pool thread from the start. But when I write it this way, the lambda will begin to run on whatever thread calls `Subscribe`. It's only when it hits the first `await` that it returns (and the call to `Subscribe` will then return), with the remainder of the method running on the thread pool.
 
-### From IEnumerable&lt;T&gt;
+### From `IEnumerable<T>`
 
 Rx defines another extension method called `ToObservable`, this time for `IEnumerable<T>`. In earlier chapters I described how `IObservable<T>` was designed to represent the same basic abstraction as `IEnumerable<T>`, with the only difference being the mechanism we use to obtain the elements in the sequence: with `IEnumerable<T>`, we write code that _pulls_ values out of the collection (e.g., a `foreach` loop), whereas `IObservable<T>` _pushes_ values to us by invoking `OnNext` on our `IObserver<T>`.
 
@@ -1049,7 +1055,7 @@ Rx offers a few subject implementations that can occasionally be useful in code 
 
 Rx offers a few subject types. We'll start with the most straightforward one to understand.
 
-### Subject<T>
+### `Subject<T>`
 
 The `Subject<T>` type immediately forwards any calls made to its `IObserver<T>` methods on to all of the observers currently subscribed to it. This example shows its basic operation:
 
@@ -1108,7 +1114,7 @@ It wouldn't be too hard to modify this to use `Observable.Create` instead. But w
 
 `Subject<T>` is the most straightforward subject, but there are other, more specialized ones.
 
-## ReplaySubject<T>
+## `ReplaySubject<T>`
 
 `Subject<T>` does not remember anything: it immediately distributes incoming values to subscribers. If new subscribers come along, they will only see events that occur after they subscribe. `ReplaySubject<T>`, on the other hand, can remember every value it has ever seen. If a new subject comes along, it will receive the complete history of events so far.
 
@@ -1177,19 +1183,19 @@ Sub2: 4
 
 Alternatively, you can specify a time-based limit by passing a `TimeSpan` to the `ReplaySubject<T>` constructor.
 
-## BehaviorSubject<T>
+## `BehaviorSubject<T>`
 
 Like `ReplaySubject<T>`, `BehaviorSubject<T>` also has a memory, but it remembers exactly one value. However, it's not quite the same as a `ReplaySubject<T>` with a buffer size of 1. Whereas a `ReplaySubject<T>` starts off in a state where it has nothing in its memory, `BehaviorSubject<T>` always remembers _exactly_ one item. How can that work before we've made our first call to `OnNext`? `BehaviorSubject<T>` enforces this by requiring us to supply the initial value when we construct it.
 
 So you can think of `BehaviorSubject<T>` as a subject that _always_ has a value available. If you subscribe to a `BehaviorSubject<T>` it will instantly produce a single value. (It may then go on to produce more values, but it always produces one right away.) As it happens, it also makes that value available through a property called `Value`, so you don't need to subscribe an `IObserver<T>` to it just to retrieve the value.
 
-A `BehaviorSubject<T>` could be thought of an as observable property. Like a normal property, it can immediately supply a value whenever you ask it. The difference is that it can then go on to notify you every time its value changes.
+A `BehaviorSubject<T>` could be thought of an as observable property. Like a normal property, it can immediately supply a value whenever you ask it. The difference is that it can then go on to notify you every time its value changes. If you're using the [ReactiveUI framework](https://www.reactiveui.net/) (an Rx-based framework for building user interfaces), `BehaviourSubject<T>` can make sense as the implementation type for a property in a view model (the type that mediates between your underlying domain model and your user interface). It has property-like behaviour, enabling you to retrieve a value at any time, but it also provides change notifications, which ReactiveUI can handle in order to keep the UI up to date.
 
 This analogy falls down slightly when it comes to completion. If you call `OnCompleted`, it immediately calls `OnCompleted` on all of its observers, and if any new observers subscribe, they will also immediately be completed—it does not first supply the last value. (So this is another way in which it is different from a `ReplaySubject<T>` with a buffer size of 1.)
 
 Similarly, if you call `OnError`, all current observers will receive an `OnError` call, and any subsequent subscribers will also receive nothing but an `OnError` call.
 
-## AsyncSubject<T>
+## `AsyncSubject<T>`
 
 `AsyncSubject<T>` provides all observers with the final value it receives. Since it can't know which is the final value until `OnCompleted` is called, it will not invoke any methods on any of its subscribers until either its `OnCompleted` or `OnError` method is called. (If `OnError` is called, it just forwards that to all current and future subscribers.)
 
@@ -1225,6 +1231,8 @@ This produces the following output:
 Sub1: c
 Sub2: c
 ```
+
+If you have some potentially slow work that needs to be done when your application starts up, and which needs to be done just once, you might choose an `AsyncSubject<T>` to make the results of that work available. Code requiring those results can subscribe to the subject. If the work is not yet complete, they will receive the results as soon as they are available. And if the work has already completed, they will receive it immediately.
 
 ## Subject factory
 
