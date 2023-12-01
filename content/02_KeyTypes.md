@@ -35,7 +35,7 @@ IObservable<Trade> bigTrades = trades.Where(trade => trade.Volume > 1_000_000);
 This removes the ambiguity. It is now clear that we're not dealing with data at rest. We're working with an `IObservable<Trade>`. But what exactly is that?
 
 
-## IObservable<T>
+## `IObservable<T>`
     
 The [`IObservable<T>` interface](https://learn.microsoft.com/en-us/dotnet/api/system.iobservable-1 "IObservable<T> interface - Microsoft Learn") represents Rx's fundamental abstraction: a sequence of values of some type `T`. In a very abstract sense, this means it represents the same thing as [`IEnumerable<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1). The difference is in how code consumes those values. Whereas `IEnumerable<T>` enables code to retrieve values (typically with a `foreach` loop), an `IObservable<T>` provides values when they become available. This distinction is sometimes characterised as _push_ vs _pull_. We can _pull_ values out of an `IEnumerable<T>` by executing a `foreach` loop, but an `IObservable<T>` will _push_ values into our code.
 
@@ -281,7 +281,7 @@ It's certainly possible to use IO streams in Rx, but they are not the right prim
 
 Now that we've seen why `IObservable<T>` needs to exist, we need to look at its counterpart, `IObserver<T>`.
 
-## IObserver<T>
+## `IObserver<T>`
 
 Earlier, I showed the definition of `IObservable<T>`. As you saw, it has just one method, `Subscribe`. And this method takes just one argument, of type [`IObserver<T>`](https://learn.microsoft.com/en-us/dotnet/api/system.iobserver-1). So if you want to observe the events that an `IObservable<T>` has to offer, you must supply it with an `IObserver<T>`. In the examples so far, we've just supplied a simple callback, and Rx has wrapped that in an implementation of `IObserver<T>` for us, but even though this is very often the way we will receive notifications in practice, you still need to understand `IObserver<T>` to use Rx effectively. It is not a complex interface:
 

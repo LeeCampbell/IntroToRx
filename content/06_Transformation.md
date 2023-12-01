@@ -178,7 +178,7 @@ it would produce a list with these elements:
 
 The order is less odd. It's worth exploring the reasons for this in a little more detail.
 
-### IEnumerable<T> vs. IObservable<T> SelectMany
+### `IEnumerable<T>` vs. `IObservable<T>` `SelectMany`
 
 `IEnumerable<T>` is pull based—sequences produce elements only when asked. `Enumerable.SelectMany` pulls items from its sources in a very particular order. It begins by asking its source `IEnumerable<int>` (the one returned by `Range` in the preceding example) for the first value. `SelectMany` then invokes our callback, passing this first item, and then enumerates everything in the `IEnumerable<char>` our callback returns. Only when it has exhausted this does it ask the source (`Range`) for a second item. Again, it passes that second item to our callback and then fully enumerates the `IEnumerable<char>`, we return, and so on. So we get everything from the first nested sequence first, then everything from the second, etc.
 

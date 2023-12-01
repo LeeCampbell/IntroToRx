@@ -467,7 +467,7 @@ public sealed class ImmediateSchedulers : ISchedulerService
 
 The `TestScheduler` provides further advanced features. These can be useful when parts of your test setup need to run at particular virtual times.
 
-### Start(Func<IObservable<T>>)
+### `Start(Func<IObservable<T>>)`
 
 There are three overloads to `Start`, which are used to start an observablesequence at a given time, record the notifications it makes and dispose of the subscription at a given time. This can be confusing at first, as the parameterless overload of `Start` is quite unrelated. These three overloads return an `ITestableObserver<T>` which allows you to record the notifications from an observable sequence, much like the `Materialize` method we saw in the [Transformation chapter](06_Transformation.md#materialize-and-dematerialize).
 
