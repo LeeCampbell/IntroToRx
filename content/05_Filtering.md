@@ -52,7 +52,7 @@ Where-->8
 Where completed
 ```
 
-The `Where` operator is one of the many standard LINQ operators. This is one of many standard LINQ operators you'll find on all LINQ providers. LINQ to Objects, the `IEnumerable<T>` implementation, provides an equivalent method, for example. In most cases, Rx's operators behave just as they do in the `IEnumerable<T>` implementations, although there are some exceptions as we'll see later. We will discuss each implementation and explain any variation as we go. By implementing these common operators Rx also gets language support for free via C# query expression syntax. For example, we could have written the first statement this way, and it would have compiled to effectively identical code:
+The `Where` operator is one of the many standard LINQ operators you'll find on all LINQ providers. LINQ to Objects, the `IEnumerable<T>` implementation, provides an equivalent method, for example. In most cases, Rx's operators behave just as they do in the `IEnumerable<T>` implementations, although there are some exceptions as we'll see later. We will discuss each implementation and explain any variation as we go. By implementing these common operators Rx also gets language support for free via C# query expression syntax. For example, we could have written the first statement this way, and it would have compiled to effectively identical code:
 
 ```cs
 IObservable<int> evenNumbers =
@@ -67,7 +67,7 @@ As with most Rx operators, `Where` does not subscribe immediately to its source.
 
 A side effect of this cascading `Subscribe` is that `Where` (like most other LINQ operators) is neither inherently _hot_ or _cold_: since it just subscribes to its source, then it will be hot if its source is hot, and cold if its source is cold.
 
-The `Where` operator passes on all elements for which its `predicate` callback returns `true`. To be more precise, when you subscribt to `Where`, it will create its own `IObserver<T>` which it passes as the argument to `source.Subscribe`, and this observer invokes the `predicate` for each call to `OnNext`. If that predicate returns `true`, then and only then will the observer created by `Where` call `OnNext` on the observer that you passed to `Where`.
+The `Where` operator passes on all elements for which its `predicate` callback returns `true`. To be more precise, when you subscript to `Where`, it will create its own `IObserver<T>` which it passes as the argument to `source.Subscribe`, and this observer invokes the `predicate` for each call to `OnNext`. If that predicate returns `true`, then and only then will the observer created by `Where` call `OnNext` on the observer that you passed to `Where`.
 
 `Where` always passes the final call to either `OnComplete` or `OnError` through. That means that if you were to write this:
 
@@ -269,7 +269,7 @@ Console.WriteLine(v);
 
 This logically has the same effect, but because we're using `await`, this won't block the calling thread while it waits for the observable source to produce a value. This might reduce the chances of deadlock.
 
-The fact that we're able to use `await` makes some sense of the fact that these methods end with `Async`, but you might be wondering what's going on here. We've seen that these methods all return `IObservable<T>`, not `Task<T>`, so how are we able to use `await`? There's a full explanation in the [Leaving Rx's World](13_LeavingIObservable.md) chapter, but the short answer is that Rx provides extension methods that enable this to work. When you `await` an observable sequence, the `await` will complete once the source completes, and it will return the final value that emerges from the source. This works well for operators such as `FirstAsync` and `LastAsync` that produce exactly one item.
+The fact that we're able to use `await` makes some sense of the fact that these methods end with `Async`, but you might be wondering what's going on here. We've seen that these methods all return `IObservable<T>`, not `Task<T>`, so how are we able to use `await`? There's a [full explanation in the Leaving Rx's World chapter](13_LeavingIObservable.md#integration-with-async-and-await), but the short answer is that Rx provides extension methods that enable this to work. When you `await` an observable sequence, the `await` will complete once the source completes, and it will return the final value that emerges from the source. This works well for operators such as `FirstAsync` and `LastAsync` that produce exactly one item.
 
 Note that there are occasionally situations in which values are available immediately. For example, the [`BehaviourSubject<T>` section in chapter 3](./03_CreatingObservableSequences.md#behaviorsubject), showed that the defining feature of `BehaviourSubject<T>` is that it always has a current value. That means that Rx's `First` method won't actually block—it will subscribe to the `BehaviourSubject<T>`, and `BehaviourSubject<T>.Subscribe` calls `OnNext` on its subscriber's observable before returning. That enables `First` to return a value immediately without blocking. (Of course, if you use the overload of `First` that accepts a predicate, and if the `BehaviourSubject<T>`'s value doesn't satisfy the predicate, `First` will then block.)
 
@@ -278,7 +278,7 @@ Note that there are occasionally situations in which values are available immedi
 There is yet another standard LINQ operator for selecting one particular element from the source: `ElementAt`. You provide this with a number indicating the position in the sequence of the element you require. In data-at-rest LINQ providers, this is logically equivalent to accessing an array element by index. Rx implements this operator, but whereas most LINQ providers' `ElementAt<T>` implementation returns a `T`, Rx's returns an `IObservable<T>`. Unlike with `First`, `Last`, and `Single`, Rx does not provide a blocking form of `ElementAt<T>`. But since you can await any `IObservable<T>`, you can always do this:
 
 ```cs
-IAisMessage fourth = await recieverHost.Message.ElementAt(4);
+IAisMessage fourth = await receiverHost.Message.ElementAt(4);
 ```
 
 If your source sequence only produces five values and we ask for `ElementAt(5)`, the sequence that `ElementAt` returns will report an `ArgumentOutOfRangeException` error to its subscriber when the source completes. There are three ways we can deal with this:
@@ -286,7 +286,7 @@ If your source sequence only produces five values and we ask for `ElementAt(5)`,
 - Handle the OnError gracefully
 - Use `.Skip(5).Take(1);` This will ignore the first 5 values and the only take the 6th value. 
 If the sequence has less than 6 elements we just get an empty sequence, but no errors.
-- Use ElementAtOrDefault
+- Use `ElementAtOrDefault`
 
 `ElementAtOrDefault` extension method will protect us in case the index is out of range, by pushing the `default(T)` value. Currently there is not an option to provide your own default value.
 

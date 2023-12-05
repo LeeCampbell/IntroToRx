@@ -21,7 +21,7 @@ long v = await Observable.Timer(TimeSpan.FromSeconds(2)).FirstAsync();
 Console.WriteLine(v);
 ```
 
-Although `await` is most often used with `Task`, `Task<T>`, or `ValueTask<T>`, it is actually an extensible language feature. It's possible to make `await` work for more or less any type by defining some suitable extension methods and some supporting types. That's precisely what Rx does. If your source file includes a `using System.Reactive.Linq;` directive, a suitable extension method will be available, so you can `await` any task.
+Although `await` is most often used with `Task`, `Task<T>`, or `ValueTask<T>`, it is actually an extensible language feature. It's possible to make `await` work for more or less any type by supplying a method called `GetAwaiter`, typically as an extension method, and a suitable type for `GetAwaiter` to return, providing C# with the features `await` requires. That's precisely what Rx does. If your source file includes a `using System.Reactive.Linq;` directive, a suitable extension method will be available, so you can `await` any task.
 
 The way this actually works is that the relevant `GetAwaiter` extension method wraps the `IObservable<T>` in an `AsyncSubject<T>`, which provides everything that C# requires to support `await`. These wrappers work in such a way that there will be a call to `Subscribe` each time you execute an `await` against an `IObservable<T>`.
 
