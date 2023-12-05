@@ -31,14 +31,14 @@ IObservable<T> Where<T>(this IObservable<T> source, Func<T, bool> predicate)
 
 Note that the element type is the same for the `source` parameter as it is for the return type. This is because `Where` doesn't modify elements. It can filter some out, but those that it does not remove are passed through unaltered.
 
-This example uses `Where` to filter out all odd values produced from a `Range` sequence.
+This example uses `Where` to filter out all odd values produced from a `Range` sequence, meaning only even numbers will emerge.
 
 ```csharp
 IObservable<int> xs = Observable.Range(0, 10); // The numbers 0-9
 
-IObservable<int> oddNumbers = xs.Where(i => i % 2 == 0);
+IObservable<int> evenNumbers = xs.Where(i => i % 2 == 0);
 
-oddNumbers.Dump("Where");
+evenNumbers.Dump("Where");
 ```
 
 Output:
@@ -55,7 +55,7 @@ Where completed
 The `Where` operator is one of the many standard LINQ operators. This is one of many standard LINQ operators you'll find on all LINQ providers. LINQ to Objects, the `IEnumerable<T>` implementation, provides an equivalent method, for example. In most cases, Rx's operators behave just as they do in the `IEnumerable<T>` implementations, although there are some exceptions as we'll see later. We will discuss each implementation and explain any variation as we go. By implementing these common operators Rx also gets language support for free via C# query expression syntax. For example, we could have written the first statement this way, and it would have compiled to effectively identical code:
 
 ```cs
-IObservable<int> oddNumbers =
+IObservable<int> evenNumbers =
     from i in xs
     where i % 2 == 0
     select i;
@@ -65,7 +65,7 @@ The examples in this book mostly use extension methods, not query expressions, p
 
 As with most Rx operators, `Where` does not subscribe immediately to its source. (Rx LINQ operators are much like those in LINQ to Objects: the `IEnumerable<T>` version of `Where` returns without attempting to enumerate its source. It's only when something attempts to enumerate the `IEnumerable<T>` that `Where` returns that it will in turn start enumerating the source.) Only when something calls `Subscribe` on the `IObservable<T>` returned by `Where` will it call `Subscribe` on its source. And it will do so once for each such call to `Subscribe`. More generally, when you chain LINQ operators together, each `Subscribe` call on the resulting `IObservable<T>` results in a cascading series of calls to `Subscribe` all the way down the chain.
 
-A side effect of this cascading `Subscribe` is that `Where` (and most other LINQ operators) is neither inherently _hot_ or _cold_: since it just subscribes to its source, then it will be hot if its source is hot, and cold if its source is cold.
+A side effect of this cascading `Subscribe` is that `Where` (like most other LINQ operators) is neither inherently _hot_ or _cold_: since it just subscribes to its source, then it will be hot if its source is hot, and cold if its source is cold.
 
 The `Where` operator passes on all elements for which its `predicate` callback returns `true`. To be more precise, when you subscribt to `Where`, it will create its own `IObserver<T>` which it passes as the argument to `source.Subscribe`, and this observer invokes the `predicate` for each call to `OnNext`. If that predicate returns `true`, then and only then will the observer created by `Where` call `OnNext` on the observer that you passed to `Where`.
 
@@ -224,14 +224,6 @@ Earlier we saw that Rx implements the standard `Take` operator, which forwards u
 
 `TakeLast` faces the same challenge as `Last`: it doesn't know when it is near the end of the sequence. It therefore has to hold onto copies of the most recently seen values. It needs memory to hold onto however many values you've specified. If you write `TakeLast(1_000_000)`, it will need to allocate a buffer large enough to store 1,000,000 values. It doesn't know if the first element it receives will be one of the final million. It can't know that until either the source completes, or the source has emitted more than 1,000,000 items. When the source finally does complete, `TakeLast` will now know what the final million elements were and will need to pass all of them to its subscriber's `OnNext` method one after another.
 
-### SingleAsync and SingleOrDefaultAsync
-
-LINQ operators typically provide a `Single` operator, for use when a source should provide exactly one item, and it would be an error for it to contain more, or for it to be empty. The same Rx considerations apply here as for `First` and `Last`, so you will probably be unsurprised to learn that Rx offers a `SingleAsync` method that returns an `IObservable<T>` that will either call its observer's `OnNext` exactly once, or will call its `OnError` to indicate either that the source reported an error, or that the source did not produce exactly one item.
-
-With `SingleAsync`, you will get an error if the source is empty, just like with `FirstAsync` and `LastAsync`, but you will also get an error if the source contains multiple items. There is a `SingleOrDefault` which, like its first/last counterparts, tolerates an empty input sequence, generating a single element with the element type's default value in that case.
-
-`Single` and `SingleAsync` share with `Last` and `LastAsync` the characteristic that they don't initially know when they receive an item from the source whether it should be the output. That may seem odd: since `Single` requires the source stream to provide just one item, surely it must know that the item it will deliver to its subscriber will be the first item it receives. This is true, but the thing it doesn't yet know when it receives the first item is whether the source is going to produce a second one. It can't forward the first item unless and until the source completes. We could say that `SingleAsync`'s job is to first verify that the source contains exactly one item, and then to forward that item if it does, but to report an error if it does not. In the error case, `SingleAsync` will know it has gone wrong if it ever receives a second item, so it can immediately call `OnError` on its subscriber at that point. But in the success scenario, it can't know that all is well until the source confirms that nothing more is coming by completing. Only then will `SingleAsync` emit the result.
-
 ### Skip and SkipLast
 
 What if we want the exact opposite of the `Take` or `TakeLast` operators? Instead of taking the first 5 items from a source, maybe I want to discard the first 5 items instead? Perhaps I have some `IObservable<float>` taking readings from a sensor, and I have discovered that the sensor produces garbage values for its first few readings, so I'd like to ignore those, and only start listening once it has settled down. I can achieve this with `Skip(5)`.
@@ -239,6 +231,14 @@ What if we want the exact opposite of the `Take` or `TakeLast` operators? Instea
 `SkipLast` does the same thing at the end of the sequence: it omits the specified number of elements at the tail end. As with some of the other operators we've just been looking at, this has to deal with the problem that it can't tell when it's near the end of the sequence. It only gets to discover which were the last (say) 4 elements after the source has emitted all of them, followed by an `OnComplete`. So `SkipLast` will introduce a delay. If you use `SkipLast(4)`, it won't forward the first element that the source produces until the source produces a 5th element. So it doesn't need to wait for `OnCompleted` or `OnError` before it can start doing things, it just has to wait until its certain that an element is not one of the ones we want to discard.
 
 The other key methods to filtering are so similar I think we can look at them as one big group. First we will look at `Skip` and `Take`. These act just like they do for the `IEnumerable<T>` implementations. These are the most simple and probably the most used of the Skip/Take methods. Both methods just have the one parameter; the number of values to skip or to take.
+
+### SingleAsync and SingleOrDefaultAsync
+
+LINQ operators typically provide a `Single` operator, for use when a source should provide exactly one item, and it would be an error for it to contain more, or for it to be empty. The same Rx considerations apply here as for `First` and `Last`, so you will probably be unsurprised to learn that Rx offers a `SingleAsync` method that returns an `IObservable<T>` that will either call its observer's `OnNext` exactly once, or will call its `OnError` to indicate either that the source reported an error, or that the source did not produce exactly one item.
+
+With `SingleAsync`, you will get an error if the source is empty, just like with `FirstAsync` and `LastAsync`, but you will also get an error if the source contains multiple items. There is a `SingleOrDefault` which, like its first/last counterparts, tolerates an empty input sequence, generating a single element with the element type's default value in that case.
+
+`Single` and `SingleAsync` share with `Last` and `LastAsync` the characteristic that they don't initially know when they receive an item from the source whether it should be the output. That may seem odd: since `Single` requires the source stream to provide just one item, surely it must know that the item it will deliver to its subscriber will be the first item it receives. This is true, but the thing it doesn't yet know when it receives the first item is whether the source is going to produce a second one. It can't forward the first item unless and until the source completes. We could say that `SingleAsync`'s job is to first verify that the source contains exactly one item, and then to forward that item if it does, but to report an error if it does not. In the error case, `SingleAsync` will know it has gone wrong if it ever receives a second item, so it can immediately call `OnError` on its subscriber at that point. But in the success scenario, it can't know that all is well until the source confirms that nothing more is coming by completing. Only then will `SingleAsync` emit the result.
 
 ### Blocking Versions of First/Last/Single[OrDefault]
 
