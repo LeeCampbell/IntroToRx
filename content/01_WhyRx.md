@@ -45,7 +45,7 @@ Rx is designed for processing sequences of events, meaning that it suits some sc
 Rx is well suited to representing events that originate from outside of your code, and which your application needs to respond to, such as:
 
 - Integration events like a broadcast from a message bus, or a push event from WebSockets API, or a message received via MQTT or other low latency middleware like [Azure Event Grid](https://azure.microsoft.com/en-gb/products/event-grid/), [Azure Event Hubs](https://azure.microsoft.com/en-gb/products/event-hubs/) and [Azure Service Bus](https://azure.microsoft.com/en-gb/products/service-bus/), or a non-vendor specific representation such as [cloudevents](https://cloudevents.io/)
-- Reports from monitoring devices such as a flow sensor in a water utility's infrastructure, or the monitoring and diagnostic features in a broadband provider's networking equipment
+- Telemetry from monitoring devices such as a flow sensor in a water utility's infrastructure, or the monitoring and diagnostic features in a broadband provider's networking equipment
 - Location data from mobile systems such as [AIS](https://github.com/ais-dotnet/) messages from ships, or automotive telemetry
 - Operating system events such as filesystem activity, or WMI events
 - Road traffic information, such as notifications of accidents or changes in average speed
