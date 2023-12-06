@@ -280,7 +280,7 @@ IObservable<FileSystemEventArgs> changes = Observable
 watcher.EnableRaisingEvents = true;
 ```
 
-Here we're using the `FromEventPattern` helper from the `System.Reactive` library's `Observable` class, which can be used to build an `IObservable<T>` from any .NET event that conforms the the normal pattern (in which event handlers take two arguments: a sender of type `object`, and then some `EventArgs`-derived type containing information about the event). This is not as flexible as the earlier example. It reports only one of the events, and we have to manually start (and, if necessary stop) the `FileSystemWatcher`. But for some applications that will be good enough, and this is a lot less code to write. If we were aiming to write a fully-featured wrapper for `FileSystemWatcher` suitable for many different scenarios, it might be worth writing a specialized `IObservable<T>` implementation as shown earlier. (We could easily extend this last example to watch all of the events. We'd just use the `FromEventPattern` once for each event, and then use `Observable.Merge` to combine the four resulting observables into one. The only real benefit we're getting from a full custom implementation is that we can automatically start and stop the `FileSystemWatcher` depending on whether there are currently any observers.) But if we just need to represent some events as an `IObservable<T>` so that we can work with them in our application, we can just use this simpler approach.
+Here we're using the `FromEventPattern` helper from the `System.Reactive` library's `Observable` class, which can be used to build an `IObservable<T>` from any .NET event that conforms to the normal pattern (in which event handlers take two arguments: a sender of type `object`, and then some `EventArgs`-derived type containing information about the event). This is not as flexible as the earlier example. It reports only one of the events, and we have to manually start (and, if necessary stop) the `FileSystemWatcher`. But for some applications that will be good enough, and this is a lot less code to write. If we were aiming to write a fully-featured wrapper for `FileSystemWatcher` suitable for many different scenarios, it might be worth writing a specialized `IObservable<T>` implementation as shown earlier. (We could easily extend this last example to watch all of the events. We'd just use the `FromEventPattern` once for each event, and then use `Observable.Merge` to combine the four resulting observables into one. The only real benefit we're getting from a full custom implementation is that we can automatically start and stop the `FileSystemWatcher` depending on whether there are currently any observers.) But if we just need to represent some events as an `IObservable<T>` so that we can work with them in our application, we can just use this simpler approach.
 
 In practice, we almost always get `System.Reactive` to implement `IObservable<T>` for us. Even if we want to take control of certain aspects (such as automatically starting up and shutting down the `FileSystemWatcher` in these examples) we can almost always find a combination of operators that enable this. The following code uses various methods from `System.Reactive` to return an `IObservable<FileSystemEventArgs>` that has all the same functionality as the fully-featured hand-written `RxFsEventsMultiSubscriber` above, but with considerably less code.
 
@@ -333,7 +333,7 @@ I've used a lot of methods there, most of which I've not talked about before. Fo
 
 ## Simple factory methods
 
-Due to the large number of methods available for creating observable sequences, we will break them down into categories. Our first category of methods create `IObservable<T>` sequences produce at most a single result.
+Due to the large number of methods available for creating observable sequences, we will break them down into categories. Our first category of methods create `IObservable<T>` sequences that produce at most a single result.
 
 ### Observable.Return
 
@@ -343,13 +343,13 @@ One of the simplest factory methods is `Observable.Return<T>(T value)`, which yo
 IObservable<string> singleValue = Observable.Return<string>("Value");
 ```
 
-I specified the type parameter for clarity, but this is not necessary as the compiler can inferred the type from argument provided:
+I specified the type parameter for clarity, but this is not necessary as the compiler can infer the type from argument provided:
 
 ```csharp
 IObservable<string> singleValue = Observable.Return("Value");
 ```
 
-`Return` produces a cold observable: each subscriber will receive the value immediately upon subscription.
+`Return` produces a cold observable: each subscriber will receive the value immediately upon subscription. ([Hot and cold observables](02_KeyTypes.md#hot-and-cold-sources) were described in the preceding chapter.)
 
 ### Observable.Empty
 
@@ -373,7 +373,7 @@ IObservable<string> never = Observable.Never<string>();
 
 It might not seem obvious why this could be useful. I gave one possible use in the last chapter: you could use this in a test to simulate a source that wasn't producing any values, perhaps to enable your test to validate timeout logic.
 
-It can also be used in places where we use observables to represent time-based information. Sometimes we don't actually care what emerges from an observable; we might care only _when_ something (anything) happens. (We saw an example of this "observable sequence used purely for timing purposes" concept in the preceding chapter, although `Never` wouldn't make sense in that particular scenario. The `Quiescent` example used the `Buffer` operator, which works over two observable sequences: the first contains the items of interest, and the second is used purely to determine how to cut the first into chunks. `Buffer` doesn't do anything with the values produced by the second observable: it pays attention only to _when_ value emerge, completing the previous chunk each time the second observable produces a value. And if we're representing temporal information it can sometimes be useful to have a way to represent the idea that some event never occurs.)
+It can also be used in places where we use observables to represent time-based information. Sometimes we don't actually care what emerges from an observable; we might care only _when_ something (anything) happens. (We saw an example of this "observable sequence used purely for timing purposes" concept in the preceding chapter, although `Never` wouldn't make sense in that particular scenario. The `Quiescent` example used the `Buffer` operator, which works over two observable sequences: the first contains the items of interest, and the second is used purely to determine how to cut the first into chunks. `Buffer` doesn't do anything with the values produced by the second observable: it pays attention only to _when_ values emerge, completing the previous chunk each time the second observable produces a value. And if we're representing temporal information it can sometimes be useful to have a way to represent the idea that some event never occurs.)
 
 As an example of where you might want to use `Never` for timing purposes, suppose you were using some Rx-based library that offered a timeout mechanism, where an operation would be cancelled when some timeout occurs, and the timeout is itself modelled as an observable sequence. If for some reason you didn't want a timeout, and just want to wait indefinitely, you could specify a timeout of `Observable.Never`.
 
@@ -383,9 +383,6 @@ As an example of where you might want to use `Never` for timing purposes, suppos
 
 ```csharp
 IObservable<string> throws = Observable.Throw<string>(new Exception()); 
-// Behaviorally equivalent to
-var subject = new ReplaySubject<string>(); 
-subject.OnError(new Exception());
 ```
 
 ### Observable.Create
@@ -403,16 +400,17 @@ public static IObservable<TSource> Create<TSource>(
 {...}
 ```
 
-You provide this with a delegate that will be executed each time a subscription is made. Your delegate will be passed an `IObserver<T>`. Logically speaking, this represents the observer passed to the `Subscribe` method, although in practice Rx puts a wrapper around that for various reasons. You can call the `OnNext`/`OnError`/`OnCompleted` methods as you need. This is one of the few scenarios where you will work directly with the `IObserver<T>` interface. Here's a simple example that produces two items:
+You provide this with a delegate that will be executed each time a subscription is made. Your delegate will be passed an `IObserver<T>`. Logically speaking, this represents the observer passed to the `Subscribe` method, although in practice Rx puts a wrapper around that for various reasons. You can call the `OnNext`/`OnError`/`OnCompleted` methods as you need. This is one of the few scenarios where you will work directly with the `IObserver<T>` interface. Here's a simple example that produces three items:
 
 ```csharp
-private IObservable<string> SomeLetters()
+private IObservable<int> SomeNumbers()
 {
-    return Observable.Create<string>(
+    return Observable.Create<int>(
         (IObserver<string> observer) =>
         {
-            observer.OnNext("a");
-            observer.OnNext("b");
+            observer.OnNext(1);
+            observer.OnNext(2);
+            observer.OnNext(3);
             observer.OnCompleted();
 
             return Disposable.Empty;
@@ -446,7 +444,9 @@ IObservable<char> KeyPresses() =>
 
 This illustrates how cancellation won't necessarily take effect immediately. The `Console.ReadKey` API does not offer an overload accepting a `CancellationToken`, so this observable won't be able to detect that cancellation is requested until the user next presses a key, causing `ReadKey` to return.
 
-Bearing in mind that cancellation might have been requested while we were waiting for `ReadKey` to return, you might think we should check for that after `ReadKey` returns and before calling `OnNext`. In fact it doesn't matter if we don't, because Rx ensures that you can't break the rule that says an observable source must not call into an observer after a call to `Dispose` on that observer's subscription returns. This is one reason why the `IObserver<T>` it passes to you is a wrapper: if you continue to call methods on that `IObserver<T>` after a request to unsubscribe, Rx just ignores the calls. This means there are two important things to be aware of: if you _do_ ignore attempts to unsubscribe and continue to do work to produce items, you are just wasting time because nothing will receive those items; if you call `OnError` it's possible that nothing is listening and that the error will be completely ignored.
+Bearing in mind that cancellation might have been requested while we were waiting for `ReadKey` to return, you might think we should check for that after `ReadKey` returns and before calling `OnNext`. In fact it doesn't matter if we don't. Rx has a rule that says an observable source _must not_ call into an observer _after_ a call to `Dispose` on that observer's subscription returns. To enforce that rule, if the callback you pass to `Observable.Create` continues to call methods on its `IObserver<T>` after a request to unsubscribe, Rx just ignores the call. This is one reason why the `IObserver<T>` it passes to you is a wrapper: it can intercept the calls before they are passed to the underlying observer. However, that convenience means there are two important things to be aware of
+1. if you _do_ ignore attempts to unsubscribe and continue to do work to produce items, you are just wasting time because nothing will receive those items
+2. if you call `OnError` it's possible that nothing is listening and that the error will be completely ignored.
 
 There are overloads of `Create` designed to support `async` methods. This next method exploits this to be able to use the asynchronous `ReadLineAsync` method to present lines of text from a file as an observable source.
 
@@ -712,7 +712,7 @@ Once subscribed, you must dispose of your subscription to stop the sequence, bec
 
 ### Observable.Timer
 
-The second factory method for producing constant time based sequences is `Observable.Timer`. It has several overloads. The most basic one takes just a `TimeSpan` as `Observable.Interval` does. The `Observable.Timer` will however only publish one value (the number 0) after the period of time has elapsed, and then it will complete.
+The second factory method for producing constant time based sequences is `Observable.Timer`. It has several overloads. The most basic one takes just a `TimeSpan` as `Observable.Interval` does. But unlike `Observable.Interval`, `Observable.Timer` will publish exactly one value (the number 0) after the period of time has elapsed, and then it will complete.
 
 ```cs
 var timer = Observable.Timer(TimeSpan.FromSeconds(1));
@@ -880,7 +880,7 @@ The downside is that this is a pretty cumbersome bit of code to write. If you've
 
 Not only has that second-class status meant we couldn't just pass the event itself as an argument, it has also meant that we've had to state type arguments explicitly. The relationship between an event's delegate type (`FileSystemEventHandler` in this example) and its event argument type (`FileSystemEventArgs` here) is, in general, not something that C#'s type inference can determine automatically, which is why we've had to specify both types explicitly. (Events that use the generic `EventHandler<T>` type are more amenable to type inference, and can use a slightly less verbose version of `FromEventPattern`. Unfortunately, relatively few events actually use that. Some events provide no information besides the fact that something just happened, and use the base `EventHandler` type, and for those kinds of events, you can in fact omit the type arguments completely, making the code slightly less ugly. You still need to provide the add and remove callbacks though.)
 
-Notice that the return type of `FromEventPattern` in this example is `IObservable<EventPattern<FileSystemEventArgs>>`. The `EventPattern<T>` type encapsulates the information that the event passes to handlers. Most .NET events follow a common pattern in which handler methods take two arguments: an `object sender`, which just tells you which object raised the event (useful if you attach one event handler to multiple objects) and then a second argument of some type derived from `EventArgs` that provides information about the event. `EventPattern<T>` just packages these two arguments into a single object that offers `Sender` and `EventArgs` properties. In cases where you don't in fact want to attach one handler to multiple sources, you only really need that `EventArgs` property, which is why the earlier `FileSystemWatcher` examples went on to extract that just that, to get a simpler result of type `IObservable<FileSystemEventArgs>`. It did this with the `Select` operator, which we'll get to in more detail later:
+Notice that the return type of `FromEventPattern` in this example is `IObservable<EventPattern<FileSystemEventArgs>>`. The `EventPattern<T>` type encapsulates the information that the event passes to handlers. Most .NET events follow a common pattern in which handler methods take two arguments: an `object sender`, which just tells you which object raised the event (useful if you attach one event handler to multiple objects) and then a second argument of some type derived from `EventArgs` that provides information about the event. `EventPattern<T>` just packages these two arguments into a single object that offers `Sender` and `EventArgs` properties. In cases where you don't in fact want to attach one handler to multiple sources, you only really need that `EventArgs` property, which is why the earlier `FileSystemWatcher` examples went on to extract just that, to get a simpler result of type `IObservable<FileSystemEventArgs>`. It did this with the `Select` operator, which we'll get to in more detail later:
 
 ```cs
 IObservable<FileSystemEventArgs> changes = changeEvents.Select(ep => ep.EventArgs);
@@ -890,14 +890,14 @@ It is very common to want to expose property changed events as observable sequen
 
 ### From Task
 
-The `Task` and `Task<T>` types are very widely used in .NET. Mainstream .NET languages have built-in support for working with them (e.g., C#'s `async` and `await` keywords). There's some conceptual overlap between tasks an `IObservable<T>`: both represent some sort of work that might take a while to complete. There is a sense in which an `IObservable<T>` is a generalization of a `Task<T>`: both represent potentially long-running work, but an `IObservable<T>` can produce multiple results whereas `Task<T>` can produce just one.
+The `Task` and `Task<T>` types are very widely used in .NET. Mainstream .NET languages have built-in support for working with them (e.g., C#'s `async` and `await` keywords). There's some conceptual overlap between tasks and `IObservable<T>`: both represent some sort of work that might take a while to complete. There is a sense in which an `IObservable<T>` is a generalization of a `Task<T>`: both represent potentially long-running work, but an `IObservable<T>` can produce multiple results whereas `Task<T>` can produce just one.
 
 Since `IObservable<T>` is the more general abstraction, we should be able to represent a `Task<T>` as an `IObservable<T>`. Rx defines various extension methods for `Task` and `Task<T>` to do this. These methods are all called `ToObservable()`, and it offers various overloads offering control of the details where required, and simplicity for the most common scenarios.
 
 Although they are conceptually similar, `Task<T>` does a few things differently in the details. For example, you can retrieve its [`Status` property](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task.status), which might report that it is in a cancelled or faulted state. `IObservable<T>` doesn't provide a way to ask a source for its state; it just tells you things. So `ToObservable` makes some decisions about how to present status in a way that makes makes sense in an Rx world:
 
-- if the task is [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), `IObservable<T>` invoke a subscriber's `OnError` passing a `TaskCanceledException`
-- if the task is [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted) then the sequence will error with the task's inner exception
+- if the task is [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), `IObservable<T>` invokes a subscriber's `OnError` passing a `TaskCanceledException`
+- if the task is [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted) `IObservable<T>` invokes a subscriber's `OnError` passing the task's inner exception
 - if the task is not yet in a final state (neither [Cancelled](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-canceled), [Faulted](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-faulted), or [RanToCompletion](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.taskstatus#system-threading-tasks-taskstatus-rantocompletion)), the `IObservable<T>` will not produce any notifications until such time as the task does enter one of these final states
 
 It does not matter whether the task is already in a final state at the moment that you call `ToObservable`. If it has finished, `ToObservable` will just return a sequence representing that state. (In fact, it uses either the `Return` or `Throw` creation methods you saw earlier.) If the task has not yet finished, `ToObservable` will attach a continuation to the task to detect the outcome once it does complete.
@@ -996,7 +996,9 @@ public static IObservable<T> ToObservableOversimplified<T>(this IEnumerable<T> s
 }
 ```
 
-This crude implementation conveys the basic idea, but it is naive. It does not attempt to handle unsubscription, and it's not easy to fix that when using `Observable.Create` for this particular scenario. And as we will see later in the book, Rx sources that might try to deliver large numbers of events in quick succession should integrated with Rx's concurrency model. The implementation that Rx supplies does of course cater for all of these tricky details. That makes it rather more complex, but that's Rx's problem; you can think of it as being logically equivalent to the code shown above, but without the shortcomings.
+This crude implementation conveys the basic idea, but it is naive. It does not attempt to handle unsubscription, and it's not easy to fix that when using `Observable.Create` for this particular scenario. And as we will see later in the book, Rx sources that might try to deliver large numbers of events in quick succession should integrate with Rx's concurrency model. The implementation that Rx supplies does of course cater for all of these tricky details. That makes it rather more complex, but that's Rx's problem; you can think of it as being logically equivalent to the code shown above, but without the shortcomings.
+
+In fact this is a recurring theme throughout Rx.NET. Many of the built-in operators are useful not because they do something particularly complicated, but because they deal with many subtle and tricky issues for you. You should always try to find something built into Rx.NET that does what you need before considering rolling your own solution.
 
 When transitioning from `IEnumerable<T>` to `IObservable<T>`, you should carefully consider what you are really trying to achieve. Consider that the blocking synchronous (pull) nature of `IEnumerable<T>` does always not mix well with the asynchronous (push) nature of `IObservable<T>`. As soon as something subscribes to an `IObservable<T>` created in this way, it is effectively asking to iterate over the `IEnumerable<T>`, immediately producing all of the values. The call to `Subscribe` might not return until it has reached the end of the `IEnumerable<T>`, making it similar to the very simple example shown [at the start of this chapter](#a-very-basic-iobservablet-implementation). (I say "might" because as we'll see when we get to schedulers, the exact behaviour depends on the context.) `ToObservable` can't work magic—something somewhere has to execute what amounts to a `foreach` loop.
 
@@ -1152,7 +1154,7 @@ Sub1: 3
 Sub2: 3
 ```
 
-There's an obvious potential problem here: if `ReplaySubject<T>` remembers every value published to it, we mustn't use with endless event sources, because it will eventually cause us to run out of memory.
+There's an obvious potential problem here: if `ReplaySubject<T>` remembers every value published to it, we mustn't use it with endless event sources, because it will eventually cause us to run out of memory.
 
 `ReplaySubject<T>` offers constructors that accept simple cache expiry settings that can limit memory consumption. One option is to specify the maximum number of item to remember. This next example creates a `ReplaySubject<T>` with a buffer size of 2:
 
@@ -1197,7 +1199,7 @@ Similarly, if you call `OnError`, all current observers will receive an `OnError
 
 ## `AsyncSubject<T>`
 
-`AsyncSubject<T>` provides all observers with the final value it receives. Since it can't know which is the final value until `OnCompleted` is called, it will not invoke any methods on any of its subscribers until either its `OnCompleted` or `OnError` method is called. (If `OnError` is called, it just forwards that to all current and future subscribers.)
+`AsyncSubject<T>` provides all observers with the final value it receives. Since it can't know which is the final value until `OnCompleted` is called, it will not invoke any methods on any of its subscribers until either its `OnCompleted` or `OnError` method is called. (If `OnError` is called, it just forwards that to all current and future subscribers.) You will often use this subject indirectly, because it is the basis of [Rx's integration with the `await` keyword](13_LeavingIObservable.md#integration-with-async-and-await). (When you `await` an observable sequence, the `await` returns the final value emitted by the source.)
 
 If no calls were made to `OnNext` before `OnCompleted` then there was no final value, so it will just complete any observers without providing a value.
 
