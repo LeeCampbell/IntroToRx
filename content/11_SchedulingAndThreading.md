@@ -430,7 +430,7 @@ Unlike the schedulers we've examined so far, there is no static property for obt
 
 ```cs
 public EventLoopScheduler()
-public EventLoopScheduler(Func&lt;ThreadStart, Thread> threadFactory)
+public EventLoopScheduler(Func<ThreadStart, Thread> threadFactory)
 ```
 
 The first creates a thread for you. The second lets you control the thread creation process. It invokes the callback you supply, and it will pass this its own callback that you are required to run on the newly created thread.
