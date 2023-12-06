@@ -95,7 +95,7 @@ Extra special thanks to the team at Microsoft that did the hard work and brought
 
 If you are interested in more information about the origins of Rx, you might the "A Little History of Reaqtor" at the https://reaqtive.net/ site illuminating.
 
-The version that this book has been written against is `System.Reactive` version 6.0. The source for this book can be found at [https://github.com/dotnet/reactive/tree/main/Rx.NET/Documentation/IntroToRx](https://github.com/dotnet/reactive/tree/main/Rx.NET/Documentation/IntroToRx). If you find any bugs or other issues in this book, please post an issue at https://github.com/dotnet/reactive/.
+The version that this book has been written against is `System.Reactive` version 6.0. The source for this book can be found at [https://github.com/dotnet/reactive/tree/main/Rx.NET/Documentation/IntroToRx](https://github.com/dotnet/reactive/tree/main/Rx.NET/Documentation/IntroToRx). If you find any bugs or other issues in this book, please post an issue at https://github.com/dotnet/reactive/. You might find the [Reactive X slack](reactivex.slack.com) to be a useful resource if you start using Rx.NET in earnest.
 
 So, fire up Visual Studio and let's get started.
 
