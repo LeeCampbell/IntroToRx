@@ -10,7 +10,7 @@ Rx can split a single sequence into multiple sequences. This can be useful for d
 
 The `GroupBy` operator allows you to partition your sequence just as `IEnumerable<T>`'s `GroupBy` operator does. Once again, the open source [Ais.Net project](https://github.com/ais-dotnet) can provide a useful example. Its [`ReceiverHost` class](https://github.com/ais-dotnet/Ais.Net.Receiver/blob/15de7b2908c3bd67cf421545578cfca59b24ed2c/Solutions/Ais.Net.Receiver/Ais/Net/Receiver/Receiver/ReceiverHost.cs) makes AIS messages available through Rx, defining a `Messages` property of type `IObservable<IAisMessage>`. This is a very busy source, because it reports every message it is able to access. For example, if you connect the receiver to the AIS message source generously provided by the Norwegian government, it produces a notification every time _any_ ship broadcasts an AIS message anywhere on the Norwegian coast. There are a lot of ships moving around Norway, so this is a bit of a firehose.
 
-If we know exactly which ships we're interested in, you saw how to filter this stream in the [Filtering chapter](05_Filtering.md). But what if we don't, and yet we still want to be able to perform processing relating to individual ships? For example, perhaps we'd like to discover any time any ship changes its `NavigationStatus` (which reports values such as `AtAnchor`, or `Moored`). The [`Distinct` and `DistinctUntilChanged` section of the Filtering chapter](05_Filtering.md#distinct-and-distinctuntilchanged) showed how to do exactly that, but it began by filtering the stream down to message from a single ship. If we tried to use `DistinctUntilChanged` directly on the all-ships stream it will not produce meaningful information. If ship A is moored and ship B is at anchor, and if we receive alternative status messages from ship A and ship B, `DistinctUntilChanged` would report each message as a change in status, even though neither ship's status has changed.
+If we know exactly which ships we're interested in, you saw how to filter this stream in the [Filtering chapter](05_Filtering.md). But what if we don't, and yet we still want to be able to perform processing relating to individual ships? For example, perhaps we'd like to discover any time any ship changes its `NavigationStatus` (which reports values such as `AtAnchor`, or `Moored`). The [`Distinct` and `DistinctUntilChanged` section of the Filtering chapter](05_Filtering.md#distinct-and-distinctuntilchanged) showed how to do exactly that, but it began by filtering the stream down to messages from a single ship. If we tried to use `DistinctUntilChanged` directly on the all-ships stream it will not produce meaningful information. If ship A is moored and ship B is at anchor, and if we receive alternative status messages from ship A and ship B, `DistinctUntilChanged` would report each message as a change in status, even though neither ship's status has changed.
 
 We can fix this by splitting the "all the ships" sequence into lots of little sequences:
 
@@ -46,7 +46,7 @@ IObservable<IObservable<IAisMessageType1to3>> shipStatusChangeObservables =
         .Skip(1));
 ```
 
-This uses [`Select`](06_Transformation.md#select) (introduced in the Transformation chapter) to apply processing to each group that comes out of `perShipObservables`. Remember, each such group represents a distinct ship, so the callback we've passed to `Select` here will be invoked exactly once for each ship. This means it's now fine for us to use `DistinctUntilChanged`. The input this example supplies to `DistinctUntilChanged` is a sequence representing the messages from just one ship, so this will tell us when that ship changes its status. This is now able to do what we want because each ship gets its own instance of `DistinctUntilChanged`.
+This uses [`Select`](06_Transformation.md#select) (introduced in the Transformation chapter) to apply processing to each group that comes out of `perShipObservables`. Remember, each such group represents a distinct ship, so the callback we've passed to `Select` here will be invoked exactly once for each ship. This means it's now fine for us to use `DistinctUntilChanged`. The input this example supplies to `DistinctUntilChanged` is a sequence representing the messages from just one ship, so this will tell us when that ship changes its status. This is now able to do what we want because each ship gets its own instance of `DistinctUntilChanged`. `DistinctUntilChanged` always forwards the first event it receives—it only drops items when they are the same as the preceding item, and there is no preceding item in this case. But that is unlikely to be the right behaviour here. Suppose that the first message we see from some vessel named `A` reports a status of `Moored`. It's possible that immediately before we started running, it was in some different state, and that the very first report we received happened to represent a change in status. But it's more likely that it has been moored for some time before we started. We can't tell for certain, but the majority of status reports don't represent a change, so `DistinctUntilChanged`'s behaviour of always forwarding the first event is likely to be wrong here. So we use `Skip(1)` to drop the first message from each ship.
 
 At this point we have an observable sequence of observable sequences. The outer sequence produces a nested sequence for each distinct ship that it sees, and that nested sequence will report `NavigationStatus` changes for that particular ship.
 
@@ -64,50 +64,59 @@ I've replaced `Select` with [`SelectMany`, also described in the Transformation 
 
 Wait a second! Haven't I just undone the work that `GroupBy` did? I asked it to partition the events by vessel id, so why am I now recombining it back into a single, flat stream? Isn't that what I started with?
 
-It's true that the stream type has the same shape as my original input: this will be a single observable sequence of AIS messages. (It's a little more specialized—the element type is `IAisMessageType1to3`, because that's where I can get `NavigationStatus` from, but these all still implement `IAisMessage`.) And all the different vessels will be mixed together in this one stream. But I've not actually negated the work that `GroupBy` did. A quick look at some output shows that this is very different from the raw `receiverHost.Messages`. First, I need to attach a subscriber:
+It's true that the stream type has the same shape as my original input: this will be a single observable sequence of AIS messages. (It's a little more specialized—the element type is `IAisMessageType1to3`, because that's where I can get `NavigationStatus` from, but these all still implement `IAisMessage`.) And all the different vessels will be mixed together in this one stream. But I've not actually negated the work that `GroupBy` did. This marble diagram illustrates what's going on:
+
+
+![A marble diagram showing how an input observable named receiverHost.Messages is expanded into groups, processed, and then collapsed back into a single source. The input observable shows events from three different ships, 'A', 'B', and 'C'. Each event is labelled with the ship's reported status. All the messages from A report a status of Moored. B makes two AtAnchor status reports, followed by two UnderwayUsingEngine reports. C reports UnderwaySailing twice, then AtAnchor, and then UnderwaySailing again. The events from the three ships are intermingled—the order on the input line goes A, B, C, B, A, C, B, C, C, B, A. The next section is labelled as perShipObservables, and this shows the effect of grouping the events by vessel. The first line shows only the events from A, the second those from B, and the third those from C. The next section is laballed with the processing code from the preceding example, and shows three more observables, corresponding to the three groups in the preceding part of the diagram. But in this one, the source for A shows no events at all. The second line shows a single event for B, the first one where it reported UnderwayUsingEngine. And it shows two for C: the one where it reported AtAnchor, and then the one after that where it reported UnderwaySailing. The final line of the diagram is a single source, combining the events just described in the preceding section of the diagram.](GraphicsIntro/Ch08-Partitioning-Marbles-Status-Changes.svg)
+
+The `perShipObservables` section shows how `GroupBy` creates a separate observable for each distinct vessel. (This diagram shows three vessels, named `A`, `B`, and `C`. With the real source, there would be a lot more observables coming out of `GroupBy`, but the principle remains the same.) We do a bit of work on these group streams before flattening them. As already described, we use `DistinctUntilChanged` and `Skip(1)` to ensure we only produce an event when we know for certain that a vessel's status has changed. (Since we only ever saw `A` reporting a status of `Moored`, then as far as we know its status never changed, which is why its stream is completely empty.) Only then do we flatten it back into a single observable sequence.
+
+Marble diagrams need to be simple to fit on a page, so let's now take a quick look at some real output. This confirms that this is very different from the raw `receiverHost.Messages`. First, I need to attach a subscriber:
 
 ```cs
 shipStatusChanges.Subscribe(m =>
-    Console.WriteLine($"Ship {((IAisMessage)m).Mmsi} changed status to {m.NavigationStatus} at {DateTimeOffset.UtcNow}"));
+    Console.WriteLine($"Vessel {((IAisMessage)m).Mmsi} changed status to {m.NavigationStatus} at {DateTimeOffset.UtcNow}"));
 ```
 
 If I then let the receiver run for about ten minutes, I see this output:
 
 ```
-Ship 257076860 changed status to UnderwayUsingEngine at 23/06/2023 06:42:48 +00:00
-Ship 257006640 changed status to UnderwayUsingEngine at 23/06/2023 06:43:08 +00:00
-Ship 259005960 changed status to UnderwayUsingEngine at 23/06/2023 06:44:23 +00:00
-Ship 259112000 changed status to UnderwayUsingEngine at 23/06/2023 06:44:33 +00:00
-Ship 259004130 changed status to Moored at 23/06/2023 06:44:43 +00:00
-Ship 257076860 changed status to NotDefined at 23/06/2023 06:44:53 +00:00
-Ship 258024800 changed status to Moored at 23/06/2023 06:45:24 +00:00
-Ship 258006830 changed status to UnderwayUsingEngine at 23/06/2023 06:46:39 +00:00
-Ship 257428000 changed status to Moored at 23/06/2023 06:46:49 +00:00
-Ship 257812800 changed status to Moored at 23/06/2023 06:46:49 +00:00
-Ship 257805000 changed status to Moored at 23/06/2023 06:47:54 +00:00
-Ship 259366000 changed status to UnderwayUsingEngine at 23/06/2023 06:47:59 +00:00
-Ship 257076860 changed status to UnderwayUsingEngine at 23/06/2023 06:48:59 +00:00
-Ship 257020500 changed status to UnderwayUsingEngine at 23/06/2023 06:50:24 +00:00
-Ship 257737000 changed status to UnderwayUsingEngine at 23/06/2023 06:50:39 +00:00
-Ship 257076860 changed status to NotDefined at 23/06/2023 06:51:04 +00:00
-Ship 259366000 changed status to Moored at 23/06/2023 06:51:54 +00:00
-Ship 232026676 changed status to Moored at 23/06/2023 06:51:54 +00:00
-Ship 259638000 changed status to UnderwayUsingEngine at 23/06/2023 06:52:34 +00:00
+Vessel 257076860 changed status to UnderwayUsingEngine at 23/06/2023 06:42:48 +00:00
+Vessel 257006640 changed status to UnderwayUsingEngine at 23/06/2023 06:43:08 +00:00
+Vessel 259005960 changed status to UnderwayUsingEngine at 23/06/2023 06:44:23 +00:00
+Vessel 259112000 changed status to UnderwayUsingEngine at 23/06/2023 06:44:33 +00:00
+Vessel 259004130 changed status to Moored at 23/06/2023 06:44:43 +00:00
+Vessel 257076860 changed status to NotDefined at 23/06/2023 06:44:53 +00:00
+Vessel 258024800 changed status to Moored at 23/06/2023 06:45:24 +00:00
+Vessel 258006830 changed status to UnderwayUsingEngine at 23/06/2023 06:46:39 +00:00
+Vessel 257428000 changed status to Moored at 23/06/2023 06:46:49 +00:00
+Vessel 257812800 changed status to Moored at 23/06/2023 06:46:49 +00:00
+Vessel 257805000 changed status to Moored at 23/06/2023 06:47:54 +00:00
+Vessel 259366000 changed status to UnderwayUsingEngine at 23/06/2023 06:47:59 +00:00
+Vessel 257076860 changed status to UnderwayUsingEngine at 23/06/2023 06:48:59 +00:00
+Vessel 257020500 changed status to UnderwayUsingEngine at 23/06/2023 06:50:24 +00:00
+Vessel 257737000 changed status to UnderwayUsingEngine at 23/06/2023 06:50:39 +00:00
+Vessel 257076860 changed status to NotDefined at 23/06/2023 06:51:04 +00:00
+Vessel 259366000 changed status to Moored at 23/06/2023 06:51:54 +00:00
+Vessel 232026676 changed status to Moored at 23/06/2023 06:51:54 +00:00
+Vessel 259638000 changed status to UnderwayUsingEngine at 23/06/2023 06:52:34 +00:00
 ```
 
 The critical thing to understand here is that in the space of ten minutes, `receiverHost.Messages` produced _thousands_ of messages. (The rate varies by time of day, but it's typically over a thousand messages a minute. The code would have processed roughly ten thousand messages when I ran it to produce that output.) But as you can see, `shipStatusChanges` produced just 19 messages.
 
-This shows how Rx can tame high volume event sources in ways that are much more powerful than mere aggregation. We've not just reduced the data down to some statistical measure that can only provide an overview. Statistical measures such as averages or variance wouldn't be able to tell us anything about any particular ship. But here, every message tells us something about a particular ship. We've been able to retain that level of detail, despite the fact that we are looking at every ship. We've been able to instruct Rx to tell us any time any ship changes its status.
+This shows how Rx can tame high volume event sources in ways that are much more powerful than mere aggregation. We've not just reduced the data down to some statistical measure that can only provide an overview. Statistical measures such as averages or variance are often very useful, but they aren't always able to provide us with the domain-specific insights we want. They wouldn't be able to tell us anything about any particular ship for example. But here, every message tells us something about a particular ship. We've been able to retain that level of detail, despite the fact that we are looking at every ship. We've been able to instruct Rx to tell us any time any ship changes its status.
 
 It may seem like I'm making too big a deal of this, but it took so little effort to achieve this result that it can be easy to miss just how much work Rx is doing for us here. This code does all of the following:
 
 - monitors every single ship operating in Norwegian waters
 - provides per-ship information
-- reports events at a rate that a human could reasonable cope with
+- reports events at a rate that a human could reasonably cope with
 
 It can take thousands of messages and perform the necessary processing to find the handful that really matter to us.
 
 This is an example of the "fanning out, and then back in again" technique I described in ['The Significance of SelectMany' in the Transformation chapter](06_Transformation.md#the-significance-of-selectmany). This code uses `GroupBy` to fan out from a single observable to multiple observables. The key to this step is to create nested observables that provide the right level of detail for the processing we want to do. In this example that level of detail was "one specific ship" but it wouldn't have to be. You could imagine wanting to group messages by region—perhaps we're interesting in comparing different ports, so we'd want to partition the source based on whichever port a vessel is closest to, or perhaps by its destination port. (AIS provides a way for vessels to broadcast their intended destination.) Having partitioned the data by whatever criteria we require, we then define the processing to be applied for each group. In this case, we just watched for changes to `NavigationStatus`. This step will typically be where the reduction in volume happens. For example, most vessels will only change their `NavigationStatus` a few times a day at most. Having then reduced the notification stream to just those events we really care about, we can combine it back into a single stream that provides the high-value notifications we want.
+
+This power comes at a cost, of course. It didn't take much code to get Rx to do this work for us, but we're causing it to work reasonably hard: it needs to remember every ship it has seen so far, and to maintain an observable source for each one. If our data source has broad enough reach to receive messages from tens of thousands of vessel, Rx will need to maintain tens of thousands of observable sources, one for each vessel. The example shown has nothing resembling an inactivity timeout—a vessel broadcasting even a single message will be remembered for as long as the program runs. (A malicious actor fabricating AIS messages each with a different made up identifier would eventually cause this code to crash by running out of memory.) Depending on your data sources you might need to take steps to avoid unbounded growth of memory usage, so real examples can become more complex than this, but the basic approach is powerful.
 
 Now that we've seen an example, let's look at `GroupBy` in a bit more detail. It comes in a few different flavours. We just used this overload:
 
@@ -145,7 +154,7 @@ public static IObservable<IGroupedObservable<TKey, TElement>> GroupBy<TSource, T
 
 This is functionally equivalent to using the `Select` operator after `GroupBy`.
 
-By the way, when using `GroupBy` you might be tempted `Subscribe` directly to the nested observables:
+By the way, when using `GroupBy` you might be tempted to `Subscribe` directly to the nested observables:
 
 ```cs
 // Don't do it this way. Use the earlier example.
@@ -327,7 +336,7 @@ The `timeSpan` determines the length of time covered by each window, and the `ti
 
 ## Window
 
-The `Window` operator is very similar to the `Buffer`. It can split the input into chunks based either on element count or time, and it also offers support for overlapping windows. However, it has a different return type. Whereas using `Buffer` on an `IObservable<T>` will return an `IObservable<IList<T>>`, `Window` will return an `IObservable<IObservable<T>>`. This means that `Window` doesn't have to wait until it has filled a complete buffer before producing anything.
+The `Window` operator is very similar to the `Buffer`. It can split the input into chunks based either on element count or time, and it also offers support for overlapping windows. However, it has a different return type. Whereas using `Buffer` on an `IObservable<T>` will return an `IObservable<IList<T>>`, `Window` will return an `IObservable<IObservable<T>>`. This means that `Window` doesn't have to wait until it has filled a complete buffer before producing anything. You could say that `Window` more fully embraces the reactive paradigm than `Buffer`. Then again after some experience you might conclude that `Window` is harder to use than `Buffer` but is very rarely any more useful in practice.
 
 Because `Buffer` returns an `IObservable<IList<T>>`, it can't produce a chunk until it has all of the elements that will go into that chunk. `IList<T>` supports random access—you can ask it how many elements it has, and you can retrieve any element by numeric index, and we expect these operations to complete immediately. (It would be technically possible to write an implementation of `IList<T>` representing as yet unreceived data, and to make its `Count` and indexer properties block if you try to use them before that data is available, but this would be a strange thing to do. Developers expect lists to return information immediately, and the lists produced by Rx's `Buffer` meet that expectation.) So if you write, say, `Buffer(4)`, it can't produce anything until it has all 4 items that will constitute the first chunk.
 
