@@ -74,29 +74,23 @@ generously allowed the Rx.NET project to make use of his content, enabling this
 new edition to come into existence.
 
 I would also like to recognize the people that made this book
-possible. Crucial to the first edition of the book, in addition to the author, [Lee Campbell](https://leecampbell.com/), were: 
-[James Miles](http://enumeratethis.com/), 
-[Matt Barrett](http://weareadaptive.com/blog/), 
+possible.
+Thanks to everyone at [endjin](endjin.com) and especially [Howard van Rooijen](https://endjin.com/who-we-are/our-people/howard-van-rooijen/) and [Matthew Adams](https://endjin.com/who-we-are/our-people/matthew-adams/)
+for funding not only the updates to this book, but also the ongoing development of Rx.NET itself.
+(And thanks for employing me too!). Thanks also to [Felix Corke](https://www.linkedin.com/in/blackspike/) for his work on the design elements of the web edition of the book. Crucial to the first edition of the book, in addition to the author, [Lee Campbell](https://leecampbell.com/), were: 
+James Miles, Matt Barrett, 
 [John Marks](http://johnhmarks.wordpress.com/), 
 Duncan Mole, 
 Cathal Golden, 
-[Keith Woods](http://keith-woods.com), 
-[Ray Booysen](http://nondestructiveme.com) &amp; [Olivier DeHeurles](http://odeheurles.com/),
+Keith Woods, 
+Ray Booysen, Olivier DeHeurles,
 [Matt Davey](http://mdavey.wordpress.com), [Joe Albahari](http://www.albahari.com/) 
 and Gregory Andrien.
 Extra special thanks to the team at Microsoft that did the hard work and brought us Rx; 
-[Jeffrey Van Gogh](http://blogs.msdn.com/b/jeffva/), 
-[Wes Dyer](http://blogs.msdn.com/b/wesdyer/), 
-[Erik Meijer](http://www.applied-duality.com/) &amp; 
-[Bart De Smet](http://blogs.bartdesmet.net/bart/). 
-For this, the second edition of the book, thanks again to Lee Campbell for allowing us to update his content.
-Thanks to everyone at [endjin](endjin.com) and especially [Howard van Rooijen](https://endjin.com/who-we-are/our-people/howard-van-rooijen/) and [Matthew Adams](https://endjin.com/who-we-are/our-people/matthew-adams/)
-for funding not only the updates to this book, but also the ongoing development of Rx.NET itself.
-(And thanks for employing me too!)
-
-The content of the first edition of this book was originally posted as a series of blog posts at 
-[http://LeeCampbell.blogspot.com](http://leecampbell.blogspot.co.uk/2010/08/reactive-extensions-for-net.html)
-and proved popular enough that Lee reproduced as an e-book. 
+[Jeffrey Van Gogh](https://www.linkedin.com/in/jeffrey-van-gogh-145673/), 
+[Wes Dyer](https://www.linkedin.com/in/wesdyer/), 
+[Erik Meijer](https://en.wikipedia.org/wiki/Erik_Meijer_%28computer_scientist%29) &amp; 
+[Bart De Smet](https://www.linkedin.com/in/bartdesmet/). 
 
 The version that this book has been written against is `System.Reactive` version 6.0.
 
