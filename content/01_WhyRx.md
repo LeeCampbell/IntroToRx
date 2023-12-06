@@ -91,7 +91,7 @@ Earlier, I mentioned _offloading_: using Rx to push work onto other threads. Alt
 
 Rx's `IObservable<T>` is not a replacement for `IEnumerable<T>` or `IAsyncEnumerable<T>`. It would be a mistake to take something that is naturally pull based and force it to be push based.
 
-Also, there are some situations in which the simplicity of Rx's programming model can work against you. For example, some message queuing technologies such as MSMQ are by definition sequential, and thus might look like a good fit for Rx. However, they are often chosen for their transaction handling support. Rx does not have any direct way to surface transaction semantics, so in scenarios that require this you might be better off just working directly with the relevant technology's API.
+Also, there are some situations in which the simplicity of Rx's programming model can work against you. For example, some message queuing technologies such as MSMQ are by definition sequential, and thus might look like a good fit for Rx. However, they are often chosen for their transaction handling support. Rx does not have any direct way to surface transaction semantics, so in scenarios that require this you might be better off just working directly with the relevant technology's API. (That said, [Reaqtor](https://reaqtive.net/) adds durability and persistence to Rx, so you might be able to use that to integrate these kinds of queueing systems with Rx.)
 
 By choosing the best tool for the job your code should be easier to maintain, it will likely provide better performance and you will probably get better support.
 
