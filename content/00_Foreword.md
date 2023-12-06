@@ -90,7 +90,9 @@ Extra special thanks to the team at Microsoft that did the hard work and brought
 [Jeffrey Van Gogh](https://www.linkedin.com/in/jeffrey-van-gogh-145673/), 
 [Wes Dyer](https://www.linkedin.com/in/wesdyer/), 
 [Erik Meijer](https://en.wikipedia.org/wiki/Erik_Meijer_%28computer_scientist%29) &amp; 
-[Bart De Smet](https://www.linkedin.com/in/bartdesmet/). 
+[Bart De Smet](https://www.linkedin.com/in/bartdesmet/).
+
+If you are interested in more information about the origins of Rx, you might the "A Little History of Reaqtor" at the https://reaqtive.net/ site illuminating.
 
 The version that this book has been written against is `System.Reactive` version 6.0.
 
