@@ -297,7 +297,7 @@ IObservable<FileSystemEventArgs> ObserveFileSystem(string folder)
 
                 return Observable.Return(fsw);
             })
-        // Once the preceding parts emits the FileSystemWatcher
+        // Once the preceding part emits the FileSystemWatcher
         // (which will happen when someone first subscribes), we
         // want to wrap all the events as IObservable<T>s, for which
         // we'll use a projection. To avoid ending up with an
