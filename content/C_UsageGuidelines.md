@@ -11,7 +11,7 @@ This is a list of quick guidelines intended to help you when writing Rx queries.
 - Always provide an `OnError` handler.
 - Avoid blocking operators such as `First`, `FirstOrDefault`, `Last`, `LastOrDefault`, `Single`, `SingleOrDefault` and `ForEach`.; use the non-blocking alternative such as `FirstAsync`.
 - Avoid switching back and forth between `IObservable<T>` and `IEnumerable<T>`
-- Favor lazy evaluation over eager evaluation.
+- Favour lazy evaluation over eager evaluation.
 - Break large queries up into parts. Key indicators of a large query:
     1. nesting
     2. over 10 lines of query expression syntax
@@ -20,7 +20,7 @@ This is a list of quick guidelines intended to help you when writing Rx queries.
 - Avoid creating side effects. If you really can't avoid it, don't bury the side effects in callbacks for operators designed to be use functionally such as `Select` or `Where`. be explicit by using the `Do` operator.
 - Where possible, prefer `Observable.Create` to subjects as a means of defining new Rx sources.
 - Avoid creating your own implementations of the `IObservable<T>` interface. Use `Observable.Create` (or subjects if you really need to).
-- Avoid creating your own implementations of the `IObserver<T>` interface. Favor using the `Subscribe` extension method overloads instead.
+- Avoid creating your own implementations of the `IObserver<T>` interface. Favour using the `Subscribe` extension method overloads instead.
 - The application should define the concurrency model.
     - If you need to schedule deferred work, use schedulers
 	- The `SubscribeOn` and `ObserveOn` operators should always be right before a `Subscribe` method. (So don't sandwich it, e.g. `source.SubscribeOn(s).Where(x => x.Foo)`.)
