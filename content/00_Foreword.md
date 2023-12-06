@@ -8,10 +8,10 @@ By Ian Griffiths and Lee Campbell
 ---
 
 Reactive programming is not a new concept. Any kind of user interface development
-necessary involves code that responds to events. Languages like Smalltalk, Delphi
+necessarily involves code that responds to events. Languages like [Smalltalk](https://en.wikipedia.org/wiki/Smalltalk), [Delphi](https://en.wikipedia.org/wiki/Delphi_(software))
 and the .NET languages have popularized reactive or event-driven programming paradigms.
-Architectural patterns such as CEP (Complex Event Processing), and
-CQRS (Command Query Responsibility Segregation) have events as a fundamental part
+Architectural patterns such as [CEP (Complex Event Processing)](https://en.wikipedia.org/wiki/Complex_event_processing), and
+[CQRS (Command Query Responsibility Segregation)](https://en.wikipedia.org/wiki/Command_Query_Responsibility_Segregation) have events as a fundamental part
 of their makeup. Reactive programming is a useful concept in any program that has
 to deal with things happening.
 
@@ -20,15 +20,15 @@ to deal with things happening.
 
 The event driven paradigm allows for code to be invoked without the need for breaking
 encapsulation or applying expensive polling techniques. There are many common ways to implement this, including
-the Observer pattern, events exposed directly in the language (e.g. C#) or
+the [Observer pattern](https://en.wikipedia.org/wiki/Observer_pattern), [events exposed directly in the language (e.g. C#)](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/events/) or
 other forms of callback via delegate registration. The Reactive Extensions extend
 the callback metaphor with LINQ to enable querying sequences of events and managing
 concurrency.
 
 The .NET runtime libraries have included the `IObservable<T>` and
-`IObserver<T>` interfaces that representing the core concept of reactive programming
-for well over a decade now. The Reactive Extensions for .NET are effectively a library of implementations of these
-interfaces. Rx.NET implementation first appeared
+`IObserver<T>` interfaces that represent the core concept of reactive programming
+for well over a decade now. The Reactive Extensions for .NET (Rx.NET) are effectively a library of implementations of these
+interfaces. Rx.NET first appeared
 back in 2010 but since then, Rx libraries have become available for other languages, and this way of programming has become
 especially popular in JavaScript.
 
@@ -94,7 +94,7 @@ Extra special thanks to the team at Microsoft that did the hard work and brought
 
 If you are interested in more information about the origins of Rx, you might the "A Little History of Reaqtor" at the https://reaqtive.net/ site illuminating.
 
-The version that this book has been written against is `System.Reactive` version 6.0.
+The version that this book has been written against is `System.Reactive` version 6.0. The source for this book can be found at [https://github.com/dotnet/reactive/tree/main/Rx.NET/Documentation/IntroToRx](https://github.com/dotnet/reactive/tree/main/Rx.NET/Documentation/IntroToRx). If you find any bugs or other issues in this book, please post an issue at https://github.com/dotnet/reactive/.
 
 So, fire up Visual Studio and let's get started.
 
