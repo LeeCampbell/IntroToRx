@@ -47,9 +47,9 @@
   <line class="i" x1="162.44" y1="88.36" x2="162.44" y2="123.37"/>
   <line id="b" data-name="source line" class="i" x1="162.6" y1="25.84" x2="284.02" y2="25.84"/>
   <line id="c" data-name="source line" class="i" x1="162.76" y1="105.87" x2="405.53" y2="105.87"/>
-  <text class="h" transform="translate(29.25 20.63)"><tspan class="e" x="0" y="0">Concat</tspan><tspan class="n" x="39.59" y="0" xml:space="preserve"> subsc</tspan><tspan class="l" x="70.45" y="0">r</tspan><tspan class="n" x="74.42" y="0">iption</tspan><tspan class="m" x="0" y="14.4">t</tspan><tspan class="n" x="3.9" y="14.4">o </tspan><tspan class="e" x="13.03" y="14.4">hot:</tspan></text>
-  <text class="h" transform="translate(29.25 65.03)"><tspan class="e" x="0" y="0">Concat</tspan><tspan class="n" x="39.59" y="0" xml:space="preserve"> subsc</tspan><tspan class="l" x="70.45" y="0">r</tspan><tspan class="n" x="74.42" y="0">iption</tspan><tspan class="m" x="0" y="14.4">t</tspan><tspan class="n" x="3.9" y="14.4">o </tspan><tspan class="e" x="13.03" y="14.4">hot:</tspan></text>
-  <text class="f" transform="translate(28.07 109.62)"><tspan x="0" y="0">cold.Concat(hot):</tspan></text>
+  <text class="h" transform="translate(29.25 20.63)"><tspan class="e" x="0" y="0">Concat</tspan><tspan class="n" x="39.59" y="0" xml:space="preserve"> subsc</tspan><tspan class="l" x="70.45" y="0">r</tspan><tspan class="n" x="74.42" y="0">iption</tspan><tspan class="m" x="0" y="14.4">t</tspan><tspan class="n" x="3.9" y="14.4">o </tspan><tspan class="e" x="13.03" y="14.4">cold:</tspan></text>
+  <text class="h" transform="translate(29.25 65.03)"><tspan class="e" x="0" y="0">Concat</tspan><tspan class="n" x="39.59" y="0" xml:space="preserve"> subsc</tspan><tspan class="l" x="70.45" y="0">r</tspan><tspan class="n" x="74.42" y="0">iption</tspan><tspan class="m" x="0" y="14.4">t</tspan><tspan class="n" x="3.9" y="14.4">o </tspan><tspan class="e" x="13.03" y="14.4">cold:</tspan></text>
+  <text class="f" transform="translate(28.07 109.62)"><tspan x="0" y="0">cold.Concat(cold):</tspan></text>
   <line class="i" x1="162.6" y1="8.33" x2="162.6" y2="43.34"/>
   <line class="i" x1="284.02" y1="8.33" x2="284.02" y2="43.34"/>
   <g>

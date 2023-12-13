@@ -34,10 +34,6 @@
       .s {
         fill: #8bffbc;
       }
-
-      .v {
-        letter-spacing: 0em;
-      }
     </style>
   </defs>
   <line class="q" x1="168.47" y1="233.01" x2="168.47" y2="268.02"/>
@@ -105,51 +101,51 @@
   <line class="q" x1="407.99" y1="97.08" x2="407.99" y2="106.65"/>
   <g>
     <circle class="p" cx="242.57" cy="250.52" r="13.56"/>
-    <text class="u" transform="translate(233.88 254.06)"><tspan x="0" y="0">0,A</tspan></text>
+    <text class="u" transform="translate(238.97 254.06)"><tspan x="0" y="0">A</tspan></text>
   </g>
   <g>
     <circle class="p" cx="242.57" cy="297.85" r="13.56"/>
-    <text class="u" transform="translate(233.88 301.39)"><tspan x="0" y="0">1,A</tspan></text>
+    <text class="u" transform="translate(238.97 301.39)"><tspan x="0" y="0">A</tspan></text>
   </g>
   <g>
     <circle class="p" cx="336.25" cy="250.52" r="13.56"/>
-    <text class="u" transform="translate(327.62 254.06)"><tspan x="0" y="0">0,B</tspan></text>
+    <text class="u" transform="translate(332.72 254.06)"><tspan x="0" y="0">B</tspan></text>
   </g>
   <g>
     <circle class="p" cx="336.25" cy="297.85" r="13.56"/>
-    <text class="u" transform="translate(327.62 301.39)"><tspan x="0" y="0">1,B</tspan></text>
+    <text class="u" transform="translate(332.72 301.39)"><tspan x="0" y="0">B</tspan></text>
   </g>
   <g>
     <circle class="p" cx="336.25" cy="346.82" r="13.56"/>
-    <text class="u" transform="translate(327.62 350.37)"><tspan x="0" y="0">2,B</tspan></text>
+    <text class="u" transform="translate(332.72 350.37)"><tspan x="0" y="0">B</tspan></text>
   </g>
   <g>
     <circle class="p" cx="335.14" cy="391.83" r="13.56"/>
-    <text class="u" transform="translate(326.52 395.37)"><tspan x="0" y="0">3,B</tspan></text>
+    <text class="u" transform="translate(331.61 395.37)"><tspan x="0" y="0">B</tspan></text>
   </g>
   <g>
     <circle class="p" cx="426.02" cy="250.52" r="13.56"/>
-    <text class="u" transform="translate(417.33 254.06)"><tspan x="0" y="0">0,C</tspan></text>
+    <text class="u" transform="translate(422.42 254.06)"><tspan x="0" y="0">C</tspan></text>
   </g>
   <g>
     <circle class="p" cx="426.02" cy="297.85" r="13.56"/>
-    <text class="u" transform="translate(417.33 301.39)"><tspan x="0" y="0">1,C</tspan></text>
+    <text class="u" transform="translate(422.42 301.39)"><tspan x="0" y="0">C</tspan></text>
   </g>
   <g>
     <circle class="p" cx="426.02" cy="347.71" r="13.56"/>
-    <text class="u" transform="translate(417.33 351.26)"><tspan x="0" y="0">2,C</tspan></text>
+    <text class="u" transform="translate(422.42 351.26)"><tspan x="0" y="0">C</tspan></text>
   </g>
   <g>
     <circle class="p" cx="426.02" cy="393.32" r="13.56"/>
-    <text class="u" transform="translate(417.33 396.86)"><tspan x="0" y="0">3,C</tspan></text>
+    <text class="u" transform="translate(422.42 396.86)"><tspan x="0" y="0">C</tspan></text>
   </g>
   <g>
     <circle class="p" cx="426.02" cy="444.91" r="13.56"/>
-    <text class="u" transform="translate(417.39 448.46)"><tspan class="v" x="0" y="0">4</tspan><tspan x="6.43" y="0">,C</tspan></text>
+    <text class="u" transform="translate(422.42 448.46)"><tspan x="0" y="0">C</tspan></text>
   </g>
   <g>
     <circle class="p" cx="426.02" cy="491.24" r="13.56"/>
-    <text class="u" transform="translate(417.33 494.79)"><tspan x="0" y="0">5,C</tspan></text>
+    <text class="u" transform="translate(422.42 494.79)"><tspan x="0" y="0">C</tspan></text>
   </g>
   <line id="o" data-name="source line" class="q" x1="168.79" y1="133.73" x2="449.31" y2="133.73"/>
   <line class="q" x1="168.79" y1="116.23" x2="168.79" y2="151.24"/>
