@@ -23,4 +23,4 @@ This is a list of quick guidelines intended to help you when writing Rx queries.
 - Avoid creating your own implementations of the `IObserver<T>` interface. Favour using the `Subscribe` extension method overloads instead.
 - The application should define the concurrency model.
     - If you need to schedule deferred work, use schedulers
-	- The `SubscribeOn` and `ObserveOn` operators should always be right before a `Subscribe` method. (So don't sandwich it, e.g. `source.SubscribeOn(s).Where(x => x.Foo)`.)
+    - The `SubscribeOn` and `ObserveOn` operators should always be right before a `Subscribe` method. (So don't sandwich it, e.g. `source.SubscribeOn(s).Where(x => x.Foo)`.)
