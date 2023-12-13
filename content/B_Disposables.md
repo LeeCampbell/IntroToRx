@@ -6,51 +6,50 @@ title : Appendix B Disposables
     
 Rx represents subscriptions using the existing `IDisposable` interface. This design choice means we can use existing language features that know how to work with this interface. Rx also provides several public implementations of `IDisposable`. These can be found in the `System.Reactive.Disposables` namespace. This appendix briefly describes each of them.
 
+With the exception of [`ScheduledDisposable`](#scheduleddisposable), these have no particular connection to Rx, and can be useful in any code that needs to work with `IDisposable`. (This code all lives in `System.Reactive` though, so although you could uses these features entirely outside of Rx-based code, you will still be taking a dependency on Rx.NET if you do so.)
 
-<dl>
-    <dt>Disposable.Empty</dt>
-    <dd>
-        This static property exposes an implementation of <em>IDisposable</em> that performs no action when the <em>Dispose</em> method is invoked. This can be useful when you are obliged to supply an `IDisposable` (which can happen if you use <em>Observable.Create</em>) but don't need to do anything upon disposal.</dd>
-    <dt>Disposable.Create(Action)</dt>
-    <dd>
-        This static method exposes an implementation of <em>IDisposable</em> that invokes the method supplied when the <em>Dispose</em> method is invoked. As the implementation follows the guidance to be idempotent, the action will only be called on the first time the <em>Dispose</em> method is invoked.</dd>
-    <dt>BooleanDisposable</dt>
-    <dd>
-        This class implements <em>IDisposable.Dispose</em> method and also defines a read-only property <em>IsDisposed</em>. <em>IsDisposed</em> is <code>false</code> when the class is constructed, and is set to <code>true</code> when the <em>Dispose</em> method is invoked.
-    </dd>
-    <dt>CancellationDisposable</dt>
-    <dd>
-        The <em>CancellationDisposable</em> class offers an integration point between the .NET <a href="http://msdn.microsoft.com/en-us/library/dd997364.aspx">cancellation paradigm</a> (<em>CancellationTokenSource</em>) and the resource management paradigm (<em>IDisposable</em>). You can create an instance of the <em>CancellationDisposable</em> class by providing a <em>CancellationTokenSource</em> to the constructor, or by having the parameterless constructor create one for you. Calling <em>Dispose</em> will invoke the <em>Cancel</em> method on the <em>CancellationTokenSource</em>. There are two properties (<em>Token</em> and <em>IsDisposed</em>) that <em>CancellationDisposable</em> exposes; they are wrappers for the <em>CancellationTokenSource</em> properties, respectively <em>Token</em> and <em>IsCancellationRequested</em>.
-    </dd>
-    <dt>CompositeDisposable</dt>
-    <dd>
-        The <em>CompositeDisposable</em> type allows you to treat many disposable resources as one. You can create an instance of <em>CompositeDisposable</em> by passing in a <code>params</code> array of disposable resources. Calling <em>Dispose</em> on the <em>CompositeDisposable</em> will call dispose on each of these resources in the order they were provided. Additionally, the <em>CompositeDisposable</em> class implements <em>ICollection&lt;IDisposable&gt;</em>; this allows you to add and remove resources from the collection. After the <em>CompositeDisposable</em> has been disposed of, any further resources that are added to this collection will be disposed of instantly. Any item that is removed from the collection is also disposed of, regardless of whether the collection itself has been disposed of. This includes usage of both the <em>Remove</em> and <em>Clear</em> methods.
-    </dd>
-    <dt>ContextDisposable</dt>
-    <dd>
-        <em>ContextDisposable</em> allows you to enforce that disposal of a resource is performed on a given <em>SynchronizationContext</em>. The constructor requires both a <em>SynchronizationContext</em> and an <em>IDisposable</em> resource. When the <em>Dispose</em> method is invoked on the <em>ContextDisposable</em>, the provided resource will be disposed of on the specified context.
-    </dd>
-    <dt>MultipleAssignmentDisposable</dt>
-    <dd>
-        The <em>MultipleAssignmentDisposable</em> exposes a read-only <em>IsDisposed</em> property and a read/write property <em>Disposable</em>. Invoking the <em>Dispose</em> method on the <em>MultipleAssignmentDisposable</em> will dispose of the current value held by the <em>Disposable</em> property. It will then set that value to null. As long as the <em>MultipleAssignmentDisposable</em> has not been disposed of, you are able to set the <em>Disposable</em> property to <em>IDisposable</em> values as you would expect. Once the <em>MultipleAssignmentDisposable</em> has been disposed, attempting to set the <em>Disposable</em> property will cause the value to be instantly disposed of; meanwhile, <em>Disposable</em> will remain null.
-    </dd>
-    <dt>RefCountDisposable</dt>
-    <dd>
-        The <em>RefCountDisposable</em> offers the ability to prevent the disposal of an underlying resource until all dependent resources have been disposed. You need an underlying <em>IDisposable</em> value to construct a <em>RefCountDisposable</em>. You can then call the <em>GetDisposable</em> method on the <em>RefCountDisposable</em> instance to retrieve a dependent resource. Each time a call to <em>GetDisposable</em> is made, an internal counter is incremented. Each time one of the dependent disposables from <em>GetDisposable</em> is disposed, the counter is decremented. Only if the counter reaches zero will the underlying be disposed of. This allows you to call <em>Dispose</em> on the <em>RefCountDisposable</em> itself before or after the count is zero.
-    </dd>
-    <dt>ScheduledDisposable</dt>
-    <dd>
-        In a similar fashion to <em>ContextDisposable</em>, the <em>ScheduledDisposable</em> type allows you to specify a scheduler, onto which the underlying resource will be disposed. You need to pass both the instance of <em>IScheduler</em> and instance of <em>IDisposable</em> to the constructor. When the <em>ScheduledDisposable</em> instance is disposed of, the disposal of the underlying resource will be executed through the provided scheduler.
-    </dd>
-    <dt>SerialDisposable</dt>
-    <dd>
-        <em>SerialDisposable</em> is very similar to <em>MultipleAssignmentDisposable</em>, as they both expose a read/write <em>Disposable</em> property. The contrast between them is that whenever the <em>Disposable</em> property is set on a <em>SerialDisposable</em>, the previous value is disposed of. Like the <em>MultipleAssignmentDisposable</em>, once the <em>SerialDisposable</em> has been disposed of, the <em>Disposable</em> property will be set to null and any further attempts to set it will have the value disposed of. The value will remain as null.
-    </dd>
-    <dt>SingleAssignmentDisposable</dt>
-    <dd>
-        The <em>SingleAssignmentDisposable</em> class also exposes <em>IsDisposed</em> and <em>Disposable</em> properties. Like <em>MultipleAssignmentDisposable</em> and <em>SerialDisposable</em>, the <em>Disposable</em> value will be set to null when the <em>SingleAssignmentDisposable</em> is disposed of. The difference in implementation here is that the <em>SingleAssignmentDisposable</em> will throw an <em>InvalidOperationException</em> if there is an attempt to set the <em>Disposable</em> property while the value is not null and the <em>SingleAssignmentDisposable</em> has not been disposed of.
-    </dd>
-</dl>
+## `Disposable.Empty`
+This static property exposes an implementation of `IDisposable` that performs no action when the `Dispose` method is invoked. This can be useful when you are obliged to supply an `IDisposable` (which can happen if you use `Observable.Create`) but don't need to do anything upon disposal.
+
+## `Disposable.Create(Action)`
+
+This static method exposes an implementation of `IDisposable` that invokes the method supplied when the `Dispose` method is invoked. As the implementation follows the guidance to be idempotent, the action will only be called on the first time the `Dispose` method is invoked.
+
+## `BooleanDisposable`
+
+This class implements `IDisposable.Dispose` method and also defines a read-only property `IsDisposed`. `IsDisposed` is <code>false</code> when the class is constructed, and is set to <code>true</code> when the `Dispose` method is invoked.
+
+## `CancellationDisposable`
+
+The `CancellationDisposable` class offers an integration point between the .NET [cancellation paradigm](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/task-cancellation) (`CancellationTokenSource`) and the resource management paradigm (`IDisposable`). You can create an instance of the `CancellationDisposable` class by providing a `CancellationTokenSource` to the constructor, or by having the parameterless constructor create one for you. Calling `Dispose` will invoke the `Cancel` method on the `CancellationTokenSource`. There are two properties (`Token` and `IsDisposed`) that `CancellationDisposable` exposes; they are wrappers for the `CancellationTokenSource` properties, respectively `Token` and `IsCancellationRequested`.
+
+
+## `CompositeDisposable`
+
+The `CompositeDisposable` type allows you to treat many disposable resources as one. You can create an instance of `CompositeDisposable` by passing in a <code>params</code> array of disposable resources. Calling `Dispose` on the `CompositeDisposable` will call dispose on each of these resources in the order they were provided. Additionally, the `CompositeDisposable` class implements `ICollection&lt;IDisposable&gt;`; this allows you to add and remove resources from the collection. After the `CompositeDisposable` has been disposed of, any further resources that are added to this collection will be disposed of instantly. Any item that is removed from the collection is also disposed of, regardless of whether the collection itself has been disposed of. This includes usage of both the `Remove` and `Clear` methods.
+
+## `ContextDisposable`
+`ContextDisposable` allows you to enforce that disposal of a resource is performed on a given `SynchronizationContext`. The constructor requires both a `SynchronizationContext` and an `IDisposable` resource. When the `Dispose` method is invoked on the `ContextDisposable`, the provided resource will be disposed of on the specified context.
+
+## `MultipleAssignmentDisposable`
+
+The `MultipleAssignmentDisposable` exposes a read-only `IsDisposed` property and a read/write property `Disposable`. Invoking the `Dispose` method on the `MultipleAssignmentDisposable` will dispose of the current value held by the `Disposable` property. It will then set that value to null. As long as the `MultipleAssignmentDisposable` has not been disposed of, you are able to set the `Disposable` property to `IDisposable` values as you would expect. Once the `MultipleAssignmentDisposable` has been disposed, attempting to set the `Disposable` property will cause the value to be instantly disposed of; meanwhile, `Disposable` will remain null.
+
+## `RefCountDisposable`
+
+The `RefCountDisposable` offers the ability to prevent the disposal of an underlying resource until all dependent resources have been disposed. You need an underlying `IDisposable` value to construct a `RefCountDisposable`. You can then call the `GetDisposable` method on the `RefCountDisposable` instance to retrieve a dependent resource. Each time a call to `GetDisposable` is made, an internal counter is incremented. Each time one of the dependent disposables from `GetDisposable` is disposed, the counter is decremented. Only if the counter reaches zero will the underlying be disposed of. This allows you to call `Dispose` on the `RefCountDisposable` itself before or after the count is zero.
+
+## `ScheduledDisposable`
+
+In a similar fashion to `ContextDisposable`, the `ScheduledDisposable` type allows you to specify a scheduler, onto which the underlying resource will be disposed. You need to pass both the instance of `IScheduler` and instance of `IDisposable` to the constructor. When the `ScheduledDisposable` instance is disposed of, the disposal of the underlying resource will be executed through the provided scheduler.
+
+## `SerialDisposable`
+
+`SerialDisposable` is very similar to `MultipleAssignmentDisposable`, as they both expose a read/write `Disposable` property. The contrast between them is that whenever the `Disposable` property is set on a `SerialDisposable`, the previous value is disposed of. Like the `MultipleAssignmentDisposable`, once the `SerialDisposable` has been disposed of, the `Disposable` property will be set to null and any further attempts to set it will have the value disposed of. The value will remain as null.
+
+## `SingleAssignmentDisposable`
+
+The `SingleAssignmentDisposable` class also exposes `IsDisposed` and `Disposable` properties. Like `MultipleAssignmentDisposable` and `SerialDisposable`, the `Disposable` value will be set to null when the `SingleAssignmentDisposable` is disposed of. The difference in implementation here is that the `SingleAssignmentDisposable` will throw an `InvalidOperationException` if there is an attempt to set the `Disposable` property while the value is not null and the `SingleAssignmentDisposable` has not been disposed of.
 
 <!-- 
 TODO: we recently made SingleAssignmentDisposableValue public after a request to do so. This also doesn't mention MultipleAssignmentDisposableValue, which has been around for a while.
