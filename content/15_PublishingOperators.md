@@ -136,22 +136,22 @@ These are exactly equivalent.
 Because `Subject<T>` forwards all incoming `OnNext` calls to each of its subscribers immediately, and because it doesn't store any previously made calls, the result is a hot source. If you attach some subscribers before calling `Connect`, and then you attached more subscribers after calling `Connect`, those later subscribers will only receive events that occurred after they subscribed. This example demonstrates that:
 
 ```cs
-IConnectableObservable<long> pticks = Observable
+IConnectableObservable<long> publishedTicks = Observable
     .Interval(TimeSpan.FromSeconds(1))
     .Take(4)
     .Publish();
 
-pticks.Subscribe(x => Console.WriteLine($"Sub1: {x} ({DateTime.Now})"));
-pticks.Subscribe(x => Console.WriteLine($"Sub2: {x} ({DateTime.Now})"));
+publishedTicks.Subscribe(x => Console.WriteLine($"Sub1: {x} ({DateTime.Now})"));
+publishedTicks.Subscribe(x => Console.WriteLine($"Sub2: {x} ({DateTime.Now})"));
 
-pticks.Connect();
+publishedTicks.Connect();
 Thread.Sleep(2500);
 Console.WriteLine();
 Console.WriteLine("Adding more subscribers");
 Console.WriteLine();
 
-pticks.Subscribe(x => Console.WriteLine($"Sub3: {x} ({DateTime.Now})"));
-pticks.Subscribe(x => Console.WriteLine($"Sub4: {x} ({DateTime.Now})"));
+publishedTicks.Subscribe(x => Console.WriteLine($"Sub3: {x} ({DateTime.Now})"));
+publishedTicks.Subscribe(x => Console.WriteLine($"Sub4: {x} ({DateTime.Now})"));
 ```
 
 The following output shows that we only see output for the Sub3 and Sub4 subscriptions for the final 2 events:
@@ -291,7 +291,9 @@ We saw in the preceding section that `Multicast` (and also its various wrappers)
 * returning an `IConnectableObservable<T>` to allow top-level control of when subscription to the underlying source occurs
 * returning an ordinary `IObservable<T>`, enabling us to avoid unnecessary multiple subscriptions to the source when using a query that uses the source in multiple places (e.g., `s.Zip(s.Take(1))`), but still making one `Subscribe` call to the underlying source for each top-level `Subscribe`
 
-`RefCount` offers a slightly different model. It enables subscription to the underlying source to be triggered by an ordinary `Subscribe`, but can still make just a single call to the underlying source. To be able to observe this, I'm going to use a modified version of the source that reports when subscription occurs:
+`RefCount` offers a slightly different model. It enables subscription to the underlying source to be triggered by an ordinary `Subscribe`, but can still make just a single call to the underlying source. This might be useful in the AIS example used throughout this book. You might want to attach multiple subscribers to an observable source that reports the location messages broadcast by ships and other vessels, but you would normally want a library presenting an Rx-based API for this to connect only once to any underlying service providing those messages. And you would most likely want it to connect only when at least one subscriber is listening. `RefCount` would be ideal for this because it enables a single source to support multiple subscribers, and for the underlying source to know when we move between the "no subscribers" and "at least one subscriber" states.
+
+To be able to observe how `RefCount` operators, I'm going to use a modified version of the source that reports when subscription occurs:
 
 ```cs
 IObservable<int> src = Observable.Create<int>(async obs =>
@@ -403,7 +405,7 @@ This time, the `Create` callback ran twice. That's because the number of active 
 
 The `AutoConnect` operator behaves in much the same way as `RefCount`, in that it calls `Connect` on its underlying `IConnectableObservable<T>` when the first subscriber subscribers. The difference is that it doesn't attempt to detect when the number of active subscribers has dropped to zero: once it connects, it remains connected indefinitely, even if it has no subscribers.
 
-Although `AutoConnect` can be convenient, you need to be a little careful, because it can cause leaks: it will never disconnect automatically. It is still possible to tear down the connection it creates: `AutoConnect` accepts an optional argument of type `Action<IDiposable>`. It invokes this when it first connects to the source, passing you the `IDisposable` returned by the source's `Connect` method. You can shut it down by calling `Dispose`.
+Although `AutoConnect` can be convenient, you need to be a little careful, because it can cause leaks: it will never disconnect automatically. It is still possible to tear down the connection it creates: `AutoConnect` accepts an optional argument of type `Action<IDisposable>`. It invokes this when it first connects to the source, passing you the `IDisposable` returned by the source's `Connect` method. You can shut it down by calling `Dispose`.
 
 
 The operators in this chapter can be useful whenever you have a source that is not well suited do dealing with multiple subscribers. It provides various ways to attach multiple subscribers while only triggering a single `Subscribe` to the underlying source.
