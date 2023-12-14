@@ -207,7 +207,11 @@ With this measure of recent activity in hand, we can spot the end of bursts of a
 But how does `outstanding` itself work? The basic approach here is that every time `source` produces a value, we actually create a brand new `IObservable<int>`, which produces exactly two values. It immediately produces the value 1, and then after the specified timespan (2 seconds in these examples) it produces the value -1. That's what's going in in this clause of the query expression:
 
 ```cs
-from delta in Observable.Return(1, scheduler).Concat(Observable.Return(-1, scheduler).Delay(minimumInactivityPeriod, scheduler))
+from delta in Observable
+    .Return(1, scheduler)
+    .Concat(Observable
+        .Return(-1, scheduler)
+        .Delay(minimumInactivityPeriod, scheduler))
 ```
 
 I said Rx is all about composition, and that's certainly the case here. We are using the very simple `Return` operator to create an `IObservable<int>` that immediately produces just a single value and then terminates. This code calls that twice, once to produce the value `1` and again to produce the value `-1`. It uses the `Delay` operator so that instead of getting that `-1` value immediately, we get an observable that waits for the specified time period (2 seconds in these examples, but whatever `minimumInactivityPeriod` is in general) before producing the value. And then we use `Concat` to stitch those two together into a single `IObservable<int>` that produces the value `1`, and then two seconds later produces the value `-1`.
