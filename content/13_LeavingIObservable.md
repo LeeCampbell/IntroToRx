@@ -36,8 +36,7 @@ As you may recall from the [`AsyncSubject<T>` section of chapter 3](./03_Creatin
 The `ForEachAsync` method supports `await`, but it provides a way to process each element. You could think of it as a hybrid of the `await` behaviour described in the preceding section, and the callback-based `Subscribe`. We can still use `await` to detect completion and errors, but we supply a callback enabling us to handle every item:
 
 ```cs
-IObservable<long> source = Observable.Interval(TimeSpan.FromSeconds(1))
-                       .Take(5);
+IObservable<long> source = Observable.Interval(TimeSpan.FromSeconds(1)).Take(5);
 await source.ForEachAsync(i => Console.WriteLine($"received {i} @ {DateTime.Now}"));
 Console.WriteLine($"finished @ {DateTime.Now}");
 ```
@@ -506,6 +505,6 @@ C
 could not sabotage
 ```
 
-While I have used words like 'evil' and 'sabotage' in these examples, it is more often than not an oversight rather than malicious intent that causes problems. The failing falls first on the programmer who designed the leaky class. Designing interfaces is hard, but we should do our best to help consumers of our code fall into [the pit of success](https://learn.microsoft.com/en-gb/archive/blogs/brada/the-pit-of-success) by giving them discoverable and consistent types. Types become more discoverable if we reduce their surface area to expose only the features we intend our consumers to use. In this example we reduced the type's surface area. We did so by choosing a suitable public-facing type for the property, and then preventing access to the underlying type with the `AsObservable` method.
+While I have used words like 'evil' and 'sabotage' in these examples, it is [more often than not an oversight rather than malicious intent](https://en.wikipedia.org/wiki/Hanlon%27s_razor) that causes problems. The failing falls first on the programmer who designed the leaky class. Designing interfaces is hard, but we should do our best to help consumers of our code fall into [the pit of success](https://learn.microsoft.com/en-gb/archive/blogs/brada/the-pit-of-success) by giving them discoverable and consistent types. Types become more discoverable if we reduce their surface area to expose only the features we intend our consumers to use. In this example we reduced the type's surface area. We did so by choosing a suitable public-facing type for the property, and then preventing access to the underlying type with the `AsObservable` method.
 
 The set of methods we have looked at in this chapter complete the circle started in the [Creating Sequences chapter](03_CreatingObservableSequences.md). We now have the means to enter and leave Rx's world. Take care when opting in and out of the `IObservable<T>`. It's best not to transition back and forth—having a bit of Rx-based processing, then some more conventional code, and then plumbing the results of that back into Rx can quickly make a mess of your code base, and may indicate a design flaw. Typically it is better to keep all of your Rx logic together, so you only need to integrating with the outside world twice: once for input and once for output.
