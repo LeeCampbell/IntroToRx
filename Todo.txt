@@ -15,7 +15,7 @@ Add LinqPad samples
 
 TODO:
 MUST
-	make sure method names outside code snippets are consistent? I think that sometimes you include parentheses and sometimes you don’t.
+	make sure method names outside code snippets are consistent? I think that sometimes you include parentheses and sometimes you donï¿½t.
 	Update the HR page break style to have a large margin for screen (to give the impression of a gap)
 	Marble diagram --> marble diagram
 
@@ -25,7 +25,7 @@ MUST
 		Official Forums :		http://social.msdn.microsoft.com/Forums/en-US/rx/
 		Official Rx Team Blog : 	http://blogs.msdn.com/b/rxteam/
 		Offical Design guidelines 	http://go.microsoft.com/fwlink/?LinkID=205219
-		Contribution library : 		http://rxx.codeplex.com/
+		Contribution library : 		https://github.com/dotnet/reactive
 		C9 Videos :			http://channel9.msdn.com/tags/Rx/
 		Rx Resources and Community 	http://msdn.microsoft.com/en-US/data/gg577612
 		101 Samples (shouldn't need this any more!) http://rxwiki.wikidot.com/101samples
@@ -117,7 +117,7 @@ Rx Part 2 Lifetime
 	you should still dispose of you subscription --> you should still dispose of your subscription
 
 Part Ext Methods
-	This IDisposable will have it’s Dispose --> This IDisposable will have its Dispose
+	This IDisposable will have itï¿½s Dispose --> This IDisposable will have its Dispose
 	Functional example of faking ticking prices without side effects ie Interval() and scan together somehow?
 	ToObservable<T>(IE<T>) -> add warning that switching paradigm is not free, and you need to be carefull to avoid deadlocks --put something in 06 on how this could deadlock.
 	
@@ -198,7 +198,7 @@ Best practices/guidance
 	Avoid use of Subjects, favour factories.
 	Use OnError handler
 	Use the IDisposable
-	Be as “Lazy” as possible
+	Be as ï¿½Lazyï¿½ as possible
 	Consider TakeUntil when looking at selectmany 
 	Consider Switch with Iob<IOb<>>
 	Honour the Completion contracts
@@ -669,7 +669,7 @@ Amazon.co.uk snippets
 						scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
 			</div>
 
-			<!--Parallel Programming with Microsoft® .NET: Design Patterns for Decomposition and Coordination on Multicore Architectures (Patterns & Practices) (Kindle) Amazon.co.uk-->
+			<!--Parallel Programming with Microsoftï¿½ .NET: Design Patterns for Decomposition and Coordination on Multicore Architectures (Patterns & Practices) (Kindle) Amazon.co.uk-->
             <div style="display:inline-block; vertical-align: top; margin: 10px; width: 140px; font-size: 11px; text-align: center">
 				<iframe src="http://rcm-uk.amazon.co.uk/e/cm?t=int0b-21&amp;o=2&amp;p=8&amp;l=as1&amp;asins=B0043EWUG6&amp;ref=qf_sp_asin_til&amp;fc1=000000&amp;IS2=1&amp;lt1=_blank&amp;m=amazon&amp;lc1=0000FF&amp;bc1=000000&amp;bg1=FFFFFF&amp;f=ifr" 
 						style="width:120px;height:240px;" 

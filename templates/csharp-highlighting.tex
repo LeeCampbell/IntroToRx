@@ -1,0 +1,36 @@
+\usepackage{listings, xcolor}
+
+\definecolor{verylightgray}{rgb}{.97,.97,.97}
+
+\lstdefinelanguage{CSharp}{
+keywords=[1]{abstract, as, base, bool, break, byte, case, catch, char, checked, class, const, continue, decimal, default, delegate, do, double, else, enum, event, explicit, extern, false, finally, fixed, float, for, foreach, goto, if, implicit, in, int, interface, internal, is, lock, long, namespace, new, null, object, operator, out, override, params, private, protected, public, readonly, ref, return, sbyte, sealed, short, sizeof, stackalloc, static, string, struct, switch, this, throw, true, try, typeof, uint, ulong, unchecked, unsafe, ushort, using, virtual, void, volatile, while}, % generic keywords
+keywordstyle=[1]\color{blue}\bfseries,
+keywords=[2]{bool?, byte?, char?, decimal?, double?, dynamic, float?, int?, long?, object?, sbyte?, short?, string, uint?, ulong?, ushort?}, % nullable value types
+keywordstyle=[2]\color{teal}\bfseries,
+keywords=[3]{add, alias, ascending, async, await, by, descending, dynamic, equals, from, get, global, group, into, join, let, nameof, on, orderby, partial, remove, select, set, value, var, when, where, yield}, % contextual keywords
+keywordstyle=[3]\color{violet}\bfseries,
+identifierstyle=\color{black},
+sensitive=true,
+comment=[l]{//},
+morecomment=[s]{/}{/},
+commentstyle=\color{gray!50}\itshape\small\setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.5pt}\colorbox{verylightgray},
+stringstyle=\color{red}\ttfamily,
+morestring=[b]',
+morestring=[b]"
+}
+
+\lstset{
+language=CSharp,
+backgroundcolor=\color{verylightgray},
+extendedchars=true,
+basicstyle=\footnotesize\ttfamily,
+showstringspaces=false,
+showspaces=false,
+numbers=left,
+numberstyle=\footnotesize,
+numbersep=9pt,
+tabsize=2,
+breaklines=true,
+showtabs=false,
+captionpos=b
+}

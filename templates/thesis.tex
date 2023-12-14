@@ -1,0 +1,350 @@
+%%% Hlavní soubor. Zde se definují základní parametry a odkazuje se na ostatní části. %%%
+
+%% Verze pro jednostranný tisk:
+% Okraje: levý 40mm, pravý 25mm, horní a dolní 25mm
+% (ale pozor, LaTeX si sám přidává 1in)
+\documentclass[12pt,a4paper]{report}
+\setlength\textwidth{145mm}
+\setlength\textheight{247mm}
+\setlength\oddsidemargin{15mm}
+\setlength\evensidemargin{15mm}
+\setlength\topmargin{0mm}
+\setlength\headsep{0mm}
+\setlength\headheight{0mm}
+% \openright zařídí, aby následující text začínal na pravé straně knihy
+\let\openright=\clearpage
+
+\let\sectionnobreak = \section
+\makeatletter
+\renewcommand{\section}{\@ifstar
+                     \sectionStar%
+                     \sectionNoStar%
+}
+\makeatother
+\newcommand{\sectionNoStar}[1]{
+	\pagebreak
+	\sectionnobreak{#1}
+}
+\newcommand{\sectionStar}[1]{
+	\pagebreak
+	\sectionnobreak*{#1}
+	\addcontentsline{toc}{section}{#1}
+}
+
+\makeatletter
+\renewcommand{\paragraph}{%
+  \@startsection{paragraph}{4}%
+  {\z@}{1.5ex \@plus 1ex \@minus .2ex}{-1em}%
+  {\normalfont\normalsize\bfseries}%
+}
+\makeatother
+
+\usepackage[utf8]{inputenc}
+
+%% Ostatní balíčky
+\usepackage{graphicx}
+\usepackage{amsthm}
+
+\usepackage{upgreek}
+
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usepackage{xyling}
+\usepackage[hyphens]{url}
+\usepackage{microtype}
+\usepackage{lmodern}
+\usepackage{epstopdf}
+\usepackage[printonlyused,nohyperlinks]{acronym}
+\usepackage{paralist}
+\usepackage{adjustbox}
+
+\usepackage[center]{caption}
+
+\usepackage{needspace}
+
+\lstdefinelanguage{CSharp}[Sharp]{C}
+{morekeywords={from,where,join,on,equals,orderby,descending,group,by,let,select},columns=flexible,showstringspaces=false}
+
+\lstnewenvironment{code}[1][]%
+{
+   \noindent
+   \minipage{\linewidth} 
+   \vspace{0.5\baselineskip}
+   \lstset{#1}}
+{\endminipage}
+
+\newcommand{\lstBreak}{\discretionary{\texttt{-}}{}{}}
+
+\lstset{language=CSharp,basicstyle=\ttfamily}
+
+%% Balíček hyperref, kterým jdou vyrábět klikací odkazy v PDF,
+%% ale hlavně ho používáme k uložení metadat do PDF (včetně obsahu).
+%% POZOR, nezapomeňte vyplnit jméno práce a autora.
+\usepackage[unicode]{hyperref}   % Musí být za všemi ostatními balíčky
+\hypersetup{pdftitle=.NET library for the MediaWiki API}
+\hypersetup{pdfauthor=Petr Onderka}
+
+\usepackage[all]{hypcap}
+
+%%% Drobné úpravy stylu
+
+% Tato makra přesvědčují mírně ošklivým trikem LaTeX, aby hlavičky kapitol
+% sázel příčetněji a nevynechával nad nimi spoustu místa. Směle ignorujte.
+\makeatletter
+\def\@makechapterhead#1{
+  {\parindent \z@ \raggedright \normalfont
+   \Huge\bfseries \thechapter. #1
+   \par\nobreak
+   \vskip 20\p@
+}}
+\def\@makeschapterhead#1{
+  {\parindent \z@ \raggedright \normalfont
+   \Huge\bfseries #1
+   \par\nobreak
+   \vskip 20\p@
+}}
+\makeatother
+
+% Toto makro definuje kapitolu, která není očíslovaná, ale je uvedena v obsahu.
+\def\chapwithtoc#1{
+\chapter*{#1}
+\addcontentsline{toc}{chapter}{#1}
+}
+
+\def\secwithtoc#1{
+\sectionnobreak*{#1}
+\addcontentsline{toc}{section}{#1}
+}
+
+\newcommand\ApiParameterNoAmp[2]{\texttt{#1}~\texttt{=}~\texttt{#2}}
+\newcommand\ApiParameter[2]{\ApiParameterNoAmp{#1}{#2}~\texttt{\&}}
+
+\begin{document}
+
+\hypersetup{pageanchor=false}
+
+% Trochu volnější nastavení dělení slov, než je default.
+\lefthyphenmin=2
+\righthyphenmin=2
+
+%%% Titulní strana práce
+
+\pagestyle{empty}
+\begin{center}
+
+\large
+
+Charles University in Prague
+
+\medskip
+
+Faculty of Mathematics and Physics
+
+\vfill
+
+{\bf\Large BACHELOR THESIS}
+
+\vfill
+
+%\centerline{\mbox{\includegraphics[width=60mm]{img/logo}}}
+
+\vfill
+\vspace{5mm}
+
+{\LARGE Petr Onderka}
+
+\vspace{15mm}
+
+% Název práce přesně podle zadání
+{\LARGE\bfseries .NET library for the MediaWiki API}
+
+\vfill
+
+% Název katedry nebo ústavu, kde byla práce oficiálně zadána
+% (dle Organizační struktury MFF UK)
+Department of Theoretical Computer Science \linebreak and Mathematical Logic
+
+\vfill
+
+\begin{tabular}{rl}
+
+Supervisor of the bachelor thesis: & Tomáš Petříček \\
+\noalign{\vspace{2mm}}
+Study programme: & Computer Science \\
+\noalign{\vspace{2mm}}
+Specialization: & General Computer Science \\
+\end{tabular}
+
+\vfill
+
+% Zde doplňte rok
+Prague 2012
+
+\end{center}
+
+\newpage
+
+%%% Následuje vevázaný list -- kopie podepsaného "Zadání bakalářské práce".
+%%% Toto zadání NENÍ součástí elektronické verze práce, nescanovat.
+
+%%% Na tomto místě mohou být napsána případná poděkování (vedoucímu práce,
+%%% konzultantovi, tomu, kdo zapůjčil software, literaturu apod.)
+
+\openright
+
+\noindent
+I would like to thank to my supervisor, Tomáš Petříček,
+for his help with writing this thesis.
+I would also like to thank to my family for their unending support and patience during my studies.
+
+\newpage
+
+%%% Strana s čestným prohlášením k bakalářské práci
+
+\vglue 0pt plus 1fill
+
+\noindent
+I declare that I carried out this bachelor thesis independently, and only with the cited
+sources, literature and other professional sources.
+
+\medskip\noindent
+I understand that my work relates to the rights and obligations under the Act No.
+121/2000 Coll., the Copyright Act, as amended, in particular the fact that the Charles
+University in Prague has the right to conclude a license agreement on the use of this
+work as a school work pursuant to Section 60 paragraph 1 of the Copyright Act.
+
+\vspace{10mm}
+
+\hbox{\hbox to 0.5\hsize{%
+In Prague, date ............
+\hss}\hbox to 0.5\hsize{%
+signature of the author
+\hss}}
+
+\vspace{20mm}
+\newpage
+
+%%% Povinná informační strana bakalářské práce
+
+\vbox to 0.5\vsize{
+\setlength\parindent{0mm}
+\setlength\parskip{5mm}
+
+Název práce:
+.NET knihovna pro MediaWiki API
+% přesně dle zadání
+
+Autor:
+Petr Onderka
+
+Katedra:  % Případně Ústav:
+Katedra teoretické informatiky a matematické logiky 
+% dle Organizační struktury MFF UK
+
+Vedoucí bakalářské práce:
+Mgr. Tomáš Petříček, University of Cambridge
+% dle Organizační struktury MFF UK, případně plný název pracoviště mimo MFF UK
+
+Abstrakt:
+% abstrakt v rozsahu 80-200 slov; nejedná se však o opis zadání bakalářské práce
+
+Wiki běžící na systému MediaWiki poskytují svým uživatelům API,
+které lze použít k přístupu k dané wiki z počítačového programu.
+Toto API je rozsáhlé, často se mění a může se lišit wiki od wiki,
+takže může být náročné napsat knihovnu pro přístup k tomuto API.
+
+Tato práce popisuje LinqToWiki,
+knihovnu pro přístup k MediaWiki API ze C\# nebo jiných jazyků na platformě .NET.
+Díky použití LINQu a generovaní kódu pomocí Roslynu,
+kód napsaný s použitím této knihovny je čitelný, objevitelný, silně typovaný a flexibilní.
+
+Klíčová slova: Wiki, C\#, LINQ, Generování kódu, Roslyn
+% 3 až 5 klíčových slov
+
+\vss}\nobreak\vbox to 0.49\vsize{
+\setlength\parindent{0mm}
+\setlength\parskip{5mm}
+
+Title:
+.NET library for the MediaWiki API
+% přesný překlad názvu práce v angličtině
+
+Author:
+Petr Onderka
+
+Department:
+Department of Theoretical Computer Science and Mathematical Logic
+% dle Organizační struktury MFF UK v angličtině
+
+Supervisor:
+Mgr. Tomáš Petříček, University of Cambridge
+% dle Organizační struktury MFF UK, případně plný název pracoviště
+% mimo MFF UK v angličtině
+
+Abstract:
+% abstrakt v rozsahu 80-200 slov v angličtině; nejedná se však o překlad
+% zadání bakalářské práce
+
+MediaWiki wikis provide their users an API, that can used to programmatically access the wiki.
+This API is large, changes frequently and can be different from wiki to wiki,
+so it can be a challenge to write a library for accessing the API.
+
+This thesis describes LinqToWiki, a library
+that can be used to access the MediaWiki API from C\# or other .NET languages.
+Thanks to the use of LINQ and code generation through Roslyn,
+code written using this library is readable, discoverable, strongly-typed and flexible.
+
+Keywords: Wiki, C\#, LINQ, Code generation, Roslyn
+% 3 až 5 klíčových slov v angličtině
+
+\vss}
+
+\newpage
+
+%%% Strana s automaticky generovaným obsahem bakalářské práce. U matematických
+%%% prací je přípustné, aby seznam tabulek a zkratek, existují-li, byl umístěn
+%%% na začátku práce, místo na jejím konci.
+
+\hypersetup{pageanchor=true}
+\openright
+\pagestyle{plain}
+\setcounter{page}{1}
+\tableofcontents
+
+%%% Jednotlivé kapitoly práce jsou pro přehlednost uloženy v samostatných souborech
+\include{introduction}
+
+\input{problem-analysis}
+
+\chapter{Background}
+\label{background}
+\input{mediawiki}
+\input{linq}
+\input{roslyn}
+
+\input{mediawiki-improvements}
+\input{linqtowiki}
+\input{future-work}
+\input{related}
+\input{conclusion}
+
+%%% Seznam použité literatury
+\input{bibliography}
+
+%%% Tabulky v bakalářské práci, existují-li.
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+
+%%% Použité zkratky v bakalářské práci, existují-li, včetně jejich vysvětlení.
+\chapwithtoc{List of Abbreviations}
+\input{abbrev}
+
+%%% Přílohy k bakalářské práci, existují-li (různé dodatky jako výpisy programů,
+%%% diagramy apod.). Každá příloha musí být alespoň jednou odkazována z vlastního
+%%% textu práce. Přílohy se číslují.
+\appendix
+\input{cd}
+
+\openright
+\end{document}

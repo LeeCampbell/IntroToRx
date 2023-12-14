@@ -1,0 +1,17 @@
+# Fdb version 4
+["pdflatex"] 1695029184 "c:/_Projects/OSS/reactive-extensions/IntroToRx/templates/eisvogel.tex" "eisvogel.pdf" "eisvogel" 1695029184 2
+  "$if(beamer)$$documentclass$$else$$if(book)$scrbook$else$scrartcl$endif$$endif$.cls" 0 -1 0 ""
+  "C:/Users/HowardvanRooijen/AppData/Local/MiKTeX/miktex/data/le/pdftex/pdflatex.fmt" 1689317134 24124063 eda354e1746a9a0fafc01d4da2722663 ""
+  "C:/Users/HowardvanRooijen/AppData/Local/Programs/MiKTeX/tex/latex/hyperref/hyperref.sty" 1687702344 220504 46df85c2e38e43c3f3b0192fdbc1150d ""
+  "C:/Users/HowardvanRooijen/AppData/Local/Programs/MiKTeX/tex/latex/url/url.sty" 1388490452 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
+  "C:/Users/HowardvanRooijen/AppData/Local/Programs/MiKTeX/tex/latex/xcolor/xcolor.sty" 1656236890 56148 51a9a8571c07b9921892ae11063ae853 ""
+  "C:/Users/HowardvanRooijen/AppData/Local/Programs/MiKTeX/tex/xelatex/bidi/bidi.sty" 1690972292 11205 1985c5c493bbe42ba3bdf13a7563b61b ""
+  "C:/Users/HowardvanRooijen/AppData/Local/Programs/MiKTeX/tex/xelatex/xecjk/xeCJK.sty" 1659726270 183137 ed372550124703b2b73cbcc0b47cb20f ""
+  "c:/_Projects/OSS/reactive-extensions/IntroToRx/templates/eisvogel.tex" 1695029171 29249 f2245eadf683cf988d5c29d05f153529 ""
+  "eisvogel.aux" 1695029184 34 3985256e7290058c681f74d7a3565a19 "pdflatex"
+  "eisvogel.tex" 1695029171 29249 f2245eadf683cf988d5c29d05f153529 ""
+  (generated)
+  "eisvogel.aux"
+  "eisvogel.log"
+  "eisvogel.pdf"
+  (rewritten before read)

@@ -1,0 +1,230 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"languageName":"csharp","name":"csharp"}]}}
+
+#!csharp
+
+//#r "nuget:System.Reactive,6.0-*"
+using System.Reactive;
+using System.Reactive.Linq;
+
+#!markdown
+
+# The heart of Rx: `IObservable<T>`
+
+The Reactive Extensions to .NET (Rx.NET, or Rx for short) are useful in any program that needs to take action when something happens.
+
+Rx embodies a fundamental programming concept in the same way that loops, lists, and recursion are each fundamental programming concepts. At its core is a deceptively simple abstraction, `IObservable<T>`. Here's one:
+
+#!csharp
+
+IObservable<int> numbers = Observable.Range(1, 5);
+
+#!markdown
+
+This `numbers` observable represents a sequence of numbers, from 1 to 5. You might be thinking that C# already knows all about sequences of things. Can't we represent this sort of thing with `IEnumerable<T>`? Well, yes:
+
+#!csharp
+
+// Non-reactive
+IEnumerable<int> nonReactive = Enumerable.Range(1, 5);
+foreach (int value in nonReactive)
+{
+    Console.WriteLine(value);
+}
+
+#!markdown
+
+The difference is that an `IObservable<T>` gives us values when they are available; an `IEnumerable<T>` supplies values when we ask for them. That makes `IObservable<T>` a better model for some sources of information. For example, financial information, data from monitoring devices, and user interactions all tend to happen on their own schedule. If you want to run code when the price of a financial instrument crosses some threshold, a `foreach` loop is not a natural way to model that.
+
+Since an `IObservable<T>` provides values as and when they are available, the code to consume these values looks different. We need to provide code that the `IObservable<T>` can call when it has a value:
+
+#!csharp
+
+numbers.Subscribe(value => Console.WriteLine(value));
+
+#!markdown
+
+Here, we've _subscribed_ to the observable source, `numbers`, supplying it with a method that it can call back each time it has a value for us.
+
+Now this particular example is a bit pointless because the nature of the source means that all the numbers are available immediately, so it supplies the first value as soon as we call `Subscribe`, and as soon as we've processed that, it immediately supplies the next, and so on.
+
+Although you _can_ represent a sequence of numbers as an `IObservable<T>`, doing so doesn't really offer any advantage over an `IEnumerable<T>`. `IObservable<T>` is better suited to situations where values naturally become available at a particular moment in time.
+
+Let's look at a real example: observing the movement of ships through the water.
+
+## Using Rx with AIS to track ships
+
+Ocean-going ships typically have equipment that tracks location using GPS (Global Positioning System) and which also monitors speed, heading, and various other attributes, and then transmits this information in radio messages. This enables vessels that are close to one another to be aware of which other vessels are in the area, where they are, and where they're going. The standard for these radio messages is called AIS (Automatic Identification System), and it is a legal requirement for many kinds of vessels to operate AIS equipment.
+
+Ships send AIS messages on their own schedule, typically increasing the rate when they are on the move. This makes this kind of information a natural fit for Rx.
+
+[endjin](endjin.com) maintains [Ais.Net](https://github.com/ais-dotnet/), a set of open source libraries for working with AIS messages. We're going to use these libraries to show how Rx can handle live information sources.
+
+First, we'll bring in the library that provides an Rx wrapper around AIS:
+
+#!csharp
+
+#r nuget:Ais.Net.Receiver
+
+#!markdown
+
+We will be using types from this library in a couple of namespaces. One provides types that represent the structure of AIS messages. The other provides the "AIS Receiver", a component that can receive live AIS messages over the internet.
+
+#!csharp
+
+using Ais.Net.Models.Abstractions;
+using Ais.Net.Receiver.Receiver;
+
+#!markdown
+
+Now we can connect a receiver to a publicly available source of live AIS messages. The Norwegian government very helpfully provides live AIS messages from its coastal waters.
+
+Our `NetworkStreamNmeaReceiver` provides access to the raw messages. (NMEA is the format in which the messages are sent.) And the `ReceiverHost` parses those messages and presents them through Rx as an `IObservable<IAisMessage>`.
+
+#!csharp
+
+INmeaReceiver receiver = new NetworkStreamNmeaReceiver(
+    host: "153.44.253.27", // Norwegian government AIS service
+    port: 5631,
+    retryPeriodicity: TimeSpan.FromSeconds(1),
+    retryAttemptLimit: 100);
+
+ReceiverHost receiverHost = new (receiver);
+
+IObservable<IAisMessage> aisMessages = receiverHost.Messages;
+
+// Note that by starting the receiver now, it will be running (inside the .NET Interactive
+// host process for this Polyglot Notebook) until either the notebook is closed, or we
+// explicitly stop the host through the cancellation token passed here.
+System.Threading.CancellationTokenSource aisReceiverStop = new();
+_ = Task.Run(async () => await receiverHost.StartAsync(aisReceiverStop.Token));
+
+#!markdown
+
+**Note**: towards the end of this notebook there's a cell to shut down the `ReceiverHost` we just started. It will remain connected until shut down, or until you close this notebook (or restat the notebook kernel).
+
+#!markdown
+
+The AIS observer uses the TPL thread pool, so it will deliver notifications on thread pool threads. Rx is perfectly happy with that, but when you do that in a Polyglot Notebook, calls to `Console.WriteLine` stop working. We need to jump through some hoops to ensure output continues to work. This class enables us to produce output even when we're no longer on the main thread:
+
+#!csharp
+
+using Microsoft.DotNet.Interactive;
+
+public class OutContext
+{
+    private KernelInvocationContext ctx = KernelInvocationContext.Current;
+
+    public void WriteLine(string text) =>
+        KernelInvocationContextExtensions.DisplayStandardOut(ctx, text + System.Environment.NewLine);
+}
+
+#!markdown
+
+Now that we've got a way of displaying output, let's subscribe to the AIS for a few seconds and see what happens:
+
+#!csharp
+
+// Unlike Observable.Range, the AIS message source does not naturally come to an end, so we should
+// unsubscribe from it once we're done. To enable this, IObservable<T>.Subscribe returns an
+// IDisposable. We can call Dispose on that to tell the observable source that we no longer wish
+// to continue receiving messages.
+
+OutContext ctx = new();
+using (aisMessages.Subscribe(m => ctx.WriteLine($"Message type: {m.MessageType}, vessel id: {m.Mmsi}")))
+{    
+    // Listen briefly. (Very briefly - it's a busy source!)
+    await Task.Delay(TimeSpan.FromSeconds(2));
+}
+
+#!markdown
+
+## The power of Rx: expressiveness and LINQ
+
+So far, we've not seen anything particularly special—this just appears to be simple callback-based event delivery. But the true power of Rx is that it offers a very expressive way to describe how to process events. To demonstrate this, let's build up an example.
+
+If you have run the code cells up to this point, you'll have seen in the last example that there are several different kinds of AIS message. The libraries define specialized interfaces available only on certain messages. For example, ships don't tend to change name very often so they don't broadcast their name every time they report their location. They send much less frequent messages that report fixed information such as their name and dimensions. We can use LINQ's `OfType` operator to filter the messages down just to this kind of message:
+
+#!csharp
+
+IObservable<IVesselName> vesselNames = aisMessages.OfType<IVesselName>();
+
+#!markdown
+
+And now we can subscribe to that to report vessel names:
+
+#!csharp
+
+OutContext ctx = new();
+using (vesselNames.Subscribe(m => ctx.WriteLine($"Vessel: {m.VesselName}"))) 
+{    
+    await Task.Delay(TimeSpan.FromSeconds(2));
+}
+
+#!markdown
+
+Notice that we get far fewer messages. This confirms that vessels typically report their names far less often than they report their locations.
+
+We can write more complex expressions. What if we want to take the separate messages that report the vessel name and position and recombine them, in order to get a stream of messages that tell us both the name and location? We could use LINQ's grouping features to first group all messages by vessel ID:
+
+#!csharp
+
+IObservable<IGroupedObservable<uint, IAisMessage>> vesselsGroupedById = aisMessages.GroupBy(m => m.Mmsi);
+
+#!markdown
+
+This is an observable source of observable sources: each time the `GroupBy` operator sees a message from a vessel it hasn't seen before (based on the vessel's `Mmsi`), it creates a new `IGroupedObservable` to represent that and emits that as output of this `vesselsGroupedById` source.
+
+Now, within each of these groups, let's pick out the latest messages reporting vessel name and navigation data:
+
+#!csharp
+
+IObservable<(IVesselName Name, IVesselNavigation Navigation)> namesAndNavigation = vesselsGroupedById
+    .SelectMany(g => Observable.CombineLatest(
+        g.OfType<IVesselName>(),
+        g.OfType<IVesselNavigation>(),
+        (name, nav) => (name, nav)));
+
+#!markdown
+
+Of course, to see this information, we need to subscribe to this new observable source:
+
+#!csharp
+
+OutContext ctx = new();
+using (namesAndNavigation.Subscribe(m => ctx.WriteLine($"Vessel: {m.Name.VesselName} is at {m.Navigation.Position}, moving at speed {m.Navigation.SpeedOverGround}"))) 
+{
+    await Task.Delay(TimeSpan.FromSeconds(10));
+}
+
+#!markdown
+
+Most of the standard LINQ operators are available, so we could, for example use `Where` to ensure we only show vessels moving above a certain speed:
+
+#!csharp
+
+IObservable<(IVesselName Name, IVesselNavigation Navigation)> movingVessels = namesAndNavigation
+    .Where(m => m.Navigation.SpeedOverGround > 0.1);
+
+#!markdown
+
+Again, defining an `IObservable<T>` just describes the information source. To receive events from that source we must subscribe:
+
+#!csharp
+
+OutContext ctx = new();
+using (movingVessels.Subscribe(m => ctx.WriteLine($"Vessel: {m.Name.VesselName} is at {m.Navigation.Position}, moving at speed {m.Navigation.SpeedOverGround}"))) 
+{
+    // We'll give this a little longer, since a lot of vessels are stationary.
+    await Task.Delay(TimeSpan.FromSeconds(30));
+}
+
+#!markdown
+
+The AIS `ReceiverHost` is what Rx calls a 'hot' source, meaning it represents a live source of data. Although we had to subscribe to receive the data it supplies, our implementation remains connected to the AIS server even if there are currently no active subscribers. It has been running in the background the whole time. It will stop when you close the notebook, but if you want to disconnect right now, you can run this next code cell:
+
+#!csharp
+
+// This shuts down the AIS receiver
+aisReceiverStop.Cancel();
