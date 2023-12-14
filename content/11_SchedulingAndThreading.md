@@ -291,7 +291,7 @@ Observable
 
 This makes a different decision about the context in which to run work, compared to the immediate and current thread schedulers, as we can see from its output:
 
-```cs
+```
 Main thread: 1
 Subscribe returned
 Received 1 on thread: 12
@@ -360,13 +360,13 @@ public interface IScheduler
 }
 ```
 
-You can see that all but one of these is concerned with timing. Only the first `Schedule` overload is not—operators call this when they want to schedule work to run as soon as the scheduler will allow. That's the overload used by `Range`. (Strictly speaking, `Range` interrogates the scheduler to find out whether it supports long-running operations, in which an operator can take temporary control of a thread for an extended period. It prefers to use that when it can because it tends to be more efficient than submitting work to the scheduler for every single item it wishes to produce. The `TaskPoolScheduler` does support long running operations, which explains the slightly surprising output we saw earlier, but the `CurrentThreadScheduler`, `Range`'s default choice, does not. So by default, `Range` will invoke that first `Schedule` overload once for each item it wishes to produce.)
+You can see that all but one of these is concerned with timing. Only the first `Schedule` overload is not, and operators call that when they want to schedule work to run as soon as the scheduler will allow. That's the overload used by `Range`. (Strictly speaking, `Range` interrogates the scheduler to find out whether it supports long-running operations, in which an operator can take temporary control of a thread for an extended period. It prefers to use that when it can because it tends to be more efficient than submitting work to the scheduler for every single item it wishes to produce. The `TaskPoolScheduler` does support long running operations, which explains the slightly surprising output we saw earlier, but the `CurrentThreadScheduler`, `Range`'s default choice, does not. So by default, `Range` will invoke that first `Schedule` overload once for each item it wishes to produce.)
 
 `Delay` uses the second overload. The exact implementation is quite complex (mainly because of how it catches up efficiently when a busy source causes it to fall behind) but in essence, each time a new item arrives into the `Delay` operator, it schedules a work item to run after the configured delay, so that it can supply that item to its subscriber with the expected time shift.
 
 Schedulers have to be responsible for managing time, because .NET has several different timer mechanisms, and the choice of timer is often determined by the context in which you want to handle a timer callback. Since schedulers determine the context in which work runs, that means they must also choose the timer type. For example, UI frameworks typically provide timers that invoke their callbacks in a context suitable for making updates to the user interface. Rx provides some UI-framework-specific schedulers that use these timers, but these would be inappropriate choices for other scenarios. So each scheduler uses a timer suitable for the context in which it is going to run work items.
 
-There's a useful upshot of this: because `IScheduler` provides an abstraction for timing-related details, it is possible to virtualize time. This is very useful for testing. If you look at the extensive test suite in the [Rx repository](https://github.com/dotnet/reactive) you will find that there are many tests that verify timing-related behaviour. If these ran in real-time, the test suite would take far too long to run, and would also be likely to produce the odd spurious failure, because background tasks running on the same machine as the tests will occasionally change the speed of execution in a way that might confuse the test. Instead, these tests use a specialized scheduler that provides complete control over the passage of time.
+There's a useful upshot of this: because `IScheduler` provides an abstraction for timing-related details, it is possible to virtualize time. This is very useful for testing. If you look at the extensive test suite in the [Rx repository](https://github.com/dotnet/reactive) you will find that there are many tests that verify timing-related behaviour. If these ran in real-time, the test suite would take far too long to run, and would also be likely to produce the odd spurious failure, because background tasks running on the same machine as the tests will occasionally change the speed of execution in a way that might confuse the test. Instead, these tests use a specialized scheduler that provides complete control over the passage of time. (For more information, see the [ Test Schedulers section later](#test-schedulers) and there's also a whole [testing chapter](16_TestingRx.md) coming up.)
 
 Notice that all three `IScheduler.Schedule` methods require a callback. A scheduler will invoke this at the time and in the context that it chooses. A scheduler callback takes another `IScheduler` as its first argument. This is used in scenarios where repetitive invocation is required, as we'll see later. 
 
@@ -398,7 +398,7 @@ Observable
 
 Let's follow exactly what happens here. First, assume that this code is just running normally and not in any unusual context—perhaps inside the `Main` entry point of a program. When this code calls `Subscribe` on the `IObservable<int>` returned by `SelectMany`, that will in turn will call `Subscribe` on the `IObservable<int>` returned by the first `Observable.Range`, which will in turn schedule a work item for the generation of the first value in the range (`1`).
 
-Since we didn't pass a scheduler explicitly to `Range`, it will use its default choice, the `CurrentThreadScheduler`, and that will ask itself "Am I already in the middle of handling some work item on this thread?" In this case the answer will be no, so it will run the work item immediately (before returning from the `Schedule` call made by the `Range` operator). The `Range` operator will then produce its first value, calling `OnNext` on the `IObserver<int>` that the `SelectMany` operator provided when it subscribed to the range.
+Since we didn't pass a scheduler explicitly to `Range`, it will use its default choice, the `CurrentThreadScheduler`, and that will ask itself "Am I already in the middle of handling some work item on this thread?" In this case the answer will be "no," so it will run the work item immediately (before returning from the `Schedule` call made by the `Range` operator). The `Range` operator will then produce its first value, calling `OnNext` on the `IObserver<int>` that the `SelectMany` operator provided when it subscribed to the range.
 
 The `SelectMany` operator's `OnNext` method will now invoke its lambda, passing in the argument supplied (the value `1` from the `Range` operator). You can see from the example above that this lambda calls `Observable.Range` again, returning a new `IObservable<int>`. `SelectMany` will immediately subscribe to this (before returning from its `OnNext`). This is the second time this code has ended up calling `Subscribe` on an `IObservable<int>` returned by a `Range` (but it's a different instance than the last time), and `Range` will once again default to using the `CurrentThreadScheduler`, and will once again schedule a work item to perform the first iteration.
 
@@ -458,11 +458,11 @@ This invokes all work through a [`SynchronizationContext`](https://learn.microso
 
 ### TaskPoolScheduler
 
-Invokes all work through the TPL task pool. The TPL task pool is newer than the CLR thread pool. Rx's DefaultScheduler uses the older CLR thread pool for backwards compatibility reasons, but the TPL task pool can offer performance benefits in some scenarios.
+Invokes all work via the thread pool using [TPL tasks](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/task-parallel-library-tpl). The TPL was introduced many years after the CLR thread pool, and is now the recommended way to launch work via the thread pool. At the time the TPL was added, the thread pool would use a slightly different algorithm when you scheduled work through tasks than it would use if you relied on the older thread pool APIs. This newer algorithm enabled it to be more efficient in some scenarios. The documentation is now rather vague about this, so it's not clear whether these differences still exist on modern .NET, but tasks continue to be the recommended mechanism for using the thread pool. Rx's DefaultScheduler uses the older CLR thread pool APIs for backwards compatibility reasons. In performance critical code you could try using the `TaskPoolScheduler` instead in cases where a lot of work is being run on thread pool threads to see if it offers any performance benefits for your workload.
 
 ### ThreadPoolScheduler
 
-Invokes all work through the thread pool. This type is a historical artifact, dating back to when not all platforms offered the same kind of thread pool. In almost all cases, you should use the `DefaultScheduler`. The only scenario in which using `ThreadPoolScheduler` makes any difference is when writing UWP applications. The UWP target of `System.Reactive` v6.0 provides a different implementation of this class than you get for all other targets. It uses `Windows.System.Threading.ThreadPool` whereas all other targets use `System.Threading.ThreadPool`. The UWP version provides properties letting you configure some features specific to the UWP thread pool.
+Invokes all work through the thread pool using the old pre-[TPL](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/task-parallel-library-tpl) API. This type is a historical artifact, dating back to when not all platforms offered the same kind of thread pool. In almost all cases, if you want the behaviour for which this type was designed, you should use the `DefaultScheduler` (although [`TaskPoolScheduler`](#taskpoolscheduler) offers a different behaviour that might be). The only scenario in which using `ThreadPoolScheduler` makes any difference is when writing UWP applications. The UWP target of `System.Reactive` v6.0 provides a different implementation of this class than you get for all other targets. It uses `Windows.System.Threading.ThreadPool` whereas all other targets use `System.Threading.ThreadPool`. The UWP version provides properties letting you configure some features specific to the UWP thread pool.
 
 In practice it's best to avoid this class in new code. The only reason the UWP target had a different implementation was that UWP used not to provide `System.Threading.ThreadPool`. But that changed when UWP added support for .NET Standard 2.0 in Windows version 10.0.19041. There is no longer any good reason for there to be a UWP-specific `ThreadPoolScheduler`, and it's a source of confusion that this type is quite different in the UWP target but it has to remain for backwards compatibility purposes. (It may well be deprecated because Rx 7 will be addressing some problems arising from the fact that the `System.Reactive` component currently has direct dependencies on UI frameworks.) If you use the `DefaultScheduler` you will be using the `System.Threading.ThreadPool` no matter which platform you are running on.
 
@@ -489,20 +489,20 @@ The discussion so far as mostly focused on the 2nd and 3rd features. When it com
 These methods do what their names suggest. If you use `SubscribeOn`, then when you call `Subscribe` on the resulting `IObservable<T>` it arranges to call the original `IObservable<T>`'s `Subscribe` method via the specified scheduler. Here's an example:
 
 ```cs
-Console.WriteLine($"Main thread: {Environment.CurrentManagedThreadId}");
+Console.WriteLine($"[T:{Environment.CurrentManagedThreadId}] Main thread");
 
 Observable
     .Interval(TimeSpan.FromSeconds(1))
     .SubscribeOn(new EventLoopScheduler((start) =>
     {
         Thread t = new(start) { IsBackground = false };
-        Console.WriteLine($"Created thread for EventLoopScheduler: {t.ManagedThreadId}");
+        Console.WriteLine($"[T:{t.ManagedThreadId}] Created thread for EventLoopScheduler");
         return t;
     }))
     .Subscribe(
-        tick => Console.WriteLine($"{DateTime.Now}-{Environment.CurrentManagedThreadId}: Tick {tick}"));
+        tick => Console.WriteLine($"[T:{Environment.CurrentManagedThreadId}] {DateTime.Now}: Tick {tick}"));
 
-Console.WriteLine($"{DateTime.Now}-{Environment.CurrentManagedThreadId}: Main thread exiting");
+Console.WriteLine($"[T:{Environment.CurrentManagedThreadId}] {DateTime.Now}: Main thread exiting");
 ```
 
 This calls `Observable.Interval` (which uses `DefaultScheduler` by default), but instead of subscribing directly to this, it first takes the `IObservable<T>` returned by `Interval` and invokes `SubscribeOn`. I've used an `EventLoopScheduler`, and I've passed it a factory callback for the thread that it will use to ensure that it is a non-background thread. (By default `EventLoopScheduler` creates itself a background thread, meaning that the thread won't force the process to stay alive. Normally that's what you'd want but I'm changing that in this example to show what's happening.)
@@ -510,12 +510,12 @@ This calls `Observable.Interval` (which uses `DefaultScheduler` by default), but
 When I call `Subscribe` on the `IObservable<long>` returned by `SubscribeOn`, it calls `Schedule` on the `EventLoopScheduler` that I supplied, and in the callback for that work item, it then calls `Subscribe` on the original `Interval` source. So the effect is that the subscription to the underlying source doesn't happen on my main thread, it happens on the thread created for my `EventLoopScheduler`. Running the program produces this output:
 
 ```
-Main thread: 1
-Created thread for EventLoopScheduler: 12
-21/07/2023 14:57:21-1: Main thread exiting
-21/07/2023 14:57:22-6: Tick 0
-21/07/2023 14:57:23-6: Tick 1
-21/07/2023 14:57:24-6: Tick 2
+[T:1] Main thread
+[T:12] Created thread for EventLoopScheduler
+[T:1] 21/07/2023 14:57:21: Main thread exiting
+[T:6] 21/07/2023 14:57:22: Tick 0
+[T:6] 21/07/2023 14:57:23: Tick 1
+[T:6] 21/07/2023 14:57:24: Tick 2
 ...
 ```
 
@@ -538,14 +538,14 @@ with this:
 then we get this output:
 
 ```
-Main thread: 1
-Created thread for EventLoopScheduler: 12
-21/07/2023 15:02:09-12: Tick 1
-21/07/2023 15:02:09-1: Main thread exiting
-21/07/2023 15:02:09-12: Tick 2
-21/07/2023 15:02:09-12: Tick 3
-21/07/2023 15:02:09-12: Tick 4
-21/07/2023 15:02:09-12: Tick 5
+[T:1] Main thread
+[T:12] Created thread for EventLoopScheduler
+[T:12] 21/07/2023 15:02:09: Tick 1
+[T:1] 21/07/2023 15:02:09: Main thread exiting
+[T:12] 21/07/2023 15:02:09: Tick 2
+[T:12] 21/07/2023 15:02:09: Tick 3
+[T:12] 21/07/2023 15:02:09: Tick 4
+[T:12] 21/07/2023 15:02:09: Tick 5
 ```
 
 Now all the notifications are coming in on thread 12, the thread created for the `EventLoopScheduler`. Note that even here, `Range` isn't using that scheduler. The difference is that `Range` defaults to `CurrentThreadScheduler`, so it will generate its outputs from whatever thread you happen to call it from. So even though it's not actually using the `EventLoopScheduler`, it does end up using that scheduler's thread, because we used that scheduler to subscribe to the `Range`.
@@ -722,7 +722,7 @@ public partial class Window1 : INotifyPropertyChanged
         {
             _value2 = value;
             var handler = PropertyChanged;
-            if (handler != null) handler(this, new PropertyChangedEventArgs("Value2"));
+            if (handler != null) handler(this, new PropertyChangedEventArgs(nameof(Value2)));
         }
     }
 
@@ -771,11 +771,17 @@ Although adopting Rx can't magically avoid classic concurrency problems, Rx can 
 - Only the top-level subscriber should make scheduling decisions
 - Avoid using blocking calls: e.g. `First`, `Last` and `Single`
 
-The last example came unstuck with one simple problem; the `GetTemperature` service was dictating the scheduling model when, really, it had no business doing so. Code representing a temperature sensor shouldn't need to know that I'm using a particular UI framework, and certainly shouldn't be unilaterally deciding that it is going to run certain work on a WPF user interface thread. When getting started with Rx, it can be easy to convince yourself that baking scheduling decisions into lower layers is somehow being 'helpful'. "Look!" you might say. "Not only have I provided temperature readings, I've also made this automatically notify you on the UI thread, so you won't have to bother with `ObserveOn`." The intentions may be good, but it's all too easy to create a threading nightmare. Only the code that sets up a subscription and consumes its results can have a complete overview of the concurrency requirements, so that is the right level at which to choose which schedulers to use. Lower levels of code should not try to get involved; they should just do what they are told. (Rx arguably breaks this rule slightly itself by choosing default schedulers where they are needed. But it makes very conservative choices designed to minimize the chances of deadlock, and always allows applications to take control by specifying the scheduler.)
+The last example came unstuck with one simple problem; the `GetTemperature` service was dictating the scheduling model when, really, it had no business doing so. Code representing a temperature sensor shouldn't need to know that I'm using a particular UI framework, and certainly shouldn't be unilaterally deciding that it is going to run certain work on a WPF user interface thread.
+
+When getting started with Rx, it can be easy to convince yourself that baking scheduling decisions into lower layers is somehow being 'helpful'. "Look!" you might say. "Not only have I provided temperature readings, I've also made this automatically notify you on the UI thread, so you won't have to bother with `ObserveOn`." The intentions may be good, but it's all too easy to create a threading nightmare.
+
+Only the code that sets up a subscription and consumes its results can have a complete overview of the concurrency requirements, so that is the right level at which to choose which schedulers to use. Lower levels of code should not try to get involved; they should just do what they are told. (Rx arguably breaks this rule slightly itself by choosing default schedulers where they are needed. But it makes very conservative choices designed to minimize the chances of deadlock, and always allows applications to take control by specifying the scheduler.)
 
 Note that following either one of the two rules above would have been sufficient to prevent deadlock in this example. But it is best to follow both rules.
 
-This does leave one question unanswered: _how_ should the top-level subscriber make scheduling decisions? I've identified the area of the code that needs to make the decision, but what should the decision be? It will depend on the kind of application you are writing. For UI code, this pattern generally works well: "Subscribe on a background thread; Observe on the UI thread". With UI code, the risk of deadlock arises in because the UI thread is effectively a shared resource, and contention for that resource can produce deadlock. So the strategy is to avoid requiring that resource as much as possible: work that doesn't need to be on the thread should not be on that thread, which is why performing subscription on a worker thread (e.g., by using the `TaskPoolScheduler`) reduces the risk of deadlock. It follows that if you have observable sources that decide when to produce events (e.g., timers, or sources representing inputs from external information feeds or devices) you would also want those to schedule work on worker threads. It is only when we need to update the user interface that we need our code to run on the UI thread, and so we defer that until the last possible moment by using `ObserveOn` in conjunction with a suitable UI-aware scheduler (such as the WPF `DispatcherScheduler`). If we have a complex Rx query made up out of multiple operators, this `ObserveOn` should come right at the end, just before we call `Subscribe` to attach the handler that will update the UI. This way, only the final step, the updating of the UI, will need access to the UI thread. By the time this runs, all complex processing will be complete, and so this should be able to run very quickly, relinquishing control of the UI thread almost immediately, improving application responsiveness, and lowering the risk of deadlock.
+This does leave one question unanswered: _how_ should the top-level subscriber make scheduling decisions? I've identified the area of the code that needs to make the decision, but what should the decision be? It will depend on the kind of application you are writing. For UI code, this pattern generally works well: "Subscribe on a background thread; Observe on the UI thread". With UI code, the risk of deadlock arises in because the UI thread is effectively a shared resource, and contention for that resource can produce deadlock. So the strategy is to avoid requiring that resource as much as possible: work that doesn't need to be on the thread should not be on that thread, which is why performing subscription on a worker thread (e.g., by using the `TaskPoolScheduler`) reduces the risk of deadlock.
+
+It follows that if you have observable sources that decide when to produce events (e.g., timers, or sources representing inputs from external information feeds or devices) you would also want those to schedule work on worker threads. It is only when we need to update the user interface that we need our code to run on the UI thread, and so we defer that until the last possible moment by using `ObserveOn` in conjunction with a suitable UI-aware scheduler (such as the WPF `DispatcherScheduler`). If we have a complex Rx query made up out of multiple operators, this `ObserveOn` should come right at the end, just before we call `Subscribe` to attach the handler that will update the UI. This way, only the final step, the updating of the UI, will need access to the UI thread. By the time this runs, all complex processing will be complete, and so this should be able to run very quickly, relinquishing control of the UI thread almost immediately, improving application responsiveness, and lowering the risk of deadlock.
 
 Other scenarios will require other strategies, but the general principle with deadlocks is always the same: understand which shared resources require exclusive access. For example, if you have a sensor library, it might create a dedicated thread to monitor devices and report new measurements, and if it were to stipulate that certain work had to be done on that thread, this would be very similar to the UI scenario: there is a particular thread that you will need to avoid blocking. The same approach would likely apply here. But this is not the only kind of scenario.
 
@@ -783,7 +789,7 @@ You could imagine a data processing application in which certain data structures
 
 ## Advanced features of schedulers
 
-Schedulers provide some features that are mainly of interest when writing observable sources that need to interact with a schedule. The most common way to use schedulers is when setting up a subscription, either supplying them as arguments when creating observable sources, or passing them to `SubscribeOn` and `ObserveOn`. But if you need to write an observable source that produces items on some schedule of its own choosing (e.g., suppose you are writing a library that represents some external data source and you want to present that as an `IObservable<T>`), you might need to use some of these more advanced features.
+Schedulers provide some features that are mainly of interest when writing observable sources that need to interact with a scheduler. The most common way to use schedulers is when setting up a subscription, either supplying them as arguments when creating observable sources, or passing them to `SubscribeOn` and `ObserveOn`. But if you need to write an observable source that produces items on some schedule of its own choosing (e.g., suppose you are writing a library that represents some external data source and you want to present that as an `IObservable<T>`), you might need to use some of these more advanced features.
 
 ### Passing state
 
@@ -809,25 +815,20 @@ Logically, `Range` is just a loop that executes once for each item it produces. 
 
 Notice that the lambda passed to `Schedule` has been annotated with `static`. This tells the C# compiler that it is our intention _not_ to capture any variables, and that any attempt to do so should cause a compiler error. The advantage of this is that the compiler is able to generate code that reuses the same delegate instance for every call. The first time this runs, it will create a delegate and store it in a hidden field. On every subsequent execution of this (either in future iterations of the same range, or for completely new range instances) it can just use that same delegate again and again and again. This is possible because the delegate captures no state. This avoids allocating a new object each time round the loop.
 
-Couldn't the Rx library have used this more straightforward approach?
+Couldn't the Rx library have used a more straightforward approach? We could choose not to use the state, passing a `null` state to scheduler, and then discarding the state argument passed to our callback:
 
 ```cs
-var next = scheduler.Schedule(() => LoopRec(scheduler)); // Don't do this. (See below.)
-```
-
-This uses an extension method that Rx supplies for cases where you have no need for the `state` argument. In fact it's the wrong thing to use here, because this could end up passing the wrong scheduler. If you look at the `IScheduler` interface, you'll see that the work item callback's first argument is an `IScheduler`, and you're supposed to use that scheduler for any logically recursive work. Some schedulers (e.g., the `ImmediateScheduler`) supply a special type of scheduler specifically to avoid logical recursion turning into actual recursion that could end up going so deep that the application crashes with a stack overflow. This particular extension method isn't meant for these logically recursive scenarios, so we can't quite make it this simple. But perhaps we could avoid that weirdness of passing our own `this` argument:
-
-```cs
+// Less weird, but less efficient:
 var next = scheduler.Schedule<object?>(null, (innerScheduler, _) => LoopRec(innerScheduler));
 ```
 
-This fixes the problem with the preceding example: it correctly uses the correct scheduler for any further logically recursive calls. And now we're just invoking the `LoopRec` instance member in the ordinary way: we're implicitly using the `this` reference that is in scope. So this will create a delegate the captures that implicit `this` reference. But that's inefficient: it will force the compiler to generate code that allocates two objects each time this line runs. (And the same would happen with the preceding example. Not only is it broken, it's also inefficient.) It creates one object that has a field holding onto the captured `this`, and then it needs to create a distinct delegate instance that has a reference to that capture object.
+This avoids the weirdness of passing our own `this` argument: now we're just invoking the `LoopRec` instance member in the ordinary way: we're implicitly using the `this` reference that is in scope. So this will create a delegate the captures that implicit `this` reference. This works, but it's inefficient: it will force the compiler to generate code that allocates a couple of objects. It creates one object that has a field holding onto the captured `this`, and then it needs to create a distinct delegate instance that has a reference to that capture object.
 
 The more complex code that is actually in the `Range` implementation avoids this. It disables capture by annotating the lambda with `static`. That prevents code from relying on the implicit `this` reference. So it has had to arrange for the `this` reference to be available to the callback. And that's exactly the sort of thing the `state` argument is there for. It provides a way to pass in some per-work-item state so that you can avoid the overhead of capturing variables on each iteration.
 
 ### Future scheduling
 
-I talked earlier about time-based operators, and also about the two time-based members of `ISchedule` that enable this, but I've not yet shown how to use it. These enable you to schedule an action to be executed in the future. You can do so by specifying the exact point in time an action should be invoked by calling the overload of `Schedule` that takes a `DateTimeOffset`, or you can specify the period of time to wait until the action is invoked with the `TimeSpan`-based overload.
+I talked earlier about time-based operators, and also about the two time-based members of `ISchedule` that enable this, but I've not yet shown how to use it. These enable you to schedule an action to be executed in the future. (This relies on the process continuing to run for as long as necessary. As mentioned in earlier chapters, `System.Reactive` doesn't support persistent, durable subscriptions. So if you want to schedule something for days into the future, you might want to look at [Reaqtor](https://reaqtive.net/).) You can do so by specifying the exact point in time an action should be invoked by calling the overload of `Schedule` that takes a `DateTimeOffset`, or you can specify the period of time to wait until the action is invoked with the `TimeSpan`-based overload.
 
 You can use the `TimeSpan` overload like this:
 
@@ -883,15 +884,15 @@ To illustrate cancellation in operation, this slightly unrealistic example runs 
 ```cs
 public IDisposable Work(IScheduler scheduler, List<int> list)
 {
-    var tokenSource = new CancellationTokenSource();
-    var cancelToken = tokenSource.Token;
-    var task = new Task(() =>
+    CancellationTokenSource tokenSource = new();
+    CancellationToken cancelToken = tokenSource.Token;
+    Task task = new(() =>
     {
         Console.WriteLine();
    
         for (int i = 0; i < 1000; i++)
         {
-            var sw = new SpinWait();
+            SpinWait sw = new();
    
             for (int j = 0; j < 3000; j++) sw.SpinOnce();
    
@@ -919,10 +920,10 @@ public IDisposable Work(IScheduler scheduler, List<int> list)
 This code schedules the above code and allows the user to cancel the processing work by pressing Enter
 
 ```cs
-var list = new List<int>();
+List<int> list = new();
 Console.WriteLine("Enter to quit:");
 
-var token = scheduler.Schedule(list, Work);
+IDisposable token = scheduler.Schedule(list, Work);
 Console.ReadLine();
 
 Console.WriteLine("Cancelling...");
